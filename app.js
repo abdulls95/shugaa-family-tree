@@ -300,32 +300,46 @@
     return `<details><summary>عرض بيانات الطلب</summary><pre>${esc(JSON.stringify(p,null,2))}</pre></details>`;
   }
 
-  function renderRequestList(rows,staff){
-    const box=staff?$("#changeRequestsList"):$("#myRequestsList"); if(!box)return;
-    if(staff){
-      const filter=state.changeFilter||"pending";
-      rows=rows.filter(r=>r.status===filter);
-    }
-    if(!rows.length){box.innerHTML='<div class="empty-state"><div>✓</div><h3>لا توجد طلبات في هذا القسم</h3></div>';return;}
-    box.innerHTML=rows.map(r=>{
-      const st=r.request_status||r.status;
+  function requestStatusOf(r){
+    return r?.status || r?.request_status || "pending";
+  }
+
+  function requestCardHtml(r,staff){
+    try{
+      const st=requestStatusOf(r);
       const actionable=staff&&["pending","in_review","needs_info"].includes(st);
       const oldApprovedNeedsApply=staff&&st==="approved"&&r.request_type==="add_family"&&!r.applied_at;
       const applied=!!r.applied_at;
       return `<article class="request-card ${st==="approved"?"approved-card":""} ${st==="rejected"?"rejected-card":""}">
-        <div class="request-head"><div><h4>${esc(r.request_code||"طلب")}</h4><small>${esc(requestTypeLabel(r.request_type))}</small></div><span class="meta-pill status-${esc(st)}">${esc(statusLabel(st))}</span></div>
+        <div class="request-head"><div><h4>${esc(r.request_code||"طلب")}</h4><small>${esc(requestTypeLabel(r.request_type||"other"))}</small></div><span class="meta-pill status-${esc(st)}">${esc(statusLabel(st))}</span></div>
         ${r.target_person_name?`<p>مرتبط بـ: <b>${esc(r.target_person_name)}</b></p>`:""}
         ${r.requester_name&&staff?`<p>المرسل: <b>${esc(r.requester_name)}</b> ${r.requester_contact?`• ${esc(r.requester_contact)}`:""}${r.requester_country?` • ${esc(r.requester_country)}`:""}</p>`:""}
         ${r.admin_note?`<p><b>ملاحظة الإدارة:</b> ${esc(r.admin_note)}</p>`:""}
         ${staff?requestPayloadHtml(r):""}
         ${applied?`<div class="apply-result">✅ تم تنفيذ البيانات داخل الشجرة${r.applied_at?` — ${new Date(r.applied_at).toLocaleString("ar")}`:""}</div>`:""}
-        ${actionable?`<div class="request-actions"><button class="btn light review-request" data-id="${r.id}" data-status="in_review">قيد المراجعة</button><button class="btn gold review-request" data-id="${r.id}" data-status="needs_info">طلب توضيح</button>${r.request_type==="add_family"?`<button class="btn primary apply-request" data-id="${r.id}">اعتماد وتنفيذ</button>`:`<button class="btn primary review-request" data-id="${r.id}" data-status="approved">اعتماد</button>`}<button class="btn light review-request" data-id="${r.id}" data-status="rejected">رفض</button></div>`:""}
-        ${oldApprovedNeedsApply?`<div class="request-actions"><button class="btn primary apply-request" data-id="${r.id}">تنفيذ البيانات الآن</button></div>`:""}
+        ${actionable?`<div class="request-actions"><button type="button" class="btn light review-request" data-id="${esc(r.id)}" data-status="in_review">قيد المراجعة</button><button type="button" class="btn gold review-request" data-id="${esc(r.id)}" data-status="needs_info">طلب توضيح</button>${r.request_type==="add_family"?`<button type="button" class="btn primary apply-request" data-id="${esc(r.id)}">اعتماد وتنفيذ</button>`:`<button type="button" class="btn primary review-request" data-id="${esc(r.id)}" data-status="approved">اعتماد</button>`}<button type="button" class="btn light review-request" data-id="${esc(r.id)}" data-status="rejected">رفض</button></div>`:""}
+        ${oldApprovedNeedsApply?`<div class="request-actions"><button type="button" class="btn primary apply-request" data-id="${esc(r.id)}">تنفيذ البيانات الآن</button></div>`:""}
       </article>`;
-    }).join("");
+    }catch(err){
+      console.error("Request render failed",r,err);
+      return `<article class="request-card"><div class="request-head"><div><h4>${esc(r?.request_code||"طلب")}</h4><small>تعذر عرض تفاصيل الطلب</small></div></div><p class="form-msg">الطلب موجود، لكن تعذر عرض بعض تفاصيله. اضغط «تحديث الطلبات»، وإذا استمر أرسل صورة للشاشة.</p></article>`;
+    }
+  }
+
+  function renderRequestList(rows,staff){
+    const box=staff?$("#changeRequestsList"):$("#myRequestsList"); if(!box)return;
+    rows=Array.isArray(rows)?rows:[];
     if(staff){
-      $$(".review-request").forEach(b=>b.onclick=()=>reviewRequest(b.dataset.id,b.dataset.status));
-      $$(".apply-request").forEach(b=>b.onclick=()=>applyRequest(b.dataset.id));
+      const filter=state.changeFilter||"pending";
+      rows=rows.filter(r=>requestStatusOf(r)===filter);
+    }
+    box.style.display="grid";
+    box.style.visibility="visible";
+    if(!rows.length){box.innerHTML='<div class="empty-state"><div>✓</div><h3>لا توجد طلبات في هذا القسم</h3></div>';return;}
+    box.innerHTML=rows.map(r=>requestCardHtml(r,staff)).join("");
+    if(staff){
+      box.querySelectorAll(".review-request").forEach(b=>b.addEventListener("click",()=>reviewRequest(b.dataset.id,b.dataset.status)));
+      box.querySelectorAll(".apply-request").forEach(b=>b.addEventListener("click",()=>applyRequest(b.dataset.id)));
     }
   }
 
@@ -350,7 +364,7 @@
 
   function renderAdminAll(){
     if(state.role==="admin"){renderAccountRequests();renderUsers();renderAccessCodes();renderPermissions();renderAudit();}
-    const count=s=>state.changeRequests.filter(r=>r.status===s).length;
+    const count=s=>state.changeRequests.filter(r=>requestStatusOf(r)===s).length;
     if($("#rqCountPending")) $("#rqCountPending").textContent=count("pending");
     if($("#rqCountReview")) $("#rqCountReview").textContent=count("in_review");
     if($("#rqCountInfo")) $("#rqCountInfo").textContent=count("needs_info");
@@ -509,6 +523,11 @@
       x.setAttribute("aria-pressed",active?"true":"false");
     });
     renderRequestList(state.changeRequests,true);
+  });
+  $("#refreshChangeRequestsBtn")?.addEventListener("click",async()=>{
+    toast("جاري تحديث الطلبات...");
+    await loadStaffData();
+    toast("تم تحديث الطلبات ✅");
   });
   $$(".filter-chip").forEach(b=>b.onclick=()=>{state.libraryFilter=b.dataset.filter;$$(".filter-chip").forEach(x=>x.classList.toggle("active",x===b));renderLibrary();});
   $("#librarySearch").oninput=renderLibrary;$$(".admin-tab").forEach(b=>b.onclick=()=>setAdminPanel(b.dataset.adminPanel));

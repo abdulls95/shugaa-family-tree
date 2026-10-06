@@ -219,3 +219,7 @@ body.guest-mode .account-only{display:none!important}
   }
   .request-family-summary .family-line>span:first-child{min-width:auto}
 }
+
+/* V3.0.5 — request cards rendering guard */
+#changeRequestsList{display:grid!important;visibility:visible!important;min-height:1px;gap:12px}
+#changeRequestsList .request-card{display:grid!important}
