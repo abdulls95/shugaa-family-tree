@@ -66,9 +66,9 @@
         </div>
 
         <div class="feature-grid">
-          <article class="feature-card"><span>🌳</span><h3>شجرة تفاعلية</h3><p>تكبير وتصغير وتحريك الشجرة والضغط على أي فرد لفتح ملفه.</p></article>
-          <article class="feature-card"><span>🔎</span><h3>بحث سريع</h3><p>ابحث بالاسم للوصول إلى الشخص مباشرة داخل الشجرة.</p></article>
-          <article class="feature-card"><span>📜</span><h3>تاريخ العائلة</h3><p>الأساس جاهز لإضافة السيرة والأماكن والأحداث والمصادر لاحقًا.</p></article>
+          <button type="button" class="feature-card feature-button" data-go="tree"><span>🌳</span><h3>شجرة تفاعلية</h3><p>تكبير وتصغير وتحريك الشجرة والضغط على أي فرد لفتح ملفه.</p><b>فتح الشجرة ←</b></button>
+          <button type="button" class="feature-card feature-button" id="quickSearchCard"><span>🔎</span><h3>بحث سريع</h3><p>ابحث بالاسم للوصول إلى الشخص مباشرة داخل الشجرة.</p><b>ابدأ البحث ←</b></button>
+          <button type="button" class="feature-card feature-button" data-go="history"><span>📜</span><h3>تاريخ العائلة</h3><p>اعرض أحداث الميلاد والسكن والهجرة والوفاة والتاريخ المسجل للعائلة.</p><b>عرض التاريخ ←</b></button>
         </div>
       </section>
 
@@ -83,6 +83,14 @@
         <div class="page-head"><div><h2>الأفراد</h2><p>جميع الأشخاص المسجلين في شجرة آل شجاع.</p></div><input id="peopleSearch" class="search-input" placeholder="بحث بالاسم..." /></div>
         <div id="peopleGrid" class="people-grid"></div>
         <div id="peopleEmpty" class="empty-state hidden"><div>👤</div><h3>لا يوجد أفراد بعد</h3></div>
+      </section>
+
+      <section id="view-history" class="view">
+        <div class="page-head">
+          <div><h2>تاريخ العائلة</h2><p>الأحداث التاريخية والتنقلات وأماكن الميلاد والوفاة المسجلة في شجرة آل شجاع.</p></div>
+        </div>
+        <div id="historyList" class="history-list"></div>
+        <div id="historyEmpty" class="empty-state hidden"><div>📜</div><h3>لا توجد أحداث تاريخية مسجلة بعد</h3><p>عندما نضيف الميلاد أو السكن أو الهجرة أو الوفاة ستظهر هنا بالترتيب الزمني.</p></div>
       </section>
 
       <section id="view-admin" class="view">
