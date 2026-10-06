@@ -193,7 +193,14 @@
   }
 
   function renderAllPublic(){ renderStats(); renderPeople(); fillPersonSelects(); renderTree(); renderHealth(); }
-  function renderStats(){ $("#statPeople").textContent=state.people.length; $("#statRelations").textContent=state.relations.length; $("#statMarriages").textContent=state.marriages.length; $("#statLibrary").textContent=state.library.length; }
+  function renderStats(){
+    $("#statPeople").textContent=state.people.length;
+    $("#statRelations").textContent=state.relations.length;
+    $("#statMarriages").textContent=state.marriages.length;
+    $("#statLibrary").textContent=state.library.length;
+    if($("#treeMemberCount"))$("#treeMemberCount").textContent=state.people.length;
+    if($("#treeCapacityText"))$("#treeCapacityText").textContent=`${state.people.length} فردًا في الشجرة`;
+  }
 
   function getPerson(id){ return state.people.find(p=>p.id===id); }
   function getPlace(id){ return state.places.find(p=>p.id===id); }
@@ -269,71 +276,97 @@
     selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if(sel==="#pFather"&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
   }
 
-  // V4.0.1 — Awraq-style tree:
-  // show a clean generation hierarchy and keep marriage links inside the person profile
-  // instead of drawing marriage edges across the genealogy canvas.
-  function treeParentRelations(){
-    const fatherChildren=new Set(
-      state.relations
-        .filter(r=>r.parent_role==="father"||r.parent_role==="parent")
-        .map(r=>r.child_id)
+  // V5 — clean family-tree canvas.
+  // The public tree shows lineage structure only. Spouses remain fully available inside
+  // the person's profile, which keeps the tree readable even when many marriages exist.
+  function preferredTreeParent(childId){
+    const rels=state.relations.filter(r=>
+      r.child_id===childId &&
+      ["father","mother","parent"].includes(r.parent_role) &&
+      getPerson(r.parent_id)
     );
+    if(!rels.length)return null;
 
-    return state.relations.filter(r=>{
-      if(!getPerson(r.parent_id)||!getPerson(r.child_id))return false;
+    const father=rels.find(r=>r.parent_role==="father"||r.parent_role==="parent");
+    const mother=rels.find(r=>r.parent_role==="mother");
 
-      // Prefer the paternal lineage when it exists.
-      if(r.parent_role==="father"||r.parent_role==="parent")return true;
+    if(father&&mother){
+      const fatherLinked=state.relations.some(r=>
+        r.child_id===father.parent_id &&
+        ["father","mother","parent"].includes(r.parent_role) &&
+        getPerson(r.parent_id)
+      );
+      const motherLinked=state.relations.some(r=>
+        r.child_id===mother.parent_id &&
+        ["father","mother","parent"].includes(r.parent_role) &&
+        getPerson(r.parent_id)
+      );
+      if(fatherLinked!==motherLinked)return fatherLinked?father.parent_id:mother.parent_id;
+      return father.parent_id;
+    }
+    return (father||mother)?.parent_id||null;
+  }
 
-      // If the father is unknown, use the mother so the child does not become detached.
-      if(r.parent_role==="mother"&&!fatherChildren.has(r.child_id))return true;
+  function buildTreeModel(){
+    const parentByChild=new Map();
+    const childrenByParent=new Map();
 
-      return false;
+    state.people.forEach(p=>{
+      const parentId=preferredTreeParent(p.id);
+      if(parentId&&parentId!==p.id){
+        parentByChild.set(p.id,parentId);
+        if(!childrenByParent.has(parentId))childrenByParent.set(parentId,[]);
+        childrenByParent.get(parentId).push(p.id);
+      }
     });
-  }
 
-  function findTreeRoots(){
-    const childIds=new Set(treeParentRelations().map(r=>r.child_id));
-    const roots=state.people.filter(p=>!childIds.has(p.id)).map(p=>p.id);
-    return roots.length?roots:(state.people[0]?[state.people[0].id]:[]);
-  }
+    const structuralIds=new Set();
+    for(const [child,parent] of parentByChild){
+      structuralIds.add(child);
+      structuralIds.add(parent);
+    }
 
-  function getTreeLayoutOptions(){
-    return {
-      name:"breadthfirst",
-      directed:true,
-      circle:false,
-      roots:findTreeRoots(),
-      padding:70,
-      spacingFactor:1.22,
-      avoidOverlap:true,
-      nodeDimensionsIncludeLabels:true,
-      animate:false
-    };
+    // If there are no genealogy links yet, keep the people visible instead of returning an empty tree.
+    if(!structuralIds.size)state.people.forEach(p=>structuralIds.add(p.id));
+
+    const people=state.people.filter(p=>structuralIds.has(p.id));
+    const edges=[];
+
+    for(const [child,parent] of parentByChild){
+      if(structuralIds.has(child)&&structuralIds.has(parent)){
+        edges.push({parent,child});
+      }
+    }
+
+    return {people,edges,parentByChild,childrenByParent};
   }
 
   function buildTreeElements(){
+    const model=buildTreeModel();
     const out=[];
 
-    state.people.forEach(p=>{
-      const fam=familyOf(p.id);
+    model.people.forEach(p=>{
+      const f=familyOf(p.id);
+      const spouseText=f.spouses.length
+        ? f.spouses.slice(0,2).map(s=>s.first_name_ar||s.full_name_ar.split(" ")[0]).join("، ")
+        : "";
       out.push({
         data:{
           id:p.id,
           label:p.full_name_ar,
           gender:p.gender,
-          spouseCount:fam.spouses.length,
-          childCount:fam.children.length
+          spouseText,
+          hasSpouse:!!spouseText
         }
       });
     });
 
-    treeParentRelations().forEach(r=>{
+    model.edges.forEach(({parent,child})=>{
       out.push({
         data:{
-          id:`r-${r.id}`,
-          source:r.parent_id,
-          target:r.child_id,
+          id:`tree-${parent}-${child}`,
+          source:parent,
+          target:child,
           kind:"parent"
         }
       });
@@ -358,47 +391,54 @@
     state.cy=cytoscape({
       container:c,
       elements:buildTreeElements(),
-      wheelSensitivity:.18,
-      minZoom:.2,
-      maxZoom:2.6,
+      wheelSensitivity:.16,
+      minZoom:.18,
+      maxZoom:2.8,
+      boxSelectionEnabled:false,
+      autoungrabify:false,
 
       style:[
         {
           selector:"node",
           style:{
-            "background-color":"#fffaf0",
-            "border-width":2,
-            "border-color":"#c29d4d",
+            "background-color":"#ffffff",
+            "border-width":1.6,
+            "border-color":"#4b91ff",
             "label":"data(label)",
             "text-wrap":"wrap",
-            "text-max-width":140,
+            "text-max-width":128,
             "font-family":"Arial",
-            "font-size":12,
+            "font-size":11,
             "font-weight":700,
-            "color":"#173f35",
-            "width":160,
-            "height":62,
+            "color":"#27352f",
+            "width":148,
+            "height":58,
             "shape":"round-rectangle",
             "text-valign":"center",
             "text-halign":"center",
-            "overlay-opacity":0
+            "overlay-opacity":0,
+            "shadow-blur":8,
+            "shadow-opacity":0.08,
+            "shadow-offset-y":2,
+            "shadow-color":"#000000"
           }
         },
         {
           selector:'node[gender="female"]',
           style:{
-            "border-color":"#c799a3",
-            "background-color":"#fff8f8"
+            "border-color":"#ef7ba2",
+            "background-color":"#fffafb"
           }
         },
         {
           selector:'edge[kind="parent"]',
           style:{
-            "width":2,
-            "line-color":"#2f6a5d",
+            "width":1.5,
+            "line-color":"#8a9892",
             "curve-style":"taxi",
             "taxi-direction":"downward",
             "taxi-turn":28,
+            "taxi-turn-min-distance":12,
             "target-arrow-shape":"none",
             "source-endpoint":"outside-to-node",
             "target-endpoint":"outside-to-node",
@@ -408,20 +448,36 @@
         {
           selector:".search-hit",
           style:{
-            "background-color":"#f4dda4",
-            "border-width":4,
-            "border-color":"#0f4d3f"
+            "background-color":"#eff8ee",
+            "border-width":3,
+            "border-color":"#16a34a"
+          }
+        },
+        {
+          selector:":selected",
+          style:{
+            "border-width":3,
+            "border-color":"#16a34a",
+            "background-color":"#f2fff4"
           }
         }
       ],
 
-      layout:getTreeLayoutOptions()
+      layout:{
+        name:"dagre",
+        rankDir:"TB",
+        rankSep:92,
+        nodeSep:42,
+        edgeSep:24,
+        padding:64,
+        acyclicer:"greedy",
+        ranker:"network-simplex",
+        animate:false
+      }
     });
 
     state.cy.on("tap","node",e=>openPerson(e.target.id()));
-
-    // Fit after the first layout frame so the whole generation tree starts centered.
-    setTimeout(()=>state.cy?.fit(undefined,55),80);
+    setTimeout(()=>state.cy?.fit(undefined,70),110);
   }
 
   function ancestorsFrom(id){
@@ -1140,12 +1196,26 @@
   // Navigation & common
   $$(".nav-btn[data-view]").forEach(b=>b.onclick=()=>setView(b.dataset.view));$$("[data-go]").forEach(b=>b.onclick=()=>setView(b.dataset.go));$$("[data-close-modal]").forEach(x=>x.onclick=closePerson);
   $("#peopleSearch").oninput=e=>renderPeople(e.target.value);$("#treeSearch").oninput=e=>{if(!state.cy)return;const q=norm(e.target.value);state.cy.nodes().removeClass("search-hit");if(!q)return;const hits=state.cy.nodes().filter(n=>norm(n.data("label")).includes(q));hits.addClass("search-hit");if(hits.length)state.cy.animate({fit:{eles:hits,padding:120},duration:300});};
-  $("#fitTreeBtn").onclick=()=>state.cy?.fit(undefined,45);
-  $("#relayoutBtn").onclick=()=>{
-    if(!state.cy)return;
-    state.cy.layout(getTreeLayoutOptions()).run();
-    setTimeout(()=>state.cy?.fit(undefined,55),80);
-  };
+  $("#fitTreeBtn").onclick=()=>state.cy?.fit(undefined,65);
+  $("#relayoutBtn").onclick=()=>renderTree();
+
+  $("#shareTreeBtn")?.addEventListener("click",async()=>{
+    const url=window.location.href.split("?")[0];
+    const payload={title:"شجرة آل شجاع",text:"شجرة آل شجاع",url};
+    try{
+      if(navigator.share)await navigator.share(payload);
+      else{
+        await navigator.clipboard.writeText(url);
+        toast("تم نسخ رابط الشجرة ✅");
+      }
+    }catch(_e){}
+  });
+
+  $("#treeQuickAddBtn")?.addEventListener("click",()=>{
+    if(!canAddPeopleDirect())return toast("لا تملك صلاحية الإضافة المباشرة.");
+    setView("admin");
+    setAdminPanel("person");
+  });
   $("#findKinshipBtn").onclick=renderKinship;$("#startLineageBtn").onclick=()=>renderLineage();
   $("#profileLineageBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("lineage");$("#lineagePerson").value=id;renderLineage(id);};
   $("#profileKinshipBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("kinship");$("#kinshipA").value=id;};
@@ -1397,5 +1467,5 @@
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=4.0.1").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.0").catch(console.warn));
 })();

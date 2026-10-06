@@ -367,3 +367,477 @@ label small{
   .v4-profile-card,.v4-builder-card{padding:20px 15px;border-radius:22px}.v4-profile-top{grid-template-columns:auto 1fr}.v4-completeness{display:none!important}.v4-primary-actions{grid-template-columns:1fr}.v4-relation-grid{grid-template-columns:1fr 1fr}.v4-detail-facts{grid-template-columns:1fr}.v4-relation-preview{grid-template-columns:1fr}.v4-preview-relation b{transform:rotate(90deg)}.v4-child-row{grid-template-columns:1fr 1fr}.v4-child-row label:first-child{grid-column:1/-1}.v4-child-row .remove-family-child{grid-column:2;justify-self:end}.v4-name-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:430px){.v4-relation-grid{grid-template-columns:1fr 1fr}.v4-profile-tabs{grid-template-columns:1fr 1fr 1fr}.v4-name-grid{grid-template-columns:1fr}.v4-child-row{grid-template-columns:1fr}.v4-child-row label:first-child,.v4-child-row .remove-family-child{grid-column:auto}.v4-child-row .remove-family-child{justify-self:stretch;width:auto}}
+
+
+/* =========================================================
+   V5 — AWRAQ-INSPIRED ORIGINAL INTERFACE FOR SHUGAA
+   This is an original implementation using Shugaa's own data model.
+   ========================================================= */
+
+:root{
+  --aw-green:#0d5b35;
+  --aw-green-2:#12a64c;
+  --aw-green-soft:#edf8f0;
+  --aw-bg:#fbfaf7;
+  --aw-card:#ffffff;
+  --aw-border:#e8e4dd;
+  --aw-text:#252b28;
+  --aw-muted:#8a8f8c;
+  --aw-blue:#4b91ff;
+  --aw-pink:#ef7ba2;
+}
+
+.awraq-inspired-shell{
+  background:var(--aw-bg);
+}
+
+.awraq-inspired-shell .topbar{
+  position:fixed;
+  right:0;
+  top:0;
+  bottom:0;
+  width:246px;
+  height:100vh;
+  padding:22px 14px;
+  background:#fff;
+  color:var(--aw-text);
+  border-left:1px solid var(--aw-border);
+  box-shadow:none;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:14px;
+  z-index:100;
+}
+
+.awraq-inspired-shell .brand{
+  padding:4px 10px 20px;
+  border-bottom:1px solid var(--aw-border);
+}
+.awraq-inspired-shell .brand-mark.small{
+  background:#f4fbf5;
+  color:var(--aw-green);
+  border:1px solid #cce8d3;
+}
+.awraq-inspired-shell .brand strong{color:#1d3429;font-size:18px}
+.awraq-inspired-shell .brand span{color:#8c938f;opacity:1}
+
+.awraq-inspired-shell .desktop-nav{
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  align-items:stretch;
+  gap:4px;
+  flex:1;
+  overflow:auto;
+  padding:4px 0;
+}
+.awraq-inspired-shell .desktop-nav:before{
+  content:"إدارة الشجرة";
+  display:block;
+  padding:7px 12px 3px;
+  color:#9a9f9c;
+  font-size:12px;
+  font-weight:700;
+}
+.awraq-inspired-shell .desktop-nav .nav-btn{
+  color:#3b4540;
+  text-align:right;
+  border-radius:10px;
+  padding:11px 12px;
+  font-size:14px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.awraq-inspired-shell .desktop-nav .nav-btn:before{
+  width:22px;
+  text-align:center;
+  color:#66736e;
+  font-weight:400;
+}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="home"]:before{content:"⌂"}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="tree"]:before{content:"♧"}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="people"]:before{content:"♙"}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="kinship"]:before{content:"⌘"}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="lineage"]:before{content:"↟"}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="library"]:before{content:"▣"}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="history"]:before{content:"▤"}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="contribute"]:before{content:"☑"}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="myfamily"]:before{content:"♡"}
+.awraq-inspired-shell .desktop-nav .nav-btn[data-view="admin"]:before{content:"⚙"}
+.awraq-inspired-shell .desktop-nav .nav-btn.active{
+  background:var(--aw-green-soft);
+  color:var(--aw-green);
+  font-weight:900;
+}
+.awraq-inspired-shell .desktop-nav .nav-btn.active:before{color:var(--aw-green)}
+
+.awraq-inspired-shell .user-box{
+  border-top:1px solid var(--aw-border);
+  padding:14px 8px 0;
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:5px 8px;
+}
+.awraq-inspired-shell .user-welcome{
+  display:block;
+  color:#535d58;
+  font-size:12px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.awraq-inspired-shell .user-box .badge{
+  background:#edf5ef;
+  color:#2f6a48;
+  justify-self:end;
+}
+.awraq-inspired-shell .user-box .btn{
+  grid-column:1/-1;
+  color:#c73333;
+  text-align:right;
+  padding:8px 2px;
+}
+
+.awraq-inspired-shell main{
+  max-width:none;
+  margin:0 246px 0 0;
+  min-height:100vh;
+  padding:24px 28px 36px;
+  background:var(--aw-bg);
+}
+
+.awraq-inspired-shell .page-head{
+  margin-bottom:18px;
+  align-items:center;
+}
+.awraq-inspired-shell .page-head h2{
+  color:#262e2a;
+  font-size:25px;
+}
+.awraq-inspired-shell .page-head p{color:#979d99}
+.awraq-inspired-shell .section-kicker{color:var(--aw-green);font-size:12px}
+
+/* Tree header and command bar */
+.awraq-page-topline{
+  min-height:72px;
+  margin:-24px -28px 14px;
+  padding:14px 28px;
+  background:#fff;
+  border-bottom:1px solid var(--aw-border);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.awraq-tree-summary{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.awraq-progress-ring{
+  width:46px;height:46px;border-radius:50%;
+  display:grid;place-items:center;
+  font-weight:900;color:#202a25;
+  background:conic-gradient(#11a94c 0 76%,#edf0ed 76%);
+  position:relative;
+}
+.awraq-progress-ring:before{
+  content:"";position:absolute;inset:5px;border-radius:50%;background:#fff;
+}
+.awraq-progress-ring span{position:relative;z-index:1}
+.awraq-tree-summary strong{display:block;font-size:16px}
+.awraq-tree-summary small{display:block;color:#9a9e9c;margin-top:3px}
+.awraq-add{
+  background:#10b94f!important;
+  color:white!important;
+  border-radius:8px!important;
+  padding:10px 18px!important;
+}
+
+.awraq-tree-commandbar{
+  width:max-content;
+  max-width:100%;
+  margin:0 0 12px auto;
+  background:white;
+  border:1px solid var(--aw-border);
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,.025);
+}
+.awraq-tree-commandbar > *{border-left:1px solid var(--aw-border)}
+.awraq-tree-commandbar > *:last-child{border-left:0}
+.awraq-command-search{
+  display:flex;
+  align-items:center;
+  min-width:270px;
+  padding:0 10px;
+}
+.awraq-command-search span{color:#777;font-size:20px}
+.awraq-command-search .search-input{
+  min-width:0;
+  border:0;
+  box-shadow:none;
+  background:transparent;
+  padding:9px;
+}
+.awraq-command-btn{
+  border:0;
+  background:#fff;
+  padding:11px 16px;
+  color:#424c47;
+  font-weight:800;
+}
+.awraq-command-btn:hover{background:#f7faf7;color:var(--aw-green)}
+
+.awraq-tree-stage{
+  position:relative;
+  border:1px solid var(--aw-border);
+  background-color:#fff;
+  background-image:radial-gradient(#e9e9e7 1px,transparent 1px);
+  background-size:18px 18px;
+  border-radius:0;
+  overflow:hidden;
+}
+.awraq-inspired-shell .tree-canvas{
+  height:calc(100vh - 155px);
+  min-height:650px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.awraq-zoom-hint{
+  position:absolute;
+  left:16px;
+  bottom:13px;
+  font-size:11px;
+  color:#9a9f9d;
+  background:rgba(255,255,255,.86);
+  padding:6px 9px;
+  border-radius:7px;
+  pointer-events:none;
+}
+
+/* People cards */
+.awraq-inspired-shell .people-grid{
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+}
+.awraq-inspired-shell .person-card{
+  border-radius:12px;
+  border-color:var(--aw-border);
+  box-shadow:none;
+  background:#fff;
+}
+.awraq-inspired-shell .person-card:hover{
+  transform:none;
+  border-color:#b8d9bf;
+  background:#fbfffc;
+}
+.awraq-inspired-shell .avatar{
+  border:1px solid #d9e5dc;
+  background:#f4f7f4;
+  color:#647069;
+}
+.awraq-inspired-shell .person-card h3{color:#303934}
+
+/* Person modal */
+.awraq-person-card{
+  max-width:760px!important;
+  padding:0!important;
+  border-radius:14px!important;
+  overflow:hidden!important;
+}
+.awraq-person-card .modal-close{
+  top:-18px!important;
+  left:-18px!important;
+  width:38px;height:38px;
+  background:white;
+  border:2px solid #e8e4dd;
+  border-radius:50%;
+}
+.awraq-person-card .v4-profile-top{
+  padding:22px 24px 16px;
+  background:#fff;
+}
+.awraq-person-card .v4-primary-actions{
+  margin:0;
+  padding:0 24px 16px;
+  grid-template-columns:auto auto;
+  justify-content:end;
+}
+.awraq-person-card .v4-big-action{
+  min-height:auto;
+  padding:9px 14px;
+  border-radius:8px;
+}
+.awraq-person-card .v4-profile-tabs{
+  border-top:1px solid var(--aw-border);
+  border-bottom:1px solid var(--aw-border);
+  border-radius:0;
+  background:#fff;
+  margin:0;
+  padding:0 24px;
+  gap:0;
+}
+.awraq-person-card .v4-profile-tab{
+  border-radius:0;
+  padding:13px 20px;
+  background:transparent!important;
+  box-shadow:none!important;
+  border-bottom:2px solid transparent;
+}
+.awraq-person-card .v4-profile-tab.active{
+  color:var(--aw-green);
+  border-bottom-color:var(--aw-green);
+}
+.awraq-person-card .v4-profile-panel{
+  padding:20px 24px;
+}
+.awraq-person-card .v4-admin-more{
+  margin:0;
+  padding:14px 24px 22px;
+  border-top:1px solid var(--aw-border);
+}
+
+/* Add-relative modal: clean, relationship first */
+.awraq-inspired-shell .v4-builder-card{
+  border-radius:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.2);
+}
+.awraq-inspired-shell .v4-relation-grid{
+  grid-template-columns:repeat(3,1fr);
+  max-width:520px;
+  margin:auto;
+}
+.awraq-inspired-shell .v4-relation-grid button{
+  border-radius:10px;
+  min-height:100px;
+  box-shadow:none;
+}
+.awraq-inspired-shell .v4-relation-grid button:hover{
+  background:#f5fff7;
+  border-color:#6cc887;
+}
+.awraq-inspired-shell .v4-mode-switch{background:#f5f3f0}
+.awraq-inspired-shell .v4-mode-switch button.active{
+  color:var(--aw-green);
+  border:1px solid #d9e7dd;
+}
+.awraq-inspired-shell .v4-builder-footer .btn.primary{
+  background:#0fbd50;
+  border-radius:8px;
+}
+
+/* Admin becomes settings-like layout */
+.awraq-inspired-shell .admin-tabs{
+  float:right;
+  width:230px;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  background:#fff;
+  border:1px solid var(--aw-border);
+  border-radius:12px;
+  padding:10px;
+  position:sticky;
+  top:24px;
+}
+.awraq-inspired-shell .admin-tab{
+  text-align:right;
+  border-radius:8px;
+  background:transparent;
+  border:0;
+  padding:11px 12px;
+  color:#535d58;
+}
+.awraq-inspired-shell .admin-tab.active{
+  background:var(--aw-green-soft);
+  color:var(--aw-green);
+}
+.awraq-inspired-shell .admin-panel{
+  margin-right:250px;
+}
+.awraq-inspired-shell .admin-panel .panel,
+.awraq-inspired-shell .health-card{
+  box-shadow:none;
+  border-color:var(--aw-border);
+  border-radius:12px;
+}
+
+/* Home is simplified into an app dashboard rather than a marketing hero */
+.awraq-inspired-shell .museum-hero{
+  min-height:300px;
+  border-radius:16px;
+  box-shadow:none;
+  background:linear-gradient(135deg,#0b5130,#14703d);
+}
+.awraq-inspired-shell .hero-content{padding:42px}
+.awraq-inspired-shell .museum-hero h2{font-size:48px}
+.awraq-inspired-shell .hero-emblem{width:170px;height:170px}
+.awraq-inspired-shell .portal-card,
+.awraq-inspired-shell .stat-card,
+.awraq-inspired-shell .museum-panel{
+  border-radius:12px;
+  box-shadow:none;
+  border-color:var(--aw-border);
+}
+
+/* Mobile / tablet */
+@media(max-width:1000px){
+  .awraq-inspired-shell .topbar{
+    position:sticky;
+    top:0;
+    width:auto;
+    height:64px;
+    padding:0 14px;
+    flex-direction:row;
+    background:#fff;
+    border-left:0;
+    border-bottom:1px solid var(--aw-border);
+  }
+  .awraq-inspired-shell .desktop-nav{display:none}
+  .awraq-inspired-shell .brand{border:0;padding:0;flex:1}
+  .awraq-inspired-shell .user-box{border:0;padding:0;display:flex}
+  .awraq-inspired-shell .user-welcome,.awraq-inspired-shell .user-box .badge{display:none}
+  .awraq-inspired-shell .user-box .btn{grid-column:auto;padding:8px}
+  .awraq-inspired-shell main{
+    margin:0;
+    padding:14px 12px 92px;
+  }
+  .awraq-page-topline{
+    margin:-14px -12px 12px;
+    padding:12px;
+  }
+  .awraq-tree-commandbar{
+    width:100%;
+    overflow:auto;
+    justify-content:flex-start;
+  }
+  .awraq-command-search{min-width:220px;flex:1}
+  .awraq-inspired-shell .tree-canvas{
+    height:calc(100vh - 250px);
+    min-height:520px;
+  }
+  .awraq-inspired-shell .admin-tabs{
+    float:none;
+    width:100%;
+    position:static;
+    flex-direction:row;
+    overflow:auto;
+    margin-bottom:12px;
+  }
+  .awraq-inspired-shell .admin-tab{white-space:nowrap}
+  .awraq-inspired-shell .admin-panel{margin-right:0}
+  .awraq-inspired-shell .mobile-nav{
+    display:grid;
+    background:#fff;
+    box-shadow:0 -4px 18px rgba(0,0,0,.06);
+  }
+}
+@media(max-width:620px){
+  .awraq-inspired-shell .v4-relation-grid{grid-template-columns:1fr 1fr}
+  .awraq-inspired-shell .museum-hero h2{font-size:38px}
+  .awraq-inspired-shell .awraq-tree-commandbar{border-radius:8px}
+}

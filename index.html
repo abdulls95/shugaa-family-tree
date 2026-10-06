@@ -6,16 +6,16 @@
   <meta name="theme-color" content="#082f29" />
   <meta name="description" content="شجرة آل شجاع — متحف رقمي وشجرة نسب ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=4.0.1" />
+  <link rel="manifest" href="./manifest.webmanifest?v=5.0.0" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=4.0.1" />
+  <link rel="stylesheet" href="./styles.css?v=5.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
 </head>
-<body>
+<body class="awraq-inspired-shell">
   <div id="toast" class="toast hidden"></div>
 
   <!-- FAMILY GATE -->
@@ -124,15 +124,15 @@
       </div>
       <nav class="desktop-nav">
         <button data-view="home" class="nav-btn active">الرئيسية</button>
-        <button data-view="tree" class="nav-btn">الشجرة</button>
-        <button data-view="people" class="nav-btn">الأفراد</button>
+        <button data-view="tree" class="nav-btn">إدارة الشجرة</button>
+        <button data-view="people" class="nav-btn">قائمة الأفراد</button>
         <button data-view="kinship" class="nav-btn">صلة القرابة</button>
-        <button data-view="lineage" class="nav-btn">رحلة النسب</button>
-        <button data-view="library" class="nav-btn account-only hidden">المكتبة</button>
-        <button data-view="history" class="nav-btn account-only hidden">التاريخ</button>
-        <button data-view="contribute" class="nav-btn contribution-only hidden">ساهم</button>
+        <button data-view="lineage" class="nav-btn">مسار النسب</button>
+        <button data-view="library" class="nav-btn account-only hidden">محتوى العائلة</button>
+        <button data-view="history" class="nav-btn account-only hidden">أخبار وتاريخ</button>
+        <button data-view="contribute" class="nav-btn contribution-only hidden">الطلبات</button>
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">أسرتي</button>
-        <button data-view="admin" class="nav-btn staff-only hidden">الإدارة</button>
+        <button data-view="admin" class="nav-btn staff-only hidden">إعدادات العائلة</button>
       </nav>
       <div class="user-box">
         <span id="userWelcome" class="user-welcome"></span>
@@ -183,17 +183,33 @@
         </div>
       </section>
 
-      <section id="view-tree" class="view">
-        <div class="page-head">
-          <div><span class="section-kicker">النسب</span><h2>شجرة العائلة</h2><p>اضغط على أي شخص لفتح معلومات النسب المتاحة.</p></div>
-          <div class="tree-tools"><input id="treeSearch" class="search-input" placeholder="ابحث داخل الشجرة..." /><button id="fitTreeBtn" class="btn light">ملاءمة</button><button id="relayoutBtn" class="btn light">ترتيب</button></div>
+      <section id="view-tree" class="view awraq-tree-view">
+        <div class="awraq-page-topline">
+          <div class="awraq-tree-summary">
+            <div class="awraq-progress-ring"><span id="treeMemberCount">0</span></div>
+            <div><strong id="treeCapacityText">أفراد الشجرة</strong><small>شجرة آل شجاع</small></div>
+          </div>
+          <div class="awraq-tree-actions">
+            <button id="treeQuickAddBtn" class="btn awraq-add staff-only hidden">＋ أضف</button>
+          </div>
         </div>
+
+        <div class="awraq-tree-commandbar">
+          <div class="awraq-command-search"><span>⌕</span><input id="treeSearch" class="search-input" placeholder="بحث داخل الشجرة" /></div>
+          <button id="shareTreeBtn" class="awraq-command-btn">⌯ مشاركة</button>
+          <button id="fitTreeBtn" class="awraq-command-btn">⊙ ملاءمة</button>
+          <button id="relayoutBtn" class="awraq-command-btn">☷ ترتيب</button>
+        </div>
+
         <div id="treeEmpty" class="empty-state hidden"><div>🌱</div><h3>الشجرة فارغة</h3></div>
-        <div id="cy" class="tree-canvas"></div>
+        <div class="awraq-tree-stage">
+          <div id="cy" class="tree-canvas"></div>
+          <div class="awraq-zoom-hint">اضغط على أي شخص لعرض ملفه • استخدم إصبعين للتكبير والتحريك</div>
+        </div>
       </section>
 
-      <section id="view-people" class="view">
-        <div class="page-head"><div><span class="section-kicker">السجل العائلي</span><h2>الأفراد</h2></div><input id="peopleSearch" class="search-input" placeholder="ابحث بالاسم أو كود الأسرة..." /></div>
+      <section id="view-people" class="view awraq-list-view">
+        <div class="page-head awraq-list-head"><div><span class="section-kicker">إدارة الشجرة</span><h2>قائمة الأفراد</h2><p>ابحث عن أي فرد وافتح ملفه أو أكمل بياناته.</p></div><input id="peopleSearch" class="search-input" placeholder="ابحث بالاسم..." /></div>
         <div id="peopleGrid" class="people-grid"></div>
         <div id="peopleEmpty" class="empty-state hidden"><div>👤</div><h3>لا يوجد أفراد</h3></div>
       </section>
@@ -265,7 +281,7 @@
               <div class="two-cols"><label>اسم الأب / رب الأسرة<input id="reqFatherName" /></label><label>اسم الأم / الزوجة<input id="reqMotherName" /></label></div>
               <label>الأبناء — كل اسم في سطر<textarea id="reqChildren" rows="5" placeholder="محمد&#10;علي&#10;سالم"></textarea></label>
             </div>
-            <label>المعلومة أو التعديل المقترح<textarea id="contribDetails" rows="5" placeholder="اكتب التفاصيل التي تريد من الإدارة مراجعتها..."></textarea></label>
+            <label>المعلومة أو التعديل المقترح<textarea id="contribDetails" rows="5" placeholder="اكتب المعلومات التي تريد من الإدارة مراجعتها..."></textarea></label>
             <button class="btn primary">إرسال الطلب للمراجعة</button>
             <p id="contribMsg" class="form-msg"></p>
           </form>
@@ -287,17 +303,17 @@
       </section>
 
       <section id="view-admin" class="view staff-only hidden">
-        <div class="page-head"><div><span class="section-kicker">مركز إدارة الأنساب</span><h2>إدارة شجرة آل شجاع</h2><p>إدخال منظم، أكواد وصول، طلبات مراجعة، وصحة الشجرة.</p></div></div>
+        <div class="page-head awraq-settings-head"><div><span class="section-kicker">إدارة الشجرة</span><h2>إعدادات العائلة</h2><p>إدارة الأفراد، الطلبات، الوصول، الصلاحيات والمحتوى.</p></div></div>
         <div class="admin-tabs">
           <button class="admin-tab active" data-admin-panel="person">إضافة فرد</button>
-          <button class="admin-tab admin-only hidden" data-admin-panel="access">أكواد الوصول</button>
-          <button class="admin-tab" data-admin-panel="changes">طلبات التعديل <span id="changeCount" class="count-badge">0</span></button>
-          <button class="admin-tab admin-only hidden" data-admin-panel="accounts">طلبات الحسابات <span id="pendingCount" class="count-badge">0</span></button>
-          <button class="admin-tab admin-only hidden" data-admin-panel="permissions">الصلاحيات</button>
-          <button class="admin-tab admin-only hidden" data-admin-panel="health">صحة الشجرة</button>
-          <button class="admin-tab staff-only hidden" data-admin-panel="event">إضافة حدث</button>
-          <button class="admin-tab staff-only hidden" data-admin-panel="library">إضافة للمكتبة</button>
-          <button class="admin-tab admin-only hidden" data-admin-panel="audit">سجل التعديلات</button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="access">المشاركة والوصول</button>
+          <button class="admin-tab" data-admin-panel="changes">طلبات الشجرة <span id="changeCount" class="count-badge">0</span></button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="accounts">الأعضاء والضيوف <span id="pendingCount" class="count-badge">0</span></button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="permissions">إدارة المستخدمين</button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="health">اكتمال البيانات</button>
+          <button class="admin-tab staff-only hidden" data-admin-panel="event">أخبار / حدث</button>
+          <button class="admin-tab staff-only hidden" data-admin-panel="library">محتوى العائلة</button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="audit">سجل النشاط</button>
         </div>
 
         <div id="admin-person" class="admin-panel active">
@@ -433,7 +449,7 @@
   <!-- PERSON MODAL — V4 FAMILY HUB -->
   <div id="personModal" class="modal hidden">
     <div class="modal-backdrop" data-close-modal></div>
-    <article class="modal-card v4-profile-card">
+    <article class="modal-card v4-profile-card awraq-person-card">
       <button class="modal-close" data-close-modal>×</button>
 
       <div class="v4-profile-top">
@@ -450,14 +466,14 @@
       </div>
 
       <div class="v4-primary-actions staff-only hidden">
-        <button id="profileAddRelativeBtn" class="btn primary v4-big-action">＋ إضافة قريب</button>
-        <button id="profileBuildFamilyBtn" class="btn gold v4-big-action">👨‍👩‍👧 بناء الأسرة</button>
+        <button id="profileAddRelativeBtn" class="btn primary v4-big-action">＋ إضافة</button>
+        <button id="profileBuildFamilyBtn" class="btn gold v4-big-action">إضافة أسرة</button>
       </div>
 
       <div class="v4-profile-tabs" role="tablist">
         <button class="v4-profile-tab active" data-profile-tab="overview">نظرة عامة</button>
         <button class="v4-profile-tab" data-profile-tab="family">العائلة</button>
-        <button class="v4-profile-tab account-only hidden" data-profile-tab="details">التفاصيل</button>
+        <button class="v4-profile-tab account-only hidden" data-profile-tab="details">المعلومات</button>
       </div>
 
       <section id="profileTab-overview" class="v4-profile-panel active">
@@ -495,7 +511,7 @@
       </section>
 
       <details class="v4-admin-more staff-only hidden">
-        <summary>⋯ أدوات السجل</summary>
+        <summary>⋯ إجراءات</summary>
         <div class="profile-actions v4-admin-actions">
           <button id="profileEditBtn" class="btn light">✏️ تعديل البيانات</button>
           <button id="profileAddChildBtn" class="btn light hidden">إضافة ابن/ابنة القديمة</button>
@@ -810,7 +826,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=4.0.1"></script>
-  <script src="./app.js?v=4.0.1"></script>
+  <script src="./config.js?v=5.0.0"></script>
+  <script src="./app.js?v=5.0.0"></script>
 </body>
 </html>
