@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#082f29" />
   <meta name="description" content="شجرة آل شجاع — متحف رقمي وشجرة نسب ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=3.0.6" />
+  <link rel="manifest" href="./manifest.webmanifest?v=3.0.7" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=3.0.6" />
+  <link rel="stylesheet" href="./styles.css?v=3.0.7" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -315,8 +315,10 @@
               <label>الجنس<select id="pGender"><option value="male">ذكر</option><option value="female">أنثى</option><option value="unknown">غير محدد</option></select></label>
               <div class="two-cols"><label>الأب داخل الشجرة<select id="pFather"><option value="">— غير مربوط حاليًا —</option></select></label><label>الأم داخل الشجرة<select id="pMother"><option value="">— غير مربوطة حاليًا —</option></select></label></div>
               <div class="two-cols"><label>كود الأسرة / المسار<input id="pLineageCode" placeholder="مثال: 5997 أو 5997-01" /></label><label>رقم السجل<input disabled placeholder="يولد تلقائيًا SHG-000001" /></label></div>
-              <div class="two-cols"><label>سنة الميلاد<input id="pBirthYear" type="number" min="1" max="3000" /></label><label>مكان الميلاد<input id="pBirthPlace" /></label></div>
-              <div class="two-cols"><label>سنة الوفاة<input id="pDeathYear" type="number" min="1" max="3000" /></label><label>مكان الوفاة<input id="pDeathPlace" /></label></div>
+              <div class="two-cols"><label>تاريخ الميلاد الكامل<input id="pBirthDate" type="date" /></label><label>سنة الميلاد فقط <small>إذا التاريخ الكامل غير معروف</small><input id="pBirthYear" type="number" min="1" max="3000" /></label></div>
+              <label>مكان الميلاد<input id="pBirthPlace" /></label>
+              <div class="two-cols"><label>تاريخ الوفاة الكامل<input id="pDeathDate" type="date" /></label><label>سنة الوفاة فقط <small>إذا التاريخ الكامل غير معروف</small><input id="pDeathYear" type="number" min="1" max="3000" /></label></div>
+              <label>مكان الوفاة<input id="pDeathPlace" /></label>
               <label class="check-row"><input id="pLiving" type="checkbox" checked /> على قيد الحياة</label>
               <label>درجة التوثيق<select id="pConfidence"><option value="family_tradition">متوارث عائليًا</option><option value="documented">موثق</option><option value="likely">مرجح</option><option value="uncertain">غير مؤكد</option></select></label>
               <label>نبذة<textarea id="pBio" rows="4"></textarea></label>
@@ -438,17 +440,80 @@
         <div><div class="profile-code-row"><span id="profileRecordCode" class="badge gold"></span><span id="profileLineageCode" class="badge"></span></div><h2 id="profileName"></h2><p id="profileLife"></p></div>
       </div>
       <div class="profile-grid">
-        <div class="info-box"><span>الأب</span><strong id="profileFather">—</strong></div>
-        <div class="info-box"><span>الأم</span><strong id="profileMother">—</strong></div>
+        <div class="info-box"><span>الأب</span><button type="button" id="profileFather" class="relative-profile-link">—</button></div>
+        <div class="info-box"><span>الأم</span><button type="button" id="profileMother" class="relative-profile-link">—</button></div>
         <div class="info-box"><span>الزوج/الزوجة</span><strong id="profileSpouses">—</strong></div>
         <div class="info-box"><span>الأبناء</span><strong id="profileChildren">—</strong></div>
       </div>
       <div class="profile-actions">
+        <button id="profileEditBtn" class="btn primary staff-only hidden">✏️ تعديل مباشر</button>
         <button id="profileLineageBtn" class="btn gold">رحلة النسب</button>
         <button id="profileKinshipBtn" class="btn light">صلة القرابة</button>
         <button id="profileContributeBtn" class="btn light contribution-only hidden">تصحيح / إضافة معلومة</button>
       </div>
       <div id="profilePrivateSection" class="account-only hidden panel soft"><h3>نبذة</h3><p id="profileBio">—</p></div>
+    </article>
+  </div>
+
+
+  <!-- DIRECT PERSON EDIT MODAL -->
+  <div id="editPersonModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-edit-person></div>
+    <article class="modal-card edit-person-card">
+      <button class="modal-close" type="button" data-close-edit-person>×</button>
+      <div class="edit-person-heading">
+        <span class="section-kicker">إدارة السجل</span>
+        <h2>تعديل بيانات الفرد مباشرة</h2>
+        <p id="editPersonRecordInfo" class="muted"></p>
+      </div>
+
+      <form id="editPersonForm" class="stack">
+        <div class="name-grid edit-name-grid">
+          <label>الاسم الأول *<input id="eFirstName" required /></label>
+          <label>اسم الأب في الاسم<input id="eFatherNameText" /></label>
+          <label>اسم الجد<input id="eGrandfatherNameText" /></label>
+          <label>اسم جد الأب<input id="eGreatNameText" /></label>
+          <label>اسم العائلة / القبيلة<input id="eFamilyNameText" /></label>
+        </div>
+
+        <div class="name-preview">
+          <small>الاسم الكامل بعد الحفظ</small>
+          <strong id="eNamePreview">—</strong>
+        </div>
+
+        <div class="two-cols">
+          <label>الجنس<select id="eGender"><option value="male">ذكر</option><option value="female">أنثى</option><option value="unknown">غير محدد</option></select></label>
+          <label>كود الأسرة / المسار<input id="eLineageCode" /></label>
+        </div>
+
+        <div class="two-cols">
+          <label>تاريخ الميلاد الكامل<input id="eBirthDate" type="date" /></label>
+          <label>سنة الميلاد فقط<input id="eBirthYear" type="number" min="1" max="3000" /></label>
+        </div>
+        <div class="two-cols">
+          <label>تاريخ الوفاة الكامل<input id="eDeathDate" type="date" /></label>
+          <label>سنة الوفاة فقط<input id="eDeathYear" type="number" min="1" max="3000" /></label>
+        </div>
+
+        <label class="check-row"><input id="eLiving" type="checkbox" /> على قيد الحياة</label>
+        <label>درجة التوثيق<select id="eConfidence"><option value="documented">موثق</option><option value="family_tradition">متوارث عائليًا</option><option value="likely">مرجح</option><option value="uncertain">غير مؤكد</option></select></label>
+        <label>نبذة<textarea id="eBio" rows="4"></textarea></label>
+
+        <section id="editGenealogySection" class="edit-genealogy-section hidden">
+          <div class="section-title"><div><span>صلاحية حساسة</span><h3>تعديل روابط النسب</h3></div></div>
+          <div class="two-cols">
+            <label>الأب داخل الشجرة<select id="eFather"><option value="">— غير مربوط —</option></select></label>
+            <label>الأم داخل الشجرة<select id="eMother"><option value="">— غير مربوطة —</option></select></label>
+          </div>
+          <p class="micro-copy">تغيير الأب أو الأم يغيّر مسار النسب، لذلك لا يظهر إلا لمن لديه صلاحية «تعديل النسب مباشرة».</p>
+        </section>
+
+        <div class="edit-person-actions">
+          <button type="button" class="btn light" data-close-edit-person>إلغاء</button>
+          <button class="btn primary">حفظ التعديلات مباشرة</button>
+        </div>
+        <p id="editPersonMsg" class="form-msg"></p>
+      </form>
     </article>
   </div>
 
@@ -469,7 +534,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=3.0.6"></script>
-  <script src="./app.js?v=3.0.6"></script>
+  <script src="./config.js?v=3.0.7"></script>
+  <script src="./app.js?v=3.0.7"></script>
 </body>
 </html>

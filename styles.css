@@ -223,3 +223,56 @@ body.guest-mode .account-only{display:none!important}
 /* V3.0.5 — request cards rendering guard */
 #changeRequestsList{display:grid!important;visibility:visible!important;min-height:1px;gap:12px}
 #changeRequestsList .request-card{display:grid!important}
+
+
+/* =========================================================
+   V3.0.7 — Direct person editing
+   ========================================================= */
+.relative-profile-link{
+  appearance:none;
+  border:0;
+  background:transparent;
+  padding:0;
+  margin:0;
+  color:#153f35;
+  font:inherit;
+  font-weight:900;
+  text-align:right;
+  cursor:default;
+}
+.relative-profile-link.is-linked{
+  color:#0b5b4b;
+  text-decoration:underline;
+  text-decoration-style:dotted;
+  text-underline-offset:5px;
+  cursor:pointer;
+}
+.relative-profile-link.is-linked:hover{color:#b18229}
+.edit-person-card{max-width:980px}
+.edit-person-heading{margin-bottom:8px}
+.edit-name-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.edit-genealogy-section{
+  padding:16px;
+  border:1px solid #dec887;
+  border-radius:18px;
+  background:#fff8e8;
+}
+.edit-person-actions{
+  display:flex;
+  gap:10px;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+}
+label small{
+  display:block;
+  margin-top:3px;
+  color:#7a7b73;
+  font-weight:500;
+  font-size:11px;
+}
+@media(max-width:900px){
+  .edit-name-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:560px){
+  .edit-name-grid{grid-template-columns:1fr}
+}

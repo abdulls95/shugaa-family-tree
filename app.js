@@ -65,7 +65,12 @@
   }
   function confidenceLabel(v){ return ({documented:"موثق",family_tradition:"متوارث عائليًا",likely:"مرجح",uncertain:"غير مؤكد"})[v] || "غير محدد"; }
   function genderIcon(v){ return v==="female" ? "ن" : v==="male" ? "ش" : "•"; }
-  function yearText(p){ const b=p.birth_year||""; const d=p.death_year||""; if(b||d) return `${b||"؟"} — ${p.is_living ? "حتى الآن" : (d||"؟")}`; return p.is_living ? "على قيد الحياة" : "التاريخ غير مسجل"; }
+  function yearText(p){
+    const b=p.birth_year || (p.birth_date ? String(p.birth_date).slice(0,4) : "");
+    const d=p.death_year || (p.death_date ? String(p.death_date).slice(0,4) : "");
+    if(b||d) return `${b||"؟"} — ${p.is_living ? "حتى الآن" : (d||"؟")}`;
+    return p.is_living ? "على قيد الحياة" : "التاريخ غير مسجل";
+  }
   function itemTypeLabel(t){ return ({document:"وثيقة",record:"سجل",land_record:"سجل أرض / ملكية",photo:"صورة",video:"فيديو",audio:"تسجيل صوتي",oral_history:"رواية شفهية",genealogy:"مشجرة / نسب",correspondence:"مراسلة",map:"خريطة",historical_event:"مادة تاريخية",other:"أخرى"})[t]||"مادة"; }
   function itemTypeIcon(t){ return ({document:"📜",record:"📚",land_record:"🧾",photo:"📷",video:"🎥",audio:"🎧",oral_history:"🎙️",genealogy:"🌳",correspondence:"✉️",map:"🗺️",historical_event:"🏺",other:"📦"})[t]||"📦"; }
 
@@ -208,7 +213,11 @@
   function openPerson(id){
     const p=getPerson(id); if(!p)return; state.activePersonId=id; const f=familyOf(id);
     $("#profileName").textContent=p.full_name_ar; $("#profileLife").textContent=yearText(p); $("#profileAvatar").textContent=genderIcon(p.gender);
-    $("#profileFather").textContent=f.father?.full_name_ar||p.father_name_text||"—"; $("#profileMother").textContent=f.mother?.full_name_ar||"—";
+    const fatherBtn=$("#profileFather"), motherBtn=$("#profileMother");
+    fatherBtn.textContent=f.father?.full_name_ar||p.father_name_text||"—";
+    motherBtn.textContent=f.mother?.full_name_ar||"—";
+    fatherBtn.dataset.personId=f.father?.id||""; motherBtn.dataset.personId=f.mother?.id||"";
+    fatherBtn.classList.toggle("is-linked",!!f.father); motherBtn.classList.toggle("is-linked",!!f.mother);
     $("#profileSpouses").textContent=f.spouses.length?f.spouses.map(x=>x.full_name_ar).join("، "):"—"; $("#profileChildren").textContent=f.children.length?f.children.map(x=>x.full_name_ar).join("، "):"—";
     $("#profileLineageCode").textContent=p.lineage_code?`الأسرة ${p.lineage_code}`:""; $("#profileRecordCode").textContent=state.mode==="account"&&p.record_code?p.record_code:"";
     $("#profileBio").textContent=state.mode==="account"?(p.bio||"لا توجد نبذة مسجلة."):"المعلومات الخاصة غير متاحة بهذا النوع من الدخول.";
@@ -496,6 +505,99 @@
 
   function toggleContributionFields(){const family=$("#contribType").value==="add_family";$("#familyRequestFields").classList.toggle("hidden",!family);}
 
+
+  function canDirectBasicEdit(){
+    return state.mode==="account" && ["admin","editor"].includes(state.role) &&
+      (state.role==="admin" || !!state.permissions.edit_basic_person);
+  }
+  function canDirectGenealogyEdit(){
+    return state.mode==="account" && (state.role==="admin" || !!state.permissions.edit_genealogy_direct);
+  }
+
+  function editNameParts(){
+    return {
+      first:$("#eFirstName").value.trim(),
+      father:$("#eFatherNameText").value.trim(),
+      grand:$("#eGrandfatherNameText").value.trim(),
+      great:$("#eGreatNameText").value.trim(),
+      family:$("#eFamilyNameText").value.trim()
+    };
+  }
+  function updateEditNamePreview(){
+    const n=editNameParts();
+    $("#eNamePreview").textContent=[n.first,n.father,n.grand,n.great,n.family].filter(Boolean).join(" ")||"—";
+  }
+
+  function populateEditParentSelects(personId){
+    const father=$("#eFather"),mother=$("#eMother");
+    father.innerHTML='<option value="">— غير مربوط —</option>';
+    mother.innerHTML='<option value="">— غير مربوطة —</option>';
+    state.people.forEach(p=>{
+      if(p.id===personId)return;
+      if(p.gender!=="female") father.add(new Option(personLabel(p),p.id));
+      if(p.gender!=="male") mother.add(new Option(personLabel(p),p.id));
+    });
+  }
+
+  function openEditPerson(id){
+    if(!canDirectBasicEdit())return toast("لا تملك صلاحية التعديل المباشر.");
+    const p=getPerson(id); if(!p)return;
+    state.activePersonId=id;
+    const f=familyOf(id);
+
+    $("#editPersonRecordInfo").textContent=`${p.record_code||""}${p.lineage_code?` • كود الأسرة ${p.lineage_code}`:""}`;
+    $("#eFirstName").value=p.first_name_ar||p.full_name_ar?.split(" ")[0]||"";
+    $("#eFatherNameText").value=p.father_name_text||"";
+    $("#eGrandfatherNameText").value=p.grandfather_name_text||"";
+    $("#eGreatNameText").value=p.great_grandfather_name_text||"";
+    $("#eFamilyNameText").value=p.family_name_text||"";
+    $("#eGender").value=p.gender||"unknown";
+    $("#eLineageCode").value=p.lineage_code||"";
+    $("#eBirthDate").value=p.birth_date||"";
+    $("#eBirthYear").value=p.birth_year||"";
+    $("#eDeathDate").value=p.death_date||"";
+    $("#eDeathYear").value=p.death_year||"";
+    $("#eLiving").checked=!!p.is_living;
+    $("#eConfidence").value=p.record_confidence||"family_tradition";
+    $("#eBio").value=p.bio||"";
+    updateEditNamePreview();
+
+    populateEditParentSelects(id);
+    $("#eFather").value=f.father?.id||"";
+    $("#eMother").value=f.mother?.id||"";
+    $("#editGenealogySection").classList.toggle("hidden",!canDirectGenealogyEdit());
+
+    $("#editPersonMsg").textContent="";
+    $("#editPersonModal").classList.remove("hidden");
+  }
+
+  function closeEditPerson(){
+    $("#editPersonModal").classList.add("hidden");
+  }
+
+  async function reconcileParentLink(personId, role, newParentId){
+    const existing=state.relations.filter(r=>r.child_id===personId && r.parent_role===role);
+    const currentId=existing[0]?.parent_id||"";
+    if(currentId===(newParentId||""))return;
+
+    if(existing.length){
+      const ids=existing.map(x=>x.id);
+      const {error}=await client.from("parent_child_relations").delete().in("id",ids);
+      if(error)throw error;
+    }
+    if(newParentId){
+      const {error}=await client.from("parent_child_relations").insert({
+        parent_id:newParentId,
+        child_id:personId,
+        parent_role:role,
+        relation_kind:"biological",
+        confidence:$("#eConfidence").value,
+        created_by:state.session.user.id
+      });
+      if(error)throw error;
+    }
+  }
+
   function setView(name){
     const allowed = name==="library"||name==="history" ? state.mode==="account" : name==="contribute" ? ["personal","account"].includes(state.mode) : name==="myfamily" ? state.mode==="account"&&!!state.profile?.person_id : name==="admin" ? state.mode==="account"&&["admin","editor"].includes(state.role) : true;
     if(!allowed)return toast("هذه الصفحة غير متاحة بنوع الدخول الحالي.");
@@ -532,6 +634,55 @@
   $("#profileLineageBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("lineage");$("#lineagePerson").value=id;renderLineage(id);};
   $("#profileKinshipBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("kinship");$("#kinshipA").value=id;};
   $("#profileContributeBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("contribute");$("#contribTarget").value=id;};
+  $("#profileEditBtn").onclick=()=>{const id=state.activePersonId;closePerson();openEditPerson(id);};
+  $("#profileFather").onclick=()=>{const id=$("#profileFather").dataset.personId;if(id)openPerson(id);};
+  $("#profileMother").onclick=()=>{const id=$("#profileMother").dataset.personId;if(id)openPerson(id);};
+
+  ["#eFirstName","#eFatherNameText","#eGrandfatherNameText","#eGreatNameText","#eFamilyNameText"].forEach(s=>$(s)?.addEventListener("input",updateEditNamePreview));
+  $$("[data-close-edit-person]").forEach(x=>x.onclick=closeEditPerson);
+
+  $("#editPersonForm").onsubmit=async e=>{
+    e.preventDefault();
+    if(!canDirectBasicEdit())return toast("لا تملك صلاحية التعديل المباشر.");
+    const id=state.activePersonId,p=getPerson(id); if(!p)return;
+    const msg=$("#editPersonMsg"),n=editNameParts();
+    msg.textContent="جاري حفظ التعديلات...";
+    try{
+      const birthDate=$("#eBirthDate").value||null, deathDate=$("#eDeathDate").value||null;
+      const patch={
+        first_name_ar:n.first,
+        father_name_text:n.father||null,
+        grandfather_name_text:n.grand||null,
+        great_grandfather_name_text:n.great||null,
+        family_name_text:n.family||null,
+        full_name_ar:[n.first,n.father,n.grand,n.great,n.family].filter(Boolean).join(" "),
+        gender:$("#eGender").value,
+        lineage_code:$("#eLineageCode").value.trim()||null,
+        birth_date:birthDate,
+        birth_year:toInt($("#eBirthYear").value)||(birthDate?parseInt(birthDate.slice(0,4),10):null),
+        death_date:deathDate,
+        death_year:toInt($("#eDeathYear").value)||(deathDate?parseInt(deathDate.slice(0,4),10):null),
+        is_living:$("#eLiving").checked,
+        record_confidence:$("#eConfidence").value,
+        bio:$("#eBio").value.trim()||null,
+        updated_by:state.session.user.id
+      };
+      const {error}=await client.from("people").update(patch).eq("id",id);
+      if(error)throw error;
+
+      if(canDirectGenealogyEdit()){
+        await reconcileParentLink(id,"father",$("#eFather").value||"");
+        await reconcileParentLink(id,"mother",$("#eMother").value||"");
+      }
+
+      msg.textContent="تم حفظ التعديلات مباشرة ✅";
+      await loadAccountData();
+      setTimeout(()=>{closeEditPerson();openPerson(id);},450);
+    }catch(err){
+      msg.textContent="تعذر الحفظ: "+err.message;
+    }
+  };
+
   $("#requestStatusTabs")?.addEventListener("click",e=>{
     const b=e.target.closest(".request-status-tab");
     if(!b)return;
@@ -571,7 +722,7 @@
     if(dups.length&&!$("#duplicateConfirm").checked){msg.textContent="راجع الأسماء المشابهة ثم أكد أن الشخص جديد.";return;}
     try{
       const birthPlace=await ensurePlace($("#pBirthPlace").value),deathPlace=await ensurePlace($("#pDeathPlace").value);
-      const row={full_name_ar:buildDisplayName(),first_name_ar:n.first,father_name_text:n.father||null,grandfather_name_text:n.grand||null,great_grandfather_name_text:n.great||null,family_name_text:n.family||null,gender:$("#pGender").value,birth_year:toInt($("#pBirthYear").value),death_year:toInt($("#pDeathYear").value),birth_place_id:birthPlace,death_place_id:deathPlace,is_living:$("#pLiving").checked,record_confidence:$("#pConfidence").value,bio:$("#pBio").value.trim()||null,lineage_code:$("#pLineageCode").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id};
+      const row={full_name_ar:buildDisplayName(),first_name_ar:n.first,father_name_text:n.father||null,grandfather_name_text:n.grand||null,great_grandfather_name_text:n.great||null,family_name_text:n.family||null,gender:$("#pGender").value,birth_date:$("#pBirthDate").value||null,birth_year:toInt($("#pBirthYear").value)||($("#pBirthDate").value?parseInt($("#pBirthDate").value.slice(0,4),10):null),death_date:$("#pDeathDate").value||null,death_year:toInt($("#pDeathYear").value)||($("#pDeathDate").value?parseInt($("#pDeathDate").value.slice(0,4),10):null),birth_place_id:birthPlace,death_place_id:deathPlace,is_living:$("#pLiving").checked,record_confidence:$("#pConfidence").value,bio:$("#pBio").value.trim()||null,lineage_code:$("#pLineageCode").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id};
       const {data,error}=await client.from("people").insert(row).select().single();if(error)throw error;
       const rels=[];if($("#pFather").value)rels.push({parent_id:$("#pFather").value,child_id:data.id,parent_role:"father",relation_kind:"biological",confidence:row.record_confidence,created_by:state.session.user.id});if($("#pMother").value)rels.push({parent_id:$("#pMother").value,child_id:data.id,parent_role:"mother",relation_kind:"biological",confidence:row.record_confidence,created_by:state.session.user.id});if(rels.length){const {error:re}=await client.from("parent_child_relations").insert(rels);if(re)throw re;}
       msg.textContent="تمت إضافة الشخص ✅";e.target.reset();$("#pLiving").checked=true;updateNamePreview();$("#duplicateBox").classList.add("hidden");$("#duplicateConfirmWrap").classList.add("hidden");await loadAccountData();
