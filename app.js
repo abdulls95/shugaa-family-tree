@@ -28,7 +28,8 @@
     cy: null,
     activePersonId: null,
     libraryFilter: "all",
-    lastDuplicateCheckKey: ""
+    lastDuplicateCheckKey: "",
+    changeFilter: "pending"
   };
 
   const $ = s => document.querySelector(s);
@@ -283,23 +284,81 @@
     const {data,error}=await client.from("change_requests").select("*").eq("requester_user_id",state.session.user.id).order("created_at",{ascending:false});
     if(!error)renderRequestList(data||[],false);
   }
+  function requestPayloadHtml(r){
+    const p=r.payload||{};
+    if(r.request_type==="add_family"){
+      const fam=p.family||{};
+      const kids=Array.isArray(fam.children)?fam.children:[];
+      return `<div class="request-family-summary">
+        <div class="family-line"><span>رب الأسرة</span><b>${esc(fam.father_or_head||r.target_person_name||"—")}</b></div>
+        <div class="family-line"><span>الزوج/الزوجة</span><b>${esc(fam.mother_or_spouse||"—")}</b></div>
+        <div class="family-line"><span>الأبناء</span><div class="request-children">${kids.length?kids.map(x=>`<span>${esc(x)}</span>`).join(""):"—"}</div></div>
+        ${p.details?`<div class="family-line"><span>ملاحظات</span><div>${esc(p.details)}</div></div>`:""}
+      </div>`;
+    }
+    if(p.details) return `<div class="request-family-summary"><div class="family-line"><span>التفاصيل</span><div>${esc(p.details)}</div></div></div>`;
+    return `<details><summary>عرض بيانات الطلب</summary><pre>${esc(JSON.stringify(p,null,2))}</pre></details>`;
+  }
+
   function renderRequestList(rows,staff){
     const box=staff?$("#changeRequestsList"):$("#myRequestsList"); if(!box)return;
-    if(!rows.length){box.innerHTML='<div class="empty-state"><div>✓</div><h3>لا توجد طلبات</h3></div>';return;}
-    box.innerHTML=rows.map(r=>`<article class="request-card"><div class="request-head"><div><h4>${esc(r.request_code||"طلب")}</h4><small>${esc(requestTypeLabel(r.request_type))}</small></div><span class="meta-pill status-${esc(r.request_status||r.status)}">${esc(statusLabel(r.request_status||r.status))}</span></div>${r.target_person_name?`<p>مرتبط بـ: <b>${esc(r.target_person_name)}</b></p>`:""}${r.requester_name&&staff?`<p>المرسل: <b>${esc(r.requester_name)}</b> ${r.requester_contact?`• ${esc(r.requester_contact)}`:""}</p>`:""}${r.admin_note?`<p><b>ملاحظة الإدارة:</b> ${esc(r.admin_note)}</p>`:""}${staff?`<pre>${esc(JSON.stringify(r.payload||{},null,2))}</pre><div class="request-actions"><button class="btn light review-request" data-id="${r.id}" data-status="in_review">قيد المراجعة</button><button class="btn gold review-request" data-id="${r.id}" data-status="needs_info">طلب توضيح</button><button class="btn primary review-request" data-id="${r.id}" data-status="approved">اعتماد</button><button class="btn light review-request" data-id="${r.id}" data-status="rejected">رفض</button></div>`:""}</article>`).join("");
-    if(staff)$$(".review-request").forEach(b=>b.onclick=()=>reviewRequest(b.dataset.id,b.dataset.status));
+    if(staff){
+      const filter=state.changeFilter||"pending";
+      rows=rows.filter(r=>r.status===filter);
+    }
+    if(!rows.length){box.innerHTML='<div class="empty-state"><div>✓</div><h3>لا توجد طلبات في هذا القسم</h3></div>';return;}
+    box.innerHTML=rows.map(r=>{
+      const st=r.request_status||r.status;
+      const actionable=staff&&["pending","in_review","needs_info"].includes(st);
+      const oldApprovedNeedsApply=staff&&st==="approved"&&r.request_type==="add_family"&&!r.applied_at;
+      const applied=!!r.applied_at;
+      return `<article class="request-card ${st==="approved"?"approved-card":""} ${st==="rejected"?"rejected-card":""}">
+        <div class="request-head"><div><h4>${esc(r.request_code||"طلب")}</h4><small>${esc(requestTypeLabel(r.request_type))}</small></div><span class="meta-pill status-${esc(st)}">${esc(statusLabel(st))}</span></div>
+        ${r.target_person_name?`<p>مرتبط بـ: <b>${esc(r.target_person_name)}</b></p>`:""}
+        ${r.requester_name&&staff?`<p>المرسل: <b>${esc(r.requester_name)}</b> ${r.requester_contact?`• ${esc(r.requester_contact)}`:""}${r.requester_country?` • ${esc(r.requester_country)}`:""}</p>`:""}
+        ${r.admin_note?`<p><b>ملاحظة الإدارة:</b> ${esc(r.admin_note)}</p>`:""}
+        ${staff?requestPayloadHtml(r):""}
+        ${applied?`<div class="apply-result">✅ تم تنفيذ البيانات داخل الشجرة${r.applied_at?` — ${new Date(r.applied_at).toLocaleString("ar")}`:""}</div>`:""}
+        ${actionable?`<div class="request-actions"><button class="btn light review-request" data-id="${r.id}" data-status="in_review">قيد المراجعة</button><button class="btn gold review-request" data-id="${r.id}" data-status="needs_info">طلب توضيح</button>${r.request_type==="add_family"?`<button class="btn primary apply-request" data-id="${r.id}">اعتماد وتنفيذ</button>`:`<button class="btn primary review-request" data-id="${r.id}" data-status="approved">اعتماد</button>`}<button class="btn light review-request" data-id="${r.id}" data-status="rejected">رفض</button></div>`:""}
+        ${oldApprovedNeedsApply?`<div class="request-actions"><button class="btn primary apply-request" data-id="${r.id}">تنفيذ البيانات الآن</button></div>`:""}
+      </article>`;
+    }).join("");
+    if(staff){
+      $$(".review-request").forEach(b=>b.onclick=()=>reviewRequest(b.dataset.id,b.dataset.status));
+      $$(".apply-request").forEach(b=>b.onclick=()=>applyRequest(b.dataset.id));
+    }
   }
-  function requestTypeLabel(t){ return ({add_person:"إضافة شخص",add_family:"إضافة أسرة",correct_name:"تصحيح اسم",add_parent:"إضافة أب",change_parent:"تصحيح الأب",add_mother:"إضافة أم",change_mother:"تصحيح الأم",add_spouse:"إضافة زوج/زوجة",add_child:"إضافة ابن/ابنة",life_event:"معلومة تاريخية",library_evidence:"دليل/وثيقة",duplicate_report:"تكرار محتمل",merge_request:"طلب دمج",relation_correction:"تصحيح صلة",profile_claim:"ربط ملف",other:"طلب آخر"})[t]||t; }
+
+  async function applyRequest(id){
+    if(!confirm("اعتماد الطلب وتنفيذ بياناته داخل الشجرة؟"))return;
+    const {data,error}=await client.rpc("staff_apply_change_request",{p_request_id:id,p_admin_note:null});
+    if(error)return toast("تعذر تنفيذ الطلب: "+error.message,6000);
+    toast("تم اعتماد الطلب وتنفيذ البيانات في الشجرة ✅",4500);
+    state.changeFilter="approved";
+    await loadAccountData();
+    await loadStaffData();
+  }
 
   async function reviewRequest(id,status){
     let note=""; if(["needs_info","rejected"].includes(status))note=prompt(status==="needs_info"?"ما التوضيح المطلوب؟":"سبب الرفض؟")||"";
     const {error}=await client.rpc("staff_update_request",{p_request_id:id,p_status:status,p_admin_note:note||null});
-    if(error)return toast("تعذر تحديث الطلب: "+error.message,4500); toast("تم تحديث الطلب ✅"); await loadStaffData();
+    if(error)return toast("تعذر تحديث الطلب: "+error.message,4500);
+    toast("تم نقل الطلب إلى قسم «"+statusLabel(status)+"» ✅");
+    state.changeFilter=status;
+    await loadStaffData();
   }
 
   function renderAdminAll(){
     if(state.role==="admin"){renderAccountRequests();renderUsers();renderAccessCodes();renderPermissions();renderAudit();}
-    renderRequestList(state.changeRequests,true); $("#changeCount").textContent=state.changeRequests.filter(r=>["pending","needs_info","in_review"].includes(r.status)).length; renderHealth();
+    const count=s=>state.changeRequests.filter(r=>r.status===s).length;
+    if($("#rqCountPending")) $("#rqCountPending").textContent=count("pending");
+    if($("#rqCountReview")) $("#rqCountReview").textContent=count("in_review");
+    if($("#rqCountInfo")) $("#rqCountInfo").textContent=count("needs_info");
+    if($("#rqCountApproved")) $("#rqCountApproved").textContent=count("approved");
+    if($("#rqCountRejected")) $("#rqCountRejected").textContent=count("rejected");
+    $("#changeCount").textContent=count("pending")+count("needs_info")+count("in_review");
+    $$(".request-status-tab").forEach(b=>b.classList.toggle("active",b.dataset.requestFilter===state.changeFilter));
+    renderRequestList(state.changeRequests,true); renderHealth();
   }
 
   function renderAccountRequests(){
@@ -435,6 +494,7 @@
   $("#profileLineageBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("lineage");$("#lineagePerson").value=id;renderLineage(id);};
   $("#profileKinshipBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("kinship");$("#kinshipA").value=id;};
   $("#profileContributeBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("contribute");$("#contribTarget").value=id;};
+  $$(".request-status-tab").forEach(b=>b.onclick=()=>{state.changeFilter=b.dataset.requestFilter;$$(".request-status-tab").forEach(x=>x.classList.toggle("active",x===b));renderRequestList(state.changeRequests,true);});
   $$(".filter-chip").forEach(b=>b.onclick=()=>{state.libraryFilter=b.dataset.filter;$$(".filter-chip").forEach(x=>x.classList.toggle("active",x===b));renderLibrary();});
   $("#librarySearch").oninput=renderLibrary;$$(".admin-tab").forEach(b=>b.onclick=()=>setAdminPanel(b.dataset.adminPanel));
 
