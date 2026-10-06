@@ -269,24 +269,159 @@
     selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if(sel==="#pFather"&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
   }
 
+  // V4.0.1 — Awraq-style tree:
+  // show a clean generation hierarchy and keep marriage links inside the person profile
+  // instead of drawing marriage edges across the genealogy canvas.
+  function treeParentRelations(){
+    const fatherChildren=new Set(
+      state.relations
+        .filter(r=>r.parent_role==="father"||r.parent_role==="parent")
+        .map(r=>r.child_id)
+    );
+
+    return state.relations.filter(r=>{
+      if(!getPerson(r.parent_id)||!getPerson(r.child_id))return false;
+
+      // Prefer the paternal lineage when it exists.
+      if(r.parent_role==="father"||r.parent_role==="parent")return true;
+
+      // If the father is unknown, use the mother so the child does not become detached.
+      if(r.parent_role==="mother"&&!fatherChildren.has(r.child_id))return true;
+
+      return false;
+    });
+  }
+
+  function findTreeRoots(){
+    const childIds=new Set(treeParentRelations().map(r=>r.child_id));
+    const roots=state.people.filter(p=>!childIds.has(p.id)).map(p=>p.id);
+    return roots.length?roots:(state.people[0]?[state.people[0].id]:[]);
+  }
+
+  function getTreeLayoutOptions(){
+    return {
+      name:"breadthfirst",
+      directed:true,
+      circle:false,
+      roots:findTreeRoots(),
+      padding:70,
+      spacingFactor:1.22,
+      avoidOverlap:true,
+      nodeDimensionsIncludeLabels:true,
+      animate:false
+    };
+  }
+
   function buildTreeElements(){
-    const out=[]; state.people.forEach(p=>out.push({data:{id:p.id,label:p.full_name_ar,gender:p.gender}}));
-    state.relations.forEach(r=>{ if(getPerson(r.parent_id)&&getPerson(r.child_id)) out.push({data:{id:`r-${r.id}`,source:r.parent_id,target:r.child_id,kind:"parent"}}); });
-    state.marriages.forEach(m=>{ if(getPerson(m.person1_id)&&getPerson(m.person2_id)) out.push({data:{id:`m-${m.id}`,source:m.person1_id,target:m.person2_id,kind:"marriage"}}); });
+    const out=[];
+
+    state.people.forEach(p=>{
+      const fam=familyOf(p.id);
+      out.push({
+        data:{
+          id:p.id,
+          label:p.full_name_ar,
+          gender:p.gender,
+          spouseCount:fam.spouses.length,
+          childCount:fam.children.length
+        }
+      });
+    });
+
+    treeParentRelations().forEach(r=>{
+      out.push({
+        data:{
+          id:`r-${r.id}`,
+          source:r.parent_id,
+          target:r.child_id,
+          kind:"parent"
+        }
+      });
+    });
+
     return out;
   }
+
   function renderTree(){
-    const c=$("#cy"); if(!state.people.length){c.classList.add("hidden");$("#treeEmpty").classList.remove("hidden");return;} c.classList.remove("hidden");$("#treeEmpty").classList.add("hidden");
+    const c=$("#cy");
+    if(!state.people.length){
+      c.classList.add("hidden");
+      $("#treeEmpty").classList.remove("hidden");
+      return;
+    }
+
+    c.classList.remove("hidden");
+    $("#treeEmpty").classList.add("hidden");
+
     if(state.cy)state.cy.destroy();
-    state.cy=cytoscape({container:c,elements:buildTreeElements(),wheelSensitivity:.18,minZoom:.2,maxZoom:2.6,
+
+    state.cy=cytoscape({
+      container:c,
+      elements:buildTreeElements(),
+      wheelSensitivity:.18,
+      minZoom:.2,
+      maxZoom:2.6,
+
       style:[
-        {selector:"node",style:{"background-color":"#fffaf0","border-width":2,"border-color":"#c29d4d","label":"data(label)","text-wrap":"wrap","text-max-width":140,"font-family":"Arial","font-size":12,"font-weight":700,"color":"#173f35","width":160,"height":62,"shape":"round-rectangle","text-valign":"center","text-halign":"center","overlay-opacity":0}},
-        {selector:'node[gender="female"]',style:{"border-color":"#c799a3","background-color":"#fff8f8"}},
-        {selector:'edge[kind="parent"]',style:{"width":2,"line-color":"#245f51","target-arrow-color":"#245f51","target-arrow-shape":"triangle","curve-style":"bezier","arrow-scale":.7}},
-        {selector:'edge[kind="marriage"]',style:{"width":2,"line-style":"dashed","line-color":"#b8892d","curve-style":"bezier"}},
-        {selector:".search-hit",style:{"background-color":"#f4dda4","border-width":4,"border-color":"#0f4d3f"}}
-      ],layout:{name:"dagre",rankDir:"TB",rankSep:105,nodeSep:48,padding:40}});
+        {
+          selector:"node",
+          style:{
+            "background-color":"#fffaf0",
+            "border-width":2,
+            "border-color":"#c29d4d",
+            "label":"data(label)",
+            "text-wrap":"wrap",
+            "text-max-width":140,
+            "font-family":"Arial",
+            "font-size":12,
+            "font-weight":700,
+            "color":"#173f35",
+            "width":160,
+            "height":62,
+            "shape":"round-rectangle",
+            "text-valign":"center",
+            "text-halign":"center",
+            "overlay-opacity":0
+          }
+        },
+        {
+          selector:'node[gender="female"]',
+          style:{
+            "border-color":"#c799a3",
+            "background-color":"#fff8f8"
+          }
+        },
+        {
+          selector:'edge[kind="parent"]',
+          style:{
+            "width":2,
+            "line-color":"#2f6a5d",
+            "curve-style":"taxi",
+            "taxi-direction":"downward",
+            "taxi-turn":28,
+            "target-arrow-shape":"none",
+            "source-endpoint":"outside-to-node",
+            "target-endpoint":"outside-to-node",
+            "overlay-opacity":0
+          }
+        },
+        {
+          selector:".search-hit",
+          style:{
+            "background-color":"#f4dda4",
+            "border-width":4,
+            "border-color":"#0f4d3f"
+          }
+        }
+      ],
+
+      layout:getTreeLayoutOptions()
+    });
+
     state.cy.on("tap","node",e=>openPerson(e.target.id()));
+
+    // Fit after the first layout frame so the whole generation tree starts centered.
+    setTimeout(()=>state.cy?.fit(undefined,55),80);
   }
 
   function ancestorsFrom(id){
@@ -1005,7 +1140,12 @@
   // Navigation & common
   $$(".nav-btn[data-view]").forEach(b=>b.onclick=()=>setView(b.dataset.view));$$("[data-go]").forEach(b=>b.onclick=()=>setView(b.dataset.go));$$("[data-close-modal]").forEach(x=>x.onclick=closePerson);
   $("#peopleSearch").oninput=e=>renderPeople(e.target.value);$("#treeSearch").oninput=e=>{if(!state.cy)return;const q=norm(e.target.value);state.cy.nodes().removeClass("search-hit");if(!q)return;const hits=state.cy.nodes().filter(n=>norm(n.data("label")).includes(q));hits.addClass("search-hit");if(hits.length)state.cy.animate({fit:{eles:hits,padding:120},duration:300});};
-  $("#fitTreeBtn").onclick=()=>state.cy?.fit(undefined,40);$("#relayoutBtn").onclick=()=>state.cy?.layout({name:"dagre",rankDir:"TB",rankSep:105,nodeSep:48,padding:40}).run();
+  $("#fitTreeBtn").onclick=()=>state.cy?.fit(undefined,45);
+  $("#relayoutBtn").onclick=()=>{
+    if(!state.cy)return;
+    state.cy.layout(getTreeLayoutOptions()).run();
+    setTimeout(()=>state.cy?.fit(undefined,55),80);
+  };
   $("#findKinshipBtn").onclick=renderKinship;$("#startLineageBtn").onclick=()=>renderLineage();
   $("#profileLineageBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("lineage");$("#lineagePerson").value=id;renderLineage(id);};
   $("#profileKinshipBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("kinship");$("#kinshipA").value=id;};
@@ -1257,5 +1397,5 @@
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=3.0.0").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=4.0.1").catch(console.warn));
 })();
