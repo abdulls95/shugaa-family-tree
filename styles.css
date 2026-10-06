@@ -83,3 +83,17 @@ body.guest-mode .account-only{display:none!important}
 @media(max-width:1050px){.gate-cards{grid-template-columns:1fr}.name-grid{grid-template-columns:1fr 1fr 1fr}.health-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:860px){.gate-screen{padding:24px 14px;background:linear-gradient(180deg,#072d27 0%,#0a4a3d 38%,#f3ecde 38.2%,#faf7ef 100%)}.gate-brand{display:grid;text-align:center}.gate-brand .heritage-seal{margin:auto}.gate-brand h1{font-size:42px}.gate-cards{grid-template-columns:1fr}.contribution-grid{grid-template-columns:1fr}.name-grid{grid-template-columns:1fr 1fr}.health-grid{grid-template-columns:1fr 1fr}.desktop-nav{display:none}.mobile-nav{grid-template-columns:repeat(6,1fr)}}
 @media(max-width:520px){.name-grid{grid-template-columns:1fr}.health-grid{grid-template-columns:1fr 1fr}.gate-brand h1{font-size:38px}}
+
+
+/* V3.0.1 — Access Codes layout hotfix */
+#accessCodeForm .two-cols{
+  grid-template-columns:1fr;
+  gap:14px;
+}
+#accessCodeForm .two-cols > label{
+  min-width:0;
+}
+#accessCodeForm .two-cols input{
+  width:100%;
+  min-width:0;
+}
