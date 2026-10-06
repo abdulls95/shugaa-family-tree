@@ -29,7 +29,9 @@
     activePersonId: null,
     libraryFilter: "all",
     lastDuplicateCheckKey: "",
-    changeFilter: "pending"
+    changeFilter: "pending",
+    relativeDraft: { type:null, mode:"new" },
+    familyBuilder: { spouseMode:"none", childSeq:0 }
   };
 
   const $ = s => document.querySelector(s);
@@ -210,6 +212,18 @@
     rows.forEach(p=>{ const c=document.createElement("article"); c.className="person-card"; c.innerHTML=`<div class="avatar">${genderIcon(p.gender)}</div><div><h3>${esc(p.full_name_ar)}</h3><p>${esc(yearText(p))}</p><p>${p.lineage_code?`كود الأسرة: ${esc(p.lineage_code)}`:""}${state.mode==="account"&&p.record_code?` • ${esc(p.record_code)}`:""}</p></div>`; c.onclick=()=>openPerson(p.id); grid.appendChild(c); });
   }
 
+  function personCompleteness(p,f){
+    const checks=[p.first_name_ar||p.full_name_ar,p.gender&&p.gender!=="unknown",p.birth_date||p.birth_year,p.lineage_code,f.father||p.father_name_text,f.mother,p.bio];
+    return Math.round((checks.filter(Boolean).length/checks.length)*100);
+  }
+  function relativeChip(p,label){
+    if(!p)return `<span class="v4-empty-relative">${esc(label||"غير مسجل")}</span>`;
+    return `<button type="button" class="v4-relative-chip open-v4-relative" data-id="${esc(p.id)}"><b>${esc(p.full_name_ar)}</b><small>${esc(p.record_code||"")}</small></button>`;
+  }
+  function setProfileTab(name){
+    $$(".v4-profile-tab").forEach(b=>b.classList.toggle("active",b.dataset.profileTab===name));
+    $$(".v4-profile-panel").forEach(x=>x.classList.toggle("active",x.id===`profileTab-${name}`));
+  }
   function openPerson(id){
     const p=getPerson(id); if(!p)return; state.activePersonId=id; const f=familyOf(id);
     $("#profileName").textContent=p.full_name_ar; $("#profileLife").textContent=yearText(p); $("#profileAvatar").textContent=genderIcon(p.gender);
@@ -218,11 +232,34 @@
     motherBtn.textContent=f.mother?.full_name_ar||"—";
     fatherBtn.dataset.personId=f.father?.id||""; motherBtn.dataset.personId=f.mother?.id||"";
     fatherBtn.classList.toggle("is-linked",!!f.father); motherBtn.classList.toggle("is-linked",!!f.mother);
-    $("#profileSpouses").textContent=f.spouses.length?f.spouses.map(x=>x.full_name_ar).join("، "):"—"; $("#profileChildren").textContent=f.children.length?f.children.map(x=>x.full_name_ar).join("، "):"—";
+    $("#profileSpouses").textContent=f.spouses.length?`${f.spouses.length} مسجل` : "—";
+    $("#profileChildren").textContent=f.children.length?`${f.children.length} مسجل` : "—";
     $("#profileLineageCode").textContent=p.lineage_code?`الأسرة ${p.lineage_code}`:""; $("#profileRecordCode").textContent=state.mode==="account"&&p.record_code?p.record_code:"";
     $("#profileBio").textContent=state.mode==="account"?(p.bio||"لا توجد نبذة مسجلة."):"المعلومات الخاصة غير متاحة بهذا النوع من الدخول.";
+    if($("#profileCompleteness"))$("#profileCompleteness").textContent=personCompleteness(p,f)+"%";
+
+    const parents=[];
+    parents.push(relativeChip(f.father,"الأب غير مسجل"));
+    parents.push(relativeChip(f.mother,"الأم غير مسجلة"));
+    $("#profileParentsList").innerHTML=parents.join("");
+    $("#profileSpousesList").innerHTML=f.spouses.length?f.spouses.map(x=>relativeChip(x)).join(""):'<span class="v4-empty-relative">لا يوجد زوج/زوجة مسجل</span>';
+    $("#profileChildrenList").innerHTML=f.children.length?f.children.map(x=>relativeChip(x)).join(""):'<span class="v4-empty-relative">لا يوجد أبناء مسجلون</span>';
+    $$(".open-v4-relative").forEach(b=>b.onclick=()=>openPerson(b.dataset.id));
+
+    $("#profileDetailFacts").innerHTML=`
+      <div class="v4-detail-fact"><span>تاريخ الميلاد</span><b>${esc(p.birth_date||p.birth_year||"غير مسجل")}</b></div>
+      <div class="v4-detail-fact"><span>تاريخ الوفاة</span><b>${esc(p.is_living?"على قيد الحياة":(p.death_date||p.death_year||"غير مسجل"))}</b></div>
+      <div class="v4-detail-fact"><span>درجة التوثيق</span><b>${esc(confidenceLabel(p.record_confidence))}</b></div>
+      <div class="v4-detail-fact"><span>كود السجل</span><b>${esc(p.record_code||"—")}</b></div>`;
     $("#profileMergeBtn").classList.toggle("hidden",!canMergePeople());
     $("#profileArchiveBtn").classList.toggle("hidden",!canArchivePeople());
+    const canBuild=canAddPeopleDirect();
+    $("#profileAddRelativeBtn")?.classList.toggle("hidden",!canBuild);
+    $("#profileBuildFamilyBtn")?.classList.toggle("hidden",!canBuild);
+    $("#profileBulkChildrenBtn")?.classList.toggle("hidden",!canBuild);
+    $$("[data-quick-relative]").forEach(b=>b.classList.toggle("hidden",!canBuild));
+    $("#profileEditBtn")?.classList.toggle("hidden",!canDirectBasicEdit());
+    setProfileTab("overview");
     $("#personModal").classList.remove("hidden");
   }
   function closePerson(){ $("#personModal").classList.add("hidden"); }
@@ -799,6 +836,144 @@
     return rows;
   }
 
+
+  // =========================================================
+  // V4 — relationship-first family builder
+  // =========================================================
+  const V4_REL_LABEL={father:"أب",mother:"أم",spouse:"زوج / زوجة",son:"ابن",daughter:"ابنة",brother:"أخ",sister:"أخت"};
+
+  function v4ShowRelativeStep(n){
+    [1,2,3].forEach(i=>{
+      $("#relativeStep"+i)?.classList.toggle("active",i===n);
+      document.querySelector(`[data-step-dot="${i}"]`)?.classList.toggle("active",i<=n);
+    });
+  }
+  function v4FixedGender(type){ return ({father:"male",mother:"female",son:"male",daughter:"female",brother:"male",sister:"female"})[type]||null; }
+  function v4OtherParentCandidates(anchor,type){
+    if(!["son","daughter"].includes(type))return [];
+    const fam=familyOf(anchor.id), spouseIds=new Set(fam.spouses.map(x=>x.id));
+    return state.people.filter(p=>p.id!==anchor.id).filter(p=>{
+      if(anchor.gender==="male")return p.gender!=="male";
+      if(anchor.gender==="female")return p.gender!=="female";
+      return true;
+    }).sort((a,b)=>(spouseIds.has(a.id)?0:1)-(spouseIds.has(b.id)?0:1)||(a.full_name_ar||"").localeCompare(b.full_name_ar||"","ar"));
+  }
+  function v4FillExistingCandidates(){
+    const type=state.relativeDraft.type, anchor=getPerson(state.activePersonId), sel=$("#relativeExistingPerson"); if(!anchor||!sel)return;
+    const fixed=v4FixedGender(type);
+    const rows=state.people.filter(p=>p.id!==anchor.id).filter(p=>!fixed||p.gender===fixed||p.gender==="unknown");
+    sel.innerHTML='<option value="">— اختر —</option>'+rows.map(p=>`<option value="${p.id}">${esc(personLabel(p))}</option>`).join("");
+  }
+  function v4FillOtherParent(){
+    const anchor=getPerson(state.activePersonId),sel=$("#relativeOtherParent"); if(!anchor||!sel)return;
+    const fam=familyOf(anchor.id), spouseIds=new Set(fam.spouses.map(x=>x.id));
+    const rows=v4OtherParentCandidates(anchor,state.relativeDraft.type);
+    sel.innerHTML='<option value="">— غير معروف / غير مسجل —</option>'+rows.map(p=>`<option value="${p.id}">${spouseIds.has(p.id)?"★ ":""}${esc(personLabel(p))}</option>`).join("");
+    const spouses=rows.filter(p=>spouseIds.has(p.id)); if(spouses.length===1)sel.value=spouses[0].id;
+  }
+  function v4PrefillRelative(){
+    const a=getPerson(state.activePersonId),t=state.relativeDraft.type;if(!a)return;
+    const fixed=v4FixedGender(t); if(fixed)$("#relativeGender").value=fixed;
+    else $("#relativeGender").value=a.gender==="male"?"female":a.gender==="female"?"male":"unknown";
+    $("#relativeFirstName").value=""; $("#relativeFatherNameText").value=""; $("#relativeGrandfatherNameText").value=""; $("#relativeGreatNameText").value=""; $("#relativeFamilyNameText").value=""; $("#relativeLineageCode").value="";
+    const fam=familyOf(a.id);
+    if(["son","daughter"].includes(t) && a.gender==="male"){
+      $("#relativeFatherNameText").value=a.first_name_ar||a.full_name_ar.split(" ")[0]||"";
+      $("#relativeGrandfatherNameText").value=a.father_name_text||"";
+      $("#relativeGreatNameText").value=a.grandfather_name_text||"";
+      $("#relativeFamilyNameText").value=a.family_name_text||"";
+    }else if(["brother","sister"].includes(t)){
+      $("#relativeFatherNameText").value=a.father_name_text||fam.father?.first_name_ar||"";
+      $("#relativeGrandfatherNameText").value=a.grandfather_name_text||fam.father?.father_name_text||"";
+      $("#relativeGreatNameText").value=a.great_grandfather_name_text||fam.father?.grandfather_name_text||"";
+      $("#relativeFamilyNameText").value=a.family_name_text||"";
+    }else if(t==="father"){
+      $("#relativeFirstName").value=a.father_name_text||fam.father?.first_name_ar||"";
+      $("#relativeFatherNameText").value=a.grandfather_name_text||"";
+      $("#relativeGrandfatherNameText").value=a.great_grandfather_name_text||"";
+      $("#relativeFamilyNameText").value=a.family_name_text||"";
+    }
+    v4UpdateRelativeName();
+  }
+  function v4RelativePersonData(){
+    const first=$("#relativeFirstName").value.trim(),father=$("#relativeFatherNameText").value.trim(),grand=$("#relativeGrandfatherNameText").value.trim(),great=$("#relativeGreatNameText").value.trim(),family=$("#relativeFamilyNameText").value.trim(),date=$("#relativeBirthDate").value||null;
+    return {first_name_ar:first,father_name_text:father||null,grandfather_name_text:grand||null,great_grandfather_name_text:great||null,family_name_text:family||null,full_name_ar:[first,father,grand,great,family].filter(Boolean).join(" "),gender:$("#relativeGender").value,birth_date:date,birth_year:toInt($("#relativeBirthYear").value)||(date?parseInt(date.slice(0,4),10):null),is_living:$("#relativeLiving").checked,record_confidence:$("#relativeConfidence").value,lineage_code:$("#relativeLineageCode").value.trim()||null,bio:$("#relativeBio").value.trim()||null};
+  }
+  function v4UpdateRelativeName(){ const d=v4RelativePersonData(); $("#relativeNamePreview").textContent=d.full_name_ar||"—"; $("#relativeDuplicateBox").classList.add("hidden"); $("#relativeDuplicateConfirmWrap").classList.add("hidden"); $("#relativeDuplicateConfirm").checked=false; }
+  function v4SetRelativeMode(mode){ state.relativeDraft.mode=mode; $("#relativeModeNew").classList.toggle("active",mode==="new"); $("#relativeModeExisting").classList.toggle("active",mode==="existing"); $("#relativeNewFields").classList.toggle("hidden",mode!=="new"); $("#relativeExistingFields").classList.toggle("hidden",mode!=="existing"); }
+  function openRelativeBuilder(anchorId,preset=null){
+    if(!canAddPeopleDirect())return toast("لا تملك صلاحية إضافة أفراد مباشرة.");
+    const a=getPerson(anchorId);if(!a)return;state.activePersonId=anchorId;state.relativeDraft={type:null,mode:"new"};
+    $("#relativeAnchorName").textContent=a.full_name_ar; $("#relativeBuilderMsg").textContent=""; v4SetRelativeMode("new"); v4ShowRelativeStep(1); $("#relativeBuilderModal").classList.remove("hidden");
+    if(preset && !["child","parent"].includes(preset))v4ChooseRelation(preset);
+  }
+  function closeRelativeBuilder(){ $("#relativeBuilderModal").classList.add("hidden"); }
+  async function v4ChooseRelation(type){
+    const a=getPerson(state.activePersonId);if(!a)return;
+    if(["father","mother"].includes(type) && !canDirectGenealogyEdit())return toast("إضافة أب أو أم لشخص موجود تحتاج صلاحية تعديل النسب مباشرة.",4500);
+    if(["brother","sister"].includes(type)){const fam=familyOf(a.id);if(!fam.father&&!fam.mother)return toast("سجّل أبًا أو أمًا أولًا حتى نستطيع ربط الأخ/الأخت بشكل صحيح.",4500);}
+    state.relativeDraft.type=type; $("#relativeTypeTitle").textContent=V4_REL_LABEL[type]||type; v4PrefillRelative(); v4FillExistingCandidates(); v4FillOtherParent();
+    const existingSensitive=["father","mother","son","daughter","brother","sister"].includes(type)&&!canDirectGenealogyEdit();
+    $("#relativeModeExisting").disabled=existingSensitive; $("#relativeModeExisting").title=existingSensitive?"ربط سجل موجود بالنسب يحتاج صلاحية تعديل النسب مباشرة":"";
+    if(existingSensitive)v4SetRelativeMode("new");
+    $("#relativeOtherParentWrap").classList.toggle("hidden",!["son","daughter"].includes(type));
+    $("#relativeMarriageStatusWrap").classList.toggle("hidden",type!=="spouse");
+    if(["son","daughter"].includes(type)){
+      try{const parentForCode=a.gender==="male"?a:getPerson($("#relativeOtherParent").value);if(parentForCode){const {data}=await client.rpc("suggest_lineage_code",{p_parent_id:parentForCode.id});if(data)$("#relativeLineageCode").value=data;}}catch(_e){}
+    }
+    v4ShowRelativeStep(2);
+  }
+  async function v4CheckRelativeDuplicates(){
+    const d=v4RelativePersonData(); if(!d.first_name_ar)return [];
+    const {data,error}=await client.rpc("find_possible_duplicates",{p_first_name:d.first_name_ar,p_father_name:d.father_name_text,p_grandfather_name:d.grandfather_name_text,p_birth_year:d.birth_year,p_exclude_id:null}); if(error)throw error;
+    const rows=data||[],box=$("#relativeDuplicateBox"); box.classList.remove("hidden");
+    if(!rows.length){box.innerHTML="<b>✓ لم نجد تشابهًا واضحًا.</b>";return rows;}
+    box.innerHTML=`<b>⚠️ قد يكون الشخص موجودًا:</b>${rows.slice(0,5).map(r=>`<div class="duplicate-row"><b>${esc(r.full_name_ar)}</b><small>${esc(r.record_code||"")} • تشابه ${r.score}%</small></div>`).join("")}`; $("#relativeDuplicateConfirmWrap").classList.remove("hidden");return rows;
+  }
+  async function v4PrepareRelativePreview(){
+    const a=getPerson(state.activePersonId),t=state.relativeDraft.type;if(!a||!t)return;
+    if(state.relativeDraft.mode==="new"){
+      const d=v4RelativePersonData(); if(!d.first_name_ar)return toast("اكتب الاسم الأول.");
+      try{const dups=await v4CheckRelativeDuplicates();if(dups.length&&!$("#relativeDuplicateConfirm").checked)return toast("راجع الأسماء المشابهة ثم أكد أن الشخص جديد.",4500);}catch(e){return toast("تعذر فحص التكرار: "+e.message,4500);}
+    }else if(!$("#relativeExistingPerson").value)return toast("اختر الشخص الموجود.");
+    const rp=state.relativeDraft.mode==="new"?v4RelativePersonData():getPerson($("#relativeExistingPerson").value);
+    const arrow=["father","mother"].includes(t)?"↓":["son","daughter"].includes(t)?"↓":"↔";
+    $("#relativePreview").innerHTML=`<div class="v4-preview-person"><small>الشخص الحالي</small><strong>${esc(a.full_name_ar)}</strong><small>${esc(a.record_code||"")}</small></div><div class="v4-preview-relation"><span>${esc(V4_REL_LABEL[t])}</span><b>${arrow}</b></div><div class="v4-preview-person"><small>${state.relativeDraft.mode==="existing"?"سجل موجود":"سجل جديد"}</small><strong>${esc(rp?.full_name_ar||"—")}</strong><small>${state.relativeDraft.mode==="existing"?esc(rp?.record_code||""):"سيصدر له رقم SHG تلقائيًا"}</small></div>`;
+    v4ShowRelativeStep(3);
+  }
+  async function v4SaveRelative(){
+    const a=getPerson(state.activePersonId),t=state.relativeDraft.type,msg=$("#relativeBuilderMsg");if(!a||!t)return;
+    msg.textContent="جاري الحفظ...";
+    const params={p_anchor_id:a.id,p_relation_type:t,p_existing_person_id:state.relativeDraft.mode==="existing"?$("#relativeExistingPerson").value||null:null,p_person:state.relativeDraft.mode==="new"?v4RelativePersonData():{},p_other_parent_id:$("#relativeOtherParent").value||null,p_marriage_status:$("#relativeMarriageStatus").value||"unknown"};
+    const {data,error}=await client.rpc("staff_add_relative_v4",params); if(error){msg.textContent="تعذر الحفظ: "+error.message;return;}
+    msg.textContent="تمت الإضافة والربط ✅"; const personId=data?.person_id; await loadAccountData(); setTimeout(()=>{closeRelativeBuilder();openPerson(personId||a.id);},400);
+  }
+
+  function familySpouseMode(mode){state.familyBuilder.spouseMode=mode;[["none","#familySpouseNone"],["existing","#familySpouseExisting"],["new","#familySpouseNew"]].forEach(([m,s])=>$(s).classList.toggle("active",m===mode));$("#familyExistingSpouseWrap").classList.toggle("hidden",mode!=="existing");$("#familyNewSpouseWrap").classList.toggle("hidden",mode!=="new");if(mode==="new")$$("#familyChildrenRows .fb-child-other").forEach(s=>s.value="__new_spouse__");v4RenderFamilyPreview();}
+  function v4FamilyOtherParentOptions(anchor){const fam=familyOf(anchor.id);return fam.spouses.map(p=>`<option value="${p.id}">${esc(p.full_name_ar)}</option>`).join("");}
+  function addFamilyChildRow(seed={}){
+    const a=getPerson(state.activePersonId);if(!a)return; const id=++state.familyBuilder.childSeq; const div=document.createElement("div");div.className="v4-child-row";div.dataset.rowId=id;
+    div.innerHTML=`<label>اسم الطفل<input class="fb-child-name" value="${esc(seed.name||"")}" placeholder="الاسم الأول" /></label><label>الجنس<select class="fb-child-gender"><option value="male">ذكر</option><option value="female">أنثى</option><option value="unknown">غير محدد</option></select></label><label>الوالد الآخر<select class="fb-child-other"><option value="">— غير محدد —</option>${v4FamilyOtherParentOptions(a)}<option value="__new_spouse__" class="fb-new-spouse-option">الزوج/الزوجة الجديد أعلاه</option></select></label><button type="button" class="remove-family-child">×</button>`;
+    $("#familyChildrenRows").appendChild(div); div.querySelector(".fb-child-gender").value=seed.gender||"male"; if(state.familyBuilder.spouseMode==="new")div.querySelector(".fb-child-other").value="__new_spouse__"; else{const fam=familyOf(a.id);if(fam.spouses.length===1)div.querySelector(".fb-child-other").value=fam.spouses[0].id;}
+    div.querySelectorAll("input,select").forEach(x=>x.addEventListener("input",v4RenderFamilyPreview));div.querySelector(".remove-family-child").onclick=()=>{div.remove();v4RenderFamilyPreview();};v4RenderFamilyPreview();
+  }
+  function openFamilyBuilder(anchorId){
+    if(!canAddPeopleDirect())return toast("لا تملك صلاحية إضافة أفراد مباشرة.");const a=getPerson(anchorId);if(!a)return;state.activePersonId=anchorId;state.familyBuilder={spouseMode:"none",childSeq:0};$("#familyAnchorName").textContent=a.full_name_ar;$("#familyBuilderMsg").textContent="";
+    const fam=familyOf(a.id);const spouseCandidates=state.people.filter(p=>p.id!==a.id).filter(p=>a.gender==="male"?p.gender!=="male":a.gender==="female"?p.gender!=="female":true);$("#familyExistingSpouse").innerHTML='<option value="">— اختر —</option>'+spouseCandidates.map(p=>`<option value="${p.id}">${esc(personLabel(p))}</option>`).join("");$("#familyNewSpouseGender").value=a.gender==="male"?"female":a.gender==="female"?"male":"unknown";$("#familyNewSpouseName").value="";$("#familyChildrenRows").innerHTML="";familySpouseMode("none");addFamilyChildRow();$("#familyBuilderModal").classList.remove("hidden");
+  }
+  function closeFamilyBuilder(){$("#familyBuilderModal").classList.add("hidden");}
+  function v4FamilyChildrenPayload(){
+    const a=getPerson(state.activePersonId);return $$("#familyChildrenRows .v4-child-row").map(row=>{const first=row.querySelector(".fb-child-name").value.trim(),gender=row.querySelector(".fb-child-gender").value,other=row.querySelector(".fb-child-other").value||null;let father=null;if(a?.gender==="male")father=a;else if(other&&other!=="__new_spouse__")father=getPerson(other);const person={first_name_ar:first,gender,is_living:true,record_confidence:"family_tradition",father_name_text:father?(father.first_name_ar||father.full_name_ar.split(" ")[0]):null,grandfather_name_text:father?.father_name_text||null,great_grandfather_name_text:father?.grandfather_name_text||null,family_name_text:father?.family_name_text||a?.family_name_text||null};person.full_name_ar=[person.first_name_ar,person.father_name_text,person.grandfather_name_text,person.great_grandfather_name_text,person.family_name_text].filter(Boolean).join(" ");return {person,other_parent_id:other};}).filter(x=>x.person.first_name_ar);
+  }
+  function v4RenderFamilyPreview(){
+    const a=getPerson(state.activePersonId),box=$("#familyBuilderPreview");if(!a||!box)return;const chips=[`<span>رب الأسرة: ${esc(a.full_name_ar)}</span>`];if(state.familyBuilder.spouseMode==="existing"){const p=getPerson($("#familyExistingSpouse").value);if(p)chips.push(`<span>زوج/زوجة: ${esc(p.full_name_ar)}</span>`);}if(state.familyBuilder.spouseMode==="new"&&$("#familyNewSpouseName").value.trim())chips.push(`<span>زوج/زوجة جديد: ${esc($("#familyNewSpouseName").value.trim())}</span>`);v4FamilyChildrenPayload().forEach(x=>chips.push(`<span>${x.person.gender==="female"?"ابنة":"ابن"}: ${esc(x.person.full_name_ar||x.person.first_name_ar)}</span>`));box.innerHTML=chips.join("");
+  }
+  async function saveFamilyBundle(){
+    const a=getPerson(state.activePersonId),msg=$("#familyBuilderMsg");if(!a)return;const children=v4FamilyChildrenPayload();if(!children.length)return toast("أضف طفلًا واحدًا على الأقل، أو استخدم «إضافة قريب» لإضافة الزوج/الزوجة فقط.");
+    let spouse={mode:state.familyBuilder.spouseMode};if(spouse.mode==="existing"){spouse.existing_person_id=$("#familyExistingSpouse").value||null;if(!spouse.existing_person_id)return toast("اختر الزوج/الزوجة الموجود.");}else if(spouse.mode==="new"){const name=$("#familyNewSpouseName").value.trim();if(!name)return toast("اكتب اسم الزوج/الزوجة الجديد.");const parts=name.split(/\s+/);spouse.person={full_name_ar:name,first_name_ar:parts[0],father_name_text:parts[1]||null,grandfather_name_text:parts[2]||null,great_grandfather_name_text:parts[3]||null,family_name_text:parts.length>4?parts.slice(4).join(" "):null,gender:$("#familyNewSpouseGender").value,is_living:true,record_confidence:"family_tradition"};}
+    msg.textContent="جاري حفظ الأسرة...";const {data,error}=await client.rpc("staff_add_family_bundle_v4",{p_anchor_id:a.id,p_spouse:spouse,p_children:children});if(error){msg.textContent="تعذر الحفظ: "+error.message;return;}msg.textContent=`تم حفظ الأسرة ✅ (${data?.children_count||children.length} أبناء)`;await loadAccountData();setTimeout(()=>{closeFamilyBuilder();openPerson(a.id);setProfileTab("family");},450);
+  }
+
   function setView(name){
     const allowed = name==="library"||name==="history" ? state.mode==="account" : name==="contribute" ? ["personal","account"].includes(state.mode) : name==="myfamily" ? state.mode==="account"&&!!state.profile?.person_id : name==="admin" ? state.mode==="account"&&["admin","editor"].includes(state.role) : true;
     if(!allowed)return toast("هذه الصفحة غير متاحة بنوع الدخول الحالي.");
@@ -836,6 +1011,22 @@
   $("#profileKinshipBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("kinship");$("#kinshipA").value=id;};
   $("#profileContributeBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("contribute");$("#contribTarget").value=id;};
   $("#profileEditBtn").onclick=()=>{const id=state.activePersonId;closePerson();openEditPerson(id);};
+  $$(".v4-profile-tab").forEach(b=>b.onclick=()=>setProfileTab(b.dataset.profileTab));
+  $("#profileAddRelativeBtn").onclick=()=>{const id=state.activePersonId;closePerson();openRelativeBuilder(id);};
+  $("#profileBuildFamilyBtn").onclick=()=>{const id=state.activePersonId;closePerson();openFamilyBuilder(id);};
+  $("#profileBulkChildrenBtn").onclick=()=>{const id=state.activePersonId;closePerson();openFamilyBuilder(id);};
+  $$("[data-quick-relative]").forEach(b=>b.onclick=()=>{const id=state.activePersonId,preset=b.dataset.quickRelative;closePerson();openRelativeBuilder(id,preset);});
+  $$("[data-close-relative-builder]").forEach(x=>x.onclick=closeRelativeBuilder);
+  $$("[data-relative-type]").forEach(b=>b.onclick=()=>v4ChooseRelation(b.dataset.relativeType));
+  $$("[data-relative-back]").forEach(b=>b.onclick=()=>v4ShowRelativeStep(Number(b.dataset.relativeBack)));
+  $("#relativeModeNew").onclick=()=>v4SetRelativeMode("new");
+  $("#relativeModeExisting").onclick=()=>v4SetRelativeMode("existing");
+  ["#relativeFirstName","#relativeFatherNameText","#relativeGrandfatherNameText","#relativeGreatNameText","#relativeFamilyNameText","#relativeBirthDate","#relativeBirthYear"].forEach(s=>$(s)?.addEventListener("input",v4UpdateRelativeName));
+  $("#relativeToPreviewBtn").onclick=v4PrepareRelativePreview;
+  $("#saveRelativeBtn").onclick=v4SaveRelative;
+  $$("[data-close-family-builder]").forEach(x=>x.onclick=closeFamilyBuilder);
+  $("#familySpouseNone").onclick=()=>familySpouseMode("none");$("#familySpouseExisting").onclick=()=>familySpouseMode("existing");$("#familySpouseNew").onclick=()=>familySpouseMode("new");
+  $("#familyExistingSpouse").onchange=v4RenderFamilyPreview;$("#familyNewSpouseName").oninput=v4RenderFamilyPreview;$("#addFamilyChildRow").onclick=()=>addFamilyChildRow();$("#saveFamilyBundleBtn").onclick=saveFamilyBundle;
   $("#profileAddChildBtn").onclick=()=>{const id=state.activePersonId;closePerson();openAddChildModal(id);};
   $("#profileMergeBtn").onclick=()=>{const id=state.activePersonId;closePerson();openMergePerson(id);};
   $("#profileArchiveBtn").onclick=async()=>{

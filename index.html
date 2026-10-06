@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#082f29" />
   <meta name="description" content="شجرة آل شجاع — متحف رقمي وشجرة نسب ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=3.0.9" />
+  <link rel="manifest" href="./manifest.webmanifest?v=4.0.0" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=3.0.9" />
+  <link rel="stylesheet" href="./styles.css?v=4.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -430,35 +430,189 @@
     </nav>
   </div>
 
-  <!-- PERSON MODAL -->
+  <!-- PERSON MODAL — V4 FAMILY HUB -->
   <div id="personModal" class="modal hidden">
     <div class="modal-backdrop" data-close-modal></div>
-    <article class="modal-card">
+    <article class="modal-card v4-profile-card">
       <button class="modal-close" data-close-modal>×</button>
-      <div class="profile-hero">
+
+      <div class="v4-profile-top">
         <div id="profileAvatar" class="avatar big">ش</div>
-        <div><div class="profile-code-row"><span id="profileRecordCode" class="badge gold"></span><span id="profileLineageCode" class="badge"></span></div><h2 id="profileName"></h2><p id="profileLife"></p></div>
+        <div class="v4-profile-title">
+          <div class="profile-code-row"><span id="profileRecordCode" class="badge gold"></span><span id="profileLineageCode" class="badge"></span></div>
+          <h2 id="profileName"></h2>
+          <p id="profileLife"></p>
+        </div>
+        <div class="v4-completeness account-only hidden">
+          <span id="profileCompleteness">0%</span>
+          <small>اكتمال الملف</small>
+        </div>
       </div>
-      <div class="profile-grid">
-        <div class="info-box"><span>الأب</span><button type="button" id="profileFather" class="relative-profile-link">—</button></div>
-        <div class="info-box"><span>الأم</span><button type="button" id="profileMother" class="relative-profile-link">—</button></div>
-        <div class="info-box"><span>الزوج/الزوجة</span><strong id="profileSpouses">—</strong></div>
-        <div class="info-box"><span>الأبناء</span><strong id="profileChildren">—</strong></div>
+
+      <div class="v4-primary-actions staff-only hidden">
+        <button id="profileAddRelativeBtn" class="btn primary v4-big-action">＋ إضافة قريب</button>
+        <button id="profileBuildFamilyBtn" class="btn gold v4-big-action">👨‍👩‍👧 بناء الأسرة</button>
       </div>
-      <div class="profile-actions">
-        <button id="profileEditBtn" class="btn primary staff-only hidden">✏️ تعديل مباشر</button>
-        <button id="profileAddChildBtn" class="btn primary staff-only hidden">➕ إضافة ابن/ابنة</button>
-        <button id="profileMergeBtn" class="btn light hidden">🔀 دمج تكرار</button>
-        <button id="profileArchiveBtn" class="btn light danger-outline hidden">📦 أرشفة السجل</button>
-        <button id="profileLineageBtn" class="btn gold">رحلة النسب</button>
-        <button id="profileKinshipBtn" class="btn light">صلة القرابة</button>
-        <button id="profileContributeBtn" class="btn light contribution-only hidden">تصحيح / إضافة معلومة</button>
+
+      <div class="v4-profile-tabs" role="tablist">
+        <button class="v4-profile-tab active" data-profile-tab="overview">نظرة عامة</button>
+        <button class="v4-profile-tab" data-profile-tab="family">العائلة</button>
+        <button class="v4-profile-tab account-only hidden" data-profile-tab="details">التفاصيل</button>
       </div>
-      <div id="profilePrivateSection" class="account-only hidden panel soft"><h3>نبذة</h3><p id="profileBio">—</p></div>
+
+      <section id="profileTab-overview" class="v4-profile-panel active">
+        <div class="profile-grid v4-overview-grid">
+          <div class="info-box"><span>الأب</span><button type="button" id="profileFather" class="relative-profile-link">—</button></div>
+          <div class="info-box"><span>الأم</span><button type="button" id="profileMother" class="relative-profile-link">—</button></div>
+          <div class="info-box"><span>الزوج/الزوجة</span><strong id="profileSpouses">—</strong></div>
+          <div class="info-box"><span>الأبناء</span><strong id="profileChildren">—</strong></div>
+        </div>
+        <div class="v4-mini-actions">
+          <button id="profileLineageBtn" class="btn gold">رحلة النسب</button>
+          <button id="profileKinshipBtn" class="btn light">صلة القرابة</button>
+          <button id="profileContributeBtn" class="btn light contribution-only hidden">تصحيح / إضافة معلومة</button>
+        </div>
+      </section>
+
+      <section id="profileTab-family" class="v4-profile-panel">
+        <div class="v4-family-section">
+          <div class="v4-family-head"><h3>الوالدان</h3><button type="button" class="v4-inline-add staff-only hidden" data-quick-relative="parent">＋</button></div>
+          <div id="profileParentsList" class="v4-relative-list"></div>
+        </div>
+        <div class="v4-family-section">
+          <div class="v4-family-head"><h3>الزوج / الزوجات</h3><button type="button" class="v4-inline-add staff-only hidden" data-quick-relative="spouse">＋</button></div>
+          <div id="profileSpousesList" class="v4-relative-list"></div>
+        </div>
+        <div class="v4-family-section">
+          <div class="v4-family-head"><h3>الأبناء</h3><div class="v4-family-head-actions"><button type="button" class="v4-inline-text staff-only hidden" id="profileBulkChildrenBtn">إضافة عدة أبناء</button><button type="button" class="v4-inline-add staff-only hidden" data-quick-relative="child">＋</button></div></div>
+          <div id="profileChildrenList" class="v4-relative-list"></div>
+        </div>
+      </section>
+
+      <section id="profileTab-details" class="v4-profile-panel account-only hidden">
+        <div class="panel soft"><h3>نبذة</h3><p id="profileBio">—</p></div>
+        <div id="profileDetailFacts" class="v4-detail-facts"></div>
+      </section>
+
+      <details class="v4-admin-more staff-only hidden">
+        <summary>⋯ أدوات السجل</summary>
+        <div class="profile-actions v4-admin-actions">
+          <button id="profileEditBtn" class="btn light">✏️ تعديل البيانات</button>
+          <button id="profileAddChildBtn" class="btn light hidden">إضافة ابن/ابنة القديمة</button>
+          <button id="profileMergeBtn" class="btn light hidden">🔀 دمج تكرار</button>
+          <button id="profileArchiveBtn" class="btn light danger-outline hidden">📦 أرشفة السجل</button>
+        </div>
+      </details>
+      <div id="profilePrivateSection" class="hidden"></div>
     </article>
   </div>
 
+  <!-- V4 ADD RELATIVE -->
+  <div id="relativeBuilderModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-relative-builder></div>
+    <article class="modal-card v4-builder-card">
+      <button class="modal-close" type="button" data-close-relative-builder>×</button>
+      <div class="v4-builder-heading">
+        <span class="section-kicker">بناء العائلة</span>
+        <h2>إضافة قريب لـ <span id="relativeAnchorName"></span></h2>
+        <p>ابدأ بصلة القرابة، والنظام يرتب الروابط تلقائيًا.</p>
+      </div>
+      <div class="v4-stepper"><span class="active" data-step-dot="1">1</span><i></i><span data-step-dot="2">2</span><i></i><span data-step-dot="3">3</span></div>
 
+      <section id="relativeStep1" class="v4-builder-step active">
+        <h3>ما صلة الشخص الجديد؟</h3>
+        <div class="v4-relation-grid">
+          <button type="button" data-relative-type="father"><b>↑</b><span>أب</span></button>
+          <button type="button" data-relative-type="mother"><b>↑</b><span>أم</span></button>
+          <button type="button" data-relative-type="spouse"><b>♡</b><span>زوج / زوجة</span></button>
+          <button type="button" data-relative-type="son"><b>↓</b><span>ابن</span></button>
+          <button type="button" data-relative-type="daughter"><b>↓</b><span>ابنة</span></button>
+          <button type="button" data-relative-type="brother"><b>↔</b><span>أخ</span></button>
+          <button type="button" data-relative-type="sister"><b>↔</b><span>أخت</span></button>
+        </div>
+      </section>
+
+      <section id="relativeStep2" class="v4-builder-step">
+        <div class="v4-builder-back-row"><button type="button" class="v4-text-btn" data-relative-back="1">← تغيير صلة القرابة</button><strong id="relativeTypeTitle"></strong></div>
+        <div class="v4-mode-switch">
+          <button id="relativeModeNew" type="button" class="active">شخص جديد</button>
+          <button id="relativeModeExisting" type="button">ربط شخص موجود</button>
+        </div>
+
+        <div id="relativeNewFields" class="stack v4-compact-form">
+          <div class="two-cols">
+            <label>الاسم الأول *<input id="relativeFirstName" autocomplete="off" /></label>
+            <label>الجنس<select id="relativeGender"><option value="male">ذكر</option><option value="female">أنثى</option><option value="unknown">غير محدد</option></select></label>
+          </div>
+          <div class="v4-auto-name"><small>الاسم الكامل المقترح</small><strong id="relativeNamePreview">—</strong></div>
+          <details class="v4-optional-details">
+            <summary>معلومات إضافية (اختياري)</summary>
+            <div class="name-grid v4-name-grid">
+              <label>اسم الأب<input id="relativeFatherNameText" /></label>
+              <label>اسم الجد<input id="relativeGrandfatherNameText" /></label>
+              <label>اسم جد الأب<input id="relativeGreatNameText" /></label>
+              <label>اسم العائلة<input id="relativeFamilyNameText" /></label>
+            </div>
+            <div class="two-cols"><label>تاريخ الميلاد<input id="relativeBirthDate" type="date" /></label><label>سنة الميلاد فقط<input id="relativeBirthYear" type="number" min="1" max="3000" /></label></div>
+            <div class="two-cols"><label>كود الأسرة / المسار<input id="relativeLineageCode" /></label><label>درجة التوثيق<select id="relativeConfidence"><option value="family_tradition">متوارث عائليًا</option><option value="documented">موثق</option><option value="likely">مرجح</option><option value="uncertain">غير مؤكد</option></select></label></div>
+            <label class="check-row"><input id="relativeLiving" type="checkbox" checked /> على قيد الحياة</label>
+            <label>نبذة / ملاحظة<textarea id="relativeBio" rows="2"></textarea></label>
+          </details>
+          <div id="relativeDuplicateBox" class="duplicate-box hidden"></div>
+          <label id="relativeDuplicateConfirmWrap" class="check-row hidden"><input id="relativeDuplicateConfirm" type="checkbox" /> راجعت النتائج وأؤكد أن هذا شخص جديد</label>
+        </div>
+
+        <div id="relativeExistingFields" class="stack hidden">
+          <label>اختر الشخص الموجود<select id="relativeExistingPerson"><option value="">— اختر —</option></select></label>
+          <p class="micro-copy">بهذا الخيار لن ننشئ سجلًا جديدًا؛ سنربط السجل الموجود فقط.</p>
+        </div>
+
+        <div id="relativeContextFields" class="stack">
+          <label id="relativeOtherParentWrap" class="hidden">الوالد الآخر للطفل<select id="relativeOtherParent"><option value="">— غير معروف / غير مسجل —</option></select></label>
+          <label id="relativeMarriageStatusWrap" class="hidden">حالة العلاقة<select id="relativeMarriageStatus"><option value="married">زواج قائم</option><option value="divorced">طلاق</option><option value="widowed">ترمّل</option><option value="unknown">غير محدد</option></select></label>
+        </div>
+
+        <div class="v4-builder-footer"><button type="button" id="relativeToPreviewBtn" class="btn primary">مراجعة قبل الحفظ ←</button></div>
+      </section>
+
+      <section id="relativeStep3" class="v4-builder-step">
+        <div class="v4-builder-back-row"><button type="button" class="v4-text-btn" data-relative-back="2">← تعديل البيانات</button><strong>مراجعة العلاقة</strong></div>
+        <div id="relativePreview" class="v4-relation-preview"></div>
+        <div class="v4-safe-note">✓ لن يتم إنشاء زواج تلقائيًا عند إضافة طفل. روابط الزواج تُضاف فقط عندما تختار «زوج / زوجة».</div>
+        <div class="v4-builder-footer"><button type="button" id="saveRelativeBtn" class="btn primary">حفظ وربط القريب</button></div>
+        <p id="relativeBuilderMsg" class="form-msg"></p>
+      </section>
+    </article>
+  </div>
+
+  <!-- V4 BUILD FAMILY / BULK CHILDREN -->
+  <div id="familyBuilderModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-family-builder></div>
+    <article class="modal-card v4-builder-card v4-family-builder-card">
+      <button class="modal-close" type="button" data-close-family-builder>×</button>
+      <div class="v4-builder-heading"><span class="section-kicker">إدخال سريع</span><h2>بناء أسرة <span id="familyAnchorName"></span></h2><p>أضف الزوج/الزوجة والأبناء في عملية واحدة.</p></div>
+
+      <div class="v4-family-builder-section">
+        <h3>1. الزوج / الزوجة <small>اختياري</small></h3>
+        <div class="v4-mode-switch"><button id="familySpouseNone" type="button" class="active">بدون إضافة</button><button id="familySpouseExisting" type="button">اختيار موجود</button><button id="familySpouseNew" type="button">زوج/زوجة جديد</button></div>
+        <div id="familyExistingSpouseWrap" class="hidden"><label>الشخص الموجود<select id="familyExistingSpouse"><option value="">— اختر —</option></select></label></div>
+        <div id="familyNewSpouseWrap" class="hidden two-cols"><label>الاسم الكامل<input id="familyNewSpouseName" /></label><label>الجنس<select id="familyNewSpouseGender"><option value="female">أنثى</option><option value="male">ذكر</option><option value="unknown">غير محدد</option></select></label></div>
+      </div>
+
+      <div class="v4-family-builder-section">
+        <div class="v4-family-head"><h3>2. الأبناء</h3><button id="addFamilyChildRow" type="button" class="v4-inline-text">＋ إضافة طفل آخر</button></div>
+        <div id="familyChildrenRows" class="v4-children-rows"></div>
+      </div>
+
+      <div class="v4-family-builder-section">
+        <h3>3. مراجعة</h3>
+        <div id="familyBuilderPreview" class="v4-family-preview"></div>
+      </div>
+
+      <div class="v4-builder-footer"><button type="button" id="saveFamilyBundleBtn" class="btn primary">حفظ الأسرة كاملة</button></div>
+      <p id="familyBuilderMsg" class="form-msg"></p>
+    </article>
+  </div>
 
   <!-- MERGE DUPLICATE PERSON -->
   <div id="mergePersonModal" class="modal hidden">
@@ -656,7 +810,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=3.0.9"></script>
-  <script src="./app.js?v=3.0.9"></script>
+  <script src="./config.js?v=4.0.0"></script>
+  <script src="./app.js?v=4.0.0"></script>
 </body>
 </html>
