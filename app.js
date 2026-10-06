@@ -43,6 +43,26 @@
   function toast(msg, ms=3000){ const e=$("#toast"); e.textContent=msg; e.classList.remove("hidden"); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.add("hidden"),ms); }
   function roleLabel(v){ return ({admin:"مدير",editor:"مدخل بيانات",viewer:"مشاهد"})[v] || "مشاهد"; }
   function statusLabel(v){ return ({pending:"بانتظار المراجعة",in_review:"قيد المراجعة",needs_info:"نحتاج توضيحًا",approved:"معتمد",partially_approved:"معتمد جزئيًا",rejected:"مرفوض",withdrawn:"مسحوب"})[v] || v; }
+  function requestTypeLabel(t){
+    return ({
+      add_person:"إضافة شخص",
+      add_family:"إضافة أسرة",
+      correct_name:"تصحيح اسم",
+      add_parent:"إضافة أب",
+      change_parent:"تصحيح الأب",
+      add_mother:"إضافة أم",
+      change_mother:"تصحيح الأم",
+      add_spouse:"إضافة زوج/زوجة",
+      add_child:"إضافة ابن/ابنة",
+      life_event:"معلومة تاريخية",
+      library_evidence:"دليل / وثيقة",
+      duplicate_report:"تكرار محتمل",
+      merge_request:"طلب دمج",
+      relation_correction:"تصحيح صلة قرابة",
+      profile_claim:"ربط الحساب بالملف",
+      other:"طلب آخر"
+    })[t] || t || "طلب";
+  }
   function confidenceLabel(v){ return ({documented:"موثق",family_tradition:"متوارث عائليًا",likely:"مرجح",uncertain:"غير مؤكد"})[v] || "غير محدد"; }
   function genderIcon(v){ return v==="female" ? "ن" : v==="male" ? "ش" : "•"; }
   function yearText(p){ const b=p.birth_year||""; const d=p.death_year||""; if(b||d) return `${b||"؟"} — ${p.is_living ? "حتى الآن" : (d||"؟")}`; return p.is_living ? "على قيد الحياة" : "التاريخ غير مسجل"; }
