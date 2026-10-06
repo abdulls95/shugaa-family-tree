@@ -221,6 +221,8 @@
     $("#profileSpouses").textContent=f.spouses.length?f.spouses.map(x=>x.full_name_ar).join("، "):"—"; $("#profileChildren").textContent=f.children.length?f.children.map(x=>x.full_name_ar).join("، "):"—";
     $("#profileLineageCode").textContent=p.lineage_code?`الأسرة ${p.lineage_code}`:""; $("#profileRecordCode").textContent=state.mode==="account"&&p.record_code?p.record_code:"";
     $("#profileBio").textContent=state.mode==="account"?(p.bio||"لا توجد نبذة مسجلة."):"المعلومات الخاصة غير متاحة بهذا النوع من الدخول.";
+    $("#profileMergeBtn").classList.toggle("hidden",!canMergePeople());
+    $("#profileArchiveBtn").classList.toggle("hidden",!canArchivePeople());
     $("#personModal").classList.remove("hidden");
   }
   function closePerson(){ $("#personModal").classList.add("hidden"); }
@@ -603,6 +605,74 @@
       (state.role==="admin" || !!state.permissions.add_people);
   }
 
+
+  function canMergePeople(){
+    return state.mode==="account" && (state.role==="admin" || !!state.permissions.merge_people);
+  }
+  function canArchivePeople(){
+    return state.mode==="account" && (state.role==="admin" || !!state.permissions.archive_people);
+  }
+
+  function fillMergePersonSelects(currentId){
+    const dup=$("#mergeDuplicatePerson"), keep=$("#mergeKeepPerson");
+    const options=state.people
+      .filter(p=>p.record_status==="active" || !p.record_status)
+      .map(p=>`<option value="${p.id}">${esc(personLabel(p))}${p.record_code?` • ${esc(p.record_code)}`:""}</option>`)
+      .join("");
+    dup.innerHTML=options;
+    keep.innerHTML='<option value="">— اختر السجل الصحيح الذي سيبقى —</option>'+options;
+    dup.value=currentId||"";
+
+    const current=getPerson(currentId);
+    if(current){
+      const candidates=state.people.filter(p=>
+        p.id!==currentId &&
+        (
+          norm(p.full_name_ar)===norm(current.full_name_ar) ||
+          (current.first_name_ar && norm(p.first_name_ar)===norm(current.first_name_ar) &&
+           current.father_name_text && norm(p.father_name_text)===norm(current.father_name_text))
+        )
+      );
+      if(candidates.length===1) keep.value=candidates[0].id;
+    }
+    updateMergePreview();
+  }
+
+  function updateMergePreview(){
+    const duplicate=getPerson($("#mergeDuplicatePerson")?.value);
+    const keep=getPerson($("#mergeKeepPerson")?.value);
+    const box=$("#mergePreview");
+    if(!box)return;
+    if(!duplicate || !keep){
+      box.innerHTML='<span class="muted">اختر السجل الصحيح الذي سيبقى.</span>';
+      return;
+    }
+    box.innerHTML=`
+      <div class="merge-person-box">
+        <small>سيُدمج ويختفي</small>
+        <strong>${esc(duplicate.full_name_ar)}</strong>
+        <small>${esc(duplicate.record_code||"")} ${duplicate.lineage_code?`• ${esc(duplicate.lineage_code)}`:""}</small>
+      </div>
+      <div class="merge-arrow">←</div>
+      <div class="merge-person-box">
+        <small>السجل الرئيسي</small>
+        <strong>${esc(keep.full_name_ar)}</strong>
+        <small>${esc(keep.record_code||"")} ${keep.lineage_code?`• ${esc(keep.lineage_code)}`:""}</small>
+      </div>`;
+  }
+
+  function openMergePerson(id){
+    if(!canMergePeople())return toast("لا تملك صلاحية دمج السجلات.");
+    fillMergePersonSelects(id);
+    $("#mergeConfirm").checked=false;
+    $("#mergePersonMsg").textContent="";
+    $("#mergePersonModal").classList.remove("hidden");
+  }
+
+  function closeMergePerson(){
+    $("#mergePersonModal").classList.add("hidden");
+  }
+
   function childNameParts(){
     return {
       first:$("#childFirstName").value.trim(),
@@ -767,6 +837,48 @@
   $("#profileContributeBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("contribute");$("#contribTarget").value=id;};
   $("#profileEditBtn").onclick=()=>{const id=state.activePersonId;closePerson();openEditPerson(id);};
   $("#profileAddChildBtn").onclick=()=>{const id=state.activePersonId;closePerson();openAddChildModal(id);};
+  $("#profileMergeBtn").onclick=()=>{const id=state.activePersonId;closePerson();openMergePerson(id);};
+  $("#profileArchiveBtn").onclick=async()=>{
+    const id=state.activePersonId, p=getPerson(id);
+    if(!p || !canArchivePeople())return;
+    const reason=prompt(`سبب أرشفة ${p.full_name_ar}؟\nمثال: سجل مكرر أضيف بالخطأ`);
+    if(reason===null)return;
+    if(!confirm(`سيختفي ${p.full_name_ar} من الشجرة لكنه لن يُحذف نهائيًا. متابعة؟`))return;
+    const {data,error}=await client.rpc("admin_archive_person",{p_person_id:id,p_reason:reason||null});
+    if(error)return toast("تعذر الأرشفة: "+error.message,5000);
+    closePerson();
+    toast("تمت أرشفة السجل ✅");
+    await loadAccountData();
+  };
+
+  $$("[data-close-merge]").forEach(x=>x.onclick=closeMergePerson);
+  $("#mergeDuplicatePerson").onchange=updateMergePreview;
+  $("#mergeKeepPerson").onchange=updateMergePreview;
+
+  $("#mergePersonForm").onsubmit=async e=>{
+    e.preventDefault();
+    if(!canMergePeople())return toast("لا تملك صلاحية الدمج.");
+    const duplicateId=$("#mergeDuplicatePerson").value;
+    const keepId=$("#mergeKeepPerson").value;
+    const msg=$("#mergePersonMsg");
+    if(!duplicateId || !keepId){msg.textContent="اختر السجلين.";return;}
+    if(duplicateId===keepId){msg.textContent="لا يمكن دمج السجل مع نفسه.";return;}
+    if(!$("#mergeConfirm").checked){msg.textContent="فعّل مربع التأكيد قبل الدمج.";return;}
+
+    const duplicate=getPerson(duplicateId), keep=getPerson(keepId);
+    if(!confirm(`تأكيد أخير:\nسيبقى ${keep?.full_name_ar||""} (${keep?.record_code||""})\nوسيتم دمج ${duplicate?.full_name_ar||""} (${duplicate?.record_code||""}) داخله.`))return;
+
+    msg.textContent="جاري دمج العلاقات والمعلومات...";
+    const {data,error}=await client.rpc("admin_merge_people",{p_keep_id:keepId,p_duplicate_id:duplicateId});
+    if(error){
+      msg.textContent="تعذر الدمج: "+error.message;
+      return;
+    }
+    msg.textContent="تم الدمج بنجاح ✅";
+    await loadAccountData();
+    setTimeout(()=>{closeMergePerson();openPerson(keepId);},450);
+  };
+
   $$('[data-close-add-child]').forEach(x=>x.onclick=closeAddChildModal);
 
   $("#childCurrentParentRole").onchange=async()=>{

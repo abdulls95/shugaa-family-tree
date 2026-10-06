@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#082f29" />
   <meta name="description" content="شجرة آل شجاع — متحف رقمي وشجرة نسب ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=3.0.8" />
+  <link rel="manifest" href="./manifest.webmanifest?v=3.0.9" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=3.0.8" />
+  <link rel="stylesheet" href="./styles.css?v=3.0.9" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -448,6 +448,8 @@
       <div class="profile-actions">
         <button id="profileEditBtn" class="btn primary staff-only hidden">✏️ تعديل مباشر</button>
         <button id="profileAddChildBtn" class="btn primary staff-only hidden">➕ إضافة ابن/ابنة</button>
+        <button id="profileMergeBtn" class="btn light hidden">🔀 دمج تكرار</button>
+        <button id="profileArchiveBtn" class="btn light danger-outline hidden">📦 أرشفة السجل</button>
         <button id="profileLineageBtn" class="btn gold">رحلة النسب</button>
         <button id="profileKinshipBtn" class="btn light">صلة القرابة</button>
         <button id="profileContributeBtn" class="btn light contribution-only hidden">تصحيح / إضافة معلومة</button>
@@ -456,6 +458,43 @@
     </article>
   </div>
 
+
+
+  <!-- MERGE DUPLICATE PERSON -->
+  <div id="mergePersonModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-merge></div>
+    <article class="modal-card small-modal">
+      <button class="modal-close" type="button" data-close-merge>×</button>
+      <span class="section-kicker">إدارة التكرارات</span>
+      <h2>دمج سجلين لنفس الشخص</h2>
+      <div class="merge-warning">
+        <b>لن نحذف السجل المكرر نهائيًا.</b>
+        <p>سيتم نقل العلاقات والمعلومات إلى السجل الصحيح، ثم يوضع السجل المكرر بحالة «مدمج» ولا يظهر في الشجرة.</p>
+      </div>
+
+      <form id="mergePersonForm" class="stack">
+        <label>السجل المكرر الذي سيختفي
+          <select id="mergeDuplicatePerson" required></select>
+        </label>
+        <label>السجل الرئيسي الصحيح الذي سيبقى
+          <select id="mergeKeepPerson" required></select>
+        </label>
+
+        <div id="mergePreview" class="merge-preview"></div>
+
+        <label class="check-row">
+          <input id="mergeConfirm" type="checkbox" />
+          تأكدت أن السجلين لنفس الشخص وأريد دمجهما
+        </label>
+
+        <div class="edit-person-actions">
+          <button type="button" class="btn light" data-close-merge>إلغاء</button>
+          <button class="btn primary">تنفيذ الدمج</button>
+        </div>
+        <p id="mergePersonMsg" class="form-msg"></p>
+      </form>
+    </article>
+  </div>
 
   <!-- ADD CHILD FROM PERSON PROFILE -->
   <div id="addChildModal" class="modal hidden">
@@ -617,7 +656,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=3.0.8"></script>
-  <script src="./app.js?v=3.0.8"></script>
+  <script src="./config.js?v=3.0.9"></script>
+  <script src="./app.js?v=3.0.9"></script>
 </body>
 </html>
