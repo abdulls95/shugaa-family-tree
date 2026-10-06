@@ -97,4 +97,125 @@ body.guest-mode .account-only{display:none!important}
   width:100%;
   min-width:0;
 }
-\n\n/* V3.0.3 — Request workflow */\n.request-status-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 18px;padding-bottom:12px;border-bottom:1px solid var(--line)}\n.request-status-tab{border:1px solid var(--line);background:#fff;color:#34534a;border-radius:999px;padding:10px 14px;font-weight:900;display:flex;gap:7px;align-items:center}\n.request-status-tab span{min-width:22px;height:22px;display:grid;place-items:center;border-radius:999px;background:#f0eadc;font-size:12px}\n.request-status-tab.active{background:#0b5b4b;color:#fff;border-color:#0b5b4b}\n.request-status-tab.active span{background:rgba(255,255,255,.18);color:#fff}\n.request-family-summary{background:#faf6ec;border:1px solid #eadfc8;border-radius:16px;padding:14px;display:grid;gap:8px}\n.request-family-summary .family-line{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}\n.request-family-summary .family-line>span:first-child{font-weight:900;color:#0b5b4b;min-width:90px}\n.request-children{display:flex;gap:6px;flex-wrap:wrap}\n.request-children span{background:white;border:1px solid #e6d8ba;border-radius:999px;padding:5px 10px}\n.apply-result{background:#e8f4ef;border:1px solid #bfdfd2;color:#155846;border-radius:14px;padding:11px 13px;font-weight:800}\n.request-card.approved-card{border-color:#b9dacd}.request-card.rejected-card{opacity:.82}\n@media(max-width:650px){.request-status-tabs{display:grid;grid-template-columns:1fr 1fr}.request-status-tab{justify-content:center}.request-family-summary .family-line>span:first-child{min-width:auto}}\n
+
+
+/* =========================================================
+   V3.0.4 — Request status navigation
+   ========================================================= */
+.request-status-tabs{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:10px;
+  margin:16px 0 22px;
+  padding:10px;
+  background:#f7f1e5;
+  border:1px solid var(--line);
+  border-radius:20px;
+}
+.request-status-tab{
+  appearance:none;
+  -webkit-appearance:none;
+  border:1px solid #dfd6c5;
+  background:#fff;
+  color:#36564d;
+  border-radius:15px;
+  padding:12px 10px;
+  min-height:56px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  box-shadow:0 3px 10px rgba(22,53,44,.04);
+  transition:transform .15s ease, background .15s ease, border-color .15s ease, color .15s ease;
+  position:relative;
+  z-index:1;
+  touch-action:manipulation;
+}
+.request-status-tab:hover{
+  transform:translateY(-1px);
+  border-color:#bda66f;
+}
+.request-status-tab .rq-label{
+  white-space:nowrap;
+}
+.request-status-tab .rq-count{
+  min-width:26px;
+  height:26px;
+  padding:0 7px;
+  display:inline-grid;
+  place-items:center;
+  border-radius:999px;
+  background:#eee7d9;
+  color:#4c5d57;
+  font-size:12px;
+  line-height:1;
+}
+.request-status-tab.active{
+  background:#0b5b4b;
+  color:#fff;
+  border-color:#0b5b4b;
+  box-shadow:0 8px 18px rgba(11,91,75,.18);
+}
+.request-status-tab.active .rq-count{
+  background:rgba(255,255,255,.18);
+  color:#fff;
+}
+.request-status-tab[data-request-filter="pending"]:not(.active){border-color:#ddc787}
+.request-status-tab[data-request-filter="in_review"]:not(.active){border-color:#b9d0e2}
+.request-status-tab[data-request-filter="needs_info"]:not(.active){border-color:#e6c06d}
+.request-status-tab[data-request-filter="approved"]:not(.active){border-color:#b9dacd}
+.request-status-tab[data-request-filter="rejected"]:not(.active){border-color:#e6c1bc}
+
+.request-family-summary{
+  background:#faf6ec;
+  border:1px solid #eadfc8;
+  border-radius:16px;
+  padding:14px;
+  display:grid;
+  gap:8px;
+}
+.request-family-summary .family-line{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:flex-start;
+}
+.request-family-summary .family-line>span:first-child{
+  font-weight:900;
+  color:#0b5b4b;
+  min-width:90px;
+}
+.request-children{display:flex;gap:6px;flex-wrap:wrap}
+.request-children span{
+  background:white;
+  border:1px solid #e6d8ba;
+  border-radius:999px;
+  padding:5px 10px;
+}
+.apply-result{
+  background:#e8f4ef;
+  border:1px solid #bfdfd2;
+  color:#155846;
+  border-radius:14px;
+  padding:11px 13px;
+  font-weight:800;
+}
+.request-card.approved-card{border-color:#b9dacd}
+.request-card.rejected-card{opacity:.82}
+
+@media(max-width:900px){
+  .request-status-tabs{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+@media(max-width:620px){
+  .request-status-tabs{
+    grid-template-columns:1fr 1fr;
+  }
+  .request-status-tab{
+    min-height:52px;
+    padding:10px 8px;
+  }
+  .request-family-summary .family-line>span:first-child{min-width:auto}
+}

@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#082f29" />
   <meta name="description" content="شجرة آل شجاع — متحف رقمي وشجرة نسب ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=3.0.3" />
+  <link rel="manifest" href="./manifest.webmanifest?v=3.0.4" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=3.0.3" />
+  <link rel="stylesheet" href="./styles.css?v=3.0.4" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -361,11 +361,11 @@
           <div class="panel">
             <div class="section-title"><div><span>المراجعة</span><h3>طلبات الإضافة والتصحيح</h3></div></div>
             <div class="request-status-tabs" id="requestStatusTabs">
-              <button class="request-status-tab active" data-request-filter="pending">جديدة <span id="rqCountPending">0</span></button>
-              <button class="request-status-tab" data-request-filter="in_review">قيد المراجعة <span id="rqCountReview">0</span></button>
-              <button class="request-status-tab" data-request-filter="needs_info">تحتاج توضيح <span id="rqCountInfo">0</span></button>
-              <button class="request-status-tab" data-request-filter="approved">معتمدة <span id="rqCountApproved">0</span></button>
-              <button class="request-status-tab" data-request-filter="rejected">مرفوضة <span id="rqCountRejected">0</span></button>
+              <button type="button" class="request-status-tab active" data-request-filter="pending"><span class="rq-label">جديدة</span><span class="rq-count" id="rqCountPending">0</span></button>
+              <button type="button" class="request-status-tab" data-request-filter="in_review"><span class="rq-label">قيد المراجعة</span><span class="rq-count" id="rqCountReview">0</span></button>
+              <button type="button" class="request-status-tab" data-request-filter="needs_info"><span class="rq-label">تحتاج توضيح</span><span class="rq-count" id="rqCountInfo">0</span></button>
+              <button type="button" class="request-status-tab" data-request-filter="approved"><span class="rq-label">معتمدة</span><span class="rq-count" id="rqCountApproved">0</span></button>
+              <button type="button" class="request-status-tab" data-request-filter="rejected"><span class="rq-label">مرفوضة</span><span class="rq-count" id="rqCountRejected">0</span></button>
             </div>
             <div id="changeRequestsList" class="request-list"></div>
           </div>
@@ -469,7 +469,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=3.0.3"></script>
-  <script src="./app.js?v=3.0.3"></script>
+  <script src="./config.js?v=3.0.4"></script>
+  <script src="./app.js?v=3.0.4"></script>
 </body>
 </html>

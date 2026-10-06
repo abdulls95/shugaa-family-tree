@@ -357,7 +357,11 @@
     if($("#rqCountApproved")) $("#rqCountApproved").textContent=count("approved");
     if($("#rqCountRejected")) $("#rqCountRejected").textContent=count("rejected");
     $("#changeCount").textContent=count("pending")+count("needs_info")+count("in_review");
-    $$(".request-status-tab").forEach(b=>b.classList.toggle("active",b.dataset.requestFilter===state.changeFilter));
+    $$(".request-status-tab").forEach(b=>{
+      const active=b.dataset.requestFilter===state.changeFilter;
+      b.classList.toggle("active",active);
+      b.setAttribute("aria-pressed",active?"true":"false");
+    });
     renderRequestList(state.changeRequests,true); renderHealth();
   }
 
@@ -494,7 +498,18 @@
   $("#profileLineageBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("lineage");$("#lineagePerson").value=id;renderLineage(id);};
   $("#profileKinshipBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("kinship");$("#kinshipA").value=id;};
   $("#profileContributeBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("contribute");$("#contribTarget").value=id;};
-  $$(".request-status-tab").forEach(b=>b.onclick=()=>{state.changeFilter=b.dataset.requestFilter;$$(".request-status-tab").forEach(x=>x.classList.toggle("active",x===b));renderRequestList(state.changeRequests,true);});
+  $("#requestStatusTabs")?.addEventListener("click",e=>{
+    const b=e.target.closest(".request-status-tab");
+    if(!b)return;
+    e.preventDefault();
+    state.changeFilter=b.dataset.requestFilter||"pending";
+    $$(".request-status-tab").forEach(x=>{
+      const active=x===b;
+      x.classList.toggle("active",active);
+      x.setAttribute("aria-pressed",active?"true":"false");
+    });
+    renderRequestList(state.changeRequests,true);
+  });
   $$(".filter-chip").forEach(b=>b.onclick=()=>{state.libraryFilter=b.dataset.filter;$$(".filter-chip").forEach(x=>x.classList.toggle("active",x===b));renderLibrary();});
   $("#librarySearch").oninput=renderLibrary;$$(".admin-tab").forEach(b=>b.onclick=()=>setAdminPanel(b.dataset.adminPanel));
 
