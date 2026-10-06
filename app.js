@@ -315,9 +315,44 @@
   }
   async function updateProfile(id,patch){const {error}=await client.from("profiles").update(patch).eq("id",id);if(error)toast(error.message,4500);else{toast("تم تحديث الحساب ✅");await loadStaffData();}}
 
+  function showGeneratedAccessCode(code, title="تم إنشاء الكود"){
+    const box=$("#newCodeResult");
+    box.classList.remove("hidden");
+    box.innerHTML=`<b>⚠️ ${esc(title)} — يظهر كاملًا الآن فقط، انسخه واحفظه</b><code>${esc(code)}</code><button id="copyNewCode" type="button" class="btn gold">نسخ الكود</button>`;
+    $("#copyNewCode").onclick=()=>navigator.clipboard?.writeText(code).then(()=>toast("تم نسخ الكود ✅"));
+    box.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+
   function renderAccessCodes(){
-    const box=$("#accessCodeList"); box.innerHTML=state.accessCodes.map(c=>{const p=getPerson(c.person_id);return `<div class="access-code-row"><div><b>${esc(c.label||c.code_type)}</b><small>${esc(c.code_type)} • ينتهي: ${c.expires_at?new Date(c.expires_at).toLocaleDateString("ar"):"بدون انتهاء"} • استخدام ${c.use_count||0}${p?` • ${esc(p.full_name_ar)}`:""} • آخر 4: ${esc(c.code_hint||"")}</small></div>${c.status==="active"?`<button class="btn light revoke-code" data-id="${c.id}">إلغاء</button>`:`<span class="meta-pill">${esc(c.status)}</span>`}</div>`;}).join("")||"<p>لا توجد أكواد.</p>";
-    $$(".revoke-code").forEach(b=>b.onclick=async()=>{if(!confirm("إلغاء هذا الكود؟"))return;const {error}=await client.rpc("admin_revoke_access_code",{p_code_id:b.dataset.id});if(error)toast(error.message);else{toast("تم إلغاء الكود");await loadStaffData();}});
+    const box=$("#accessCodeList");
+    box.innerHTML=state.accessCodes.map(c=>{
+      const p=getPerson(c.person_id);
+      const statusText=c.status==="active"?"فعّال":c.status==="revoked"?"ملغي":"منتهي";
+      return `<div class="access-code-row">
+        <div>
+          <b>${esc(c.label||c.code_type)}</b>
+          <small>${esc(c.code_type)} • ${esc(statusText)} • ينتهي: ${c.expires_at?new Date(c.expires_at).toLocaleDateString("ar"):"بدون انتهاء"} • استخدام ${c.use_count||0}${p?` • ${esc(p.full_name_ar)}`:""} • آخر 4: ${esc(c.code_hint||"")}</small>
+        </div>
+        <div class="account-actions">
+          ${c.status==="active"?`<button class="btn gold reissue-code" data-id="${c.id}">إصدار كود بديل</button><button class="btn light revoke-code" data-id="${c.id}">إلغاء</button>`:`<span class="meta-pill">${esc(statusText)}</span>`}
+        </div>
+      </div>`;
+    }).join("")||"<p>لا توجد أكواد.</p>";
+
+    $$(".revoke-code").forEach(b=>b.onclick=async()=>{
+      if(!confirm("إلغاء هذا الكود؟ لن يعمل بعد الإلغاء."))return;
+      const {error}=await client.rpc("admin_revoke_access_code",{p_code_id:b.dataset.id});
+      if(error)toast(error.message,4500);else{toast("تم إلغاء الكود");await loadStaffData();}
+    });
+
+    $$(".reissue-code").forEach(b=>b.onclick=async()=>{
+      if(!confirm("سيتم إلغاء الكود الحالي وإصدار كود جديد بديل. متابعة؟"))return;
+      const {data,error}=await client.rpc("admin_rotate_access_code",{p_code_id:b.dataset.id});
+      if(error)return toast("تعذر إصدار البديل: "+error.message,5000);
+      const code=data?.[0]?.access_code||"";
+      if(code) showGeneratedAccessCode(code,"تم إصدار كود بديل");
+      await loadStaffData();
+    });
   }
 
   function renderPermissions(){
@@ -431,7 +466,7 @@
 
   // Access code admin
   $("#accessCodeType").onchange=()=>$("#accessPersonWrap").classList.toggle("hidden",$("#accessCodeType").value!=="personal");
-  $("#accessCodeForm").onsubmit=async e=>{e.preventDefault();const type=$("#accessCodeType").value,person=$("#accessPerson").value||null;if(type==="personal"&&!person)return toast("اختر الشخص للكود الشخصي.");const exp=$("#accessExpires").value?new Date($("#accessExpires").value).toISOString():null;const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:type,p_person_id:person,p_label:$("#accessLabel").value.trim()||null,p_expires_at:exp,p_max_uses:toInt($("#accessMaxUses").value)});if(error)return toast(error.message,4500);const code=data?.[0]?.access_code||"";const box=$("#newCodeResult");box.classList.remove("hidden");box.innerHTML=`<b>⚠️ هذا الكود يظهر الآن فقط — انسخه واحفظه</b><code>${esc(code)}</code><button id="copyNewCode" type="button" class="btn gold">نسخ الكود</button>`;$("#copyNewCode").onclick=()=>navigator.clipboard?.writeText(code).then(()=>toast("تم النسخ"));await loadStaffData();};
+  $("#accessCodeForm").onsubmit=async e=>{e.preventDefault();const type=$("#accessCodeType").value,person=$("#accessPerson").value||null;if(type==="personal"&&!person)return toast("اختر الشخص للكود الشخصي.");const exp=$("#accessExpires").value?new Date($("#accessExpires").value).toISOString():null;const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:type,p_person_id:person,p_label:$("#accessLabel").value.trim()||null,p_expires_at:exp,p_max_uses:toInt($("#accessMaxUses").value)});if(error)return toast(error.message,4500);const code=data?.[0]?.access_code||"";if(code)showGeneratedAccessCode(code,"تم إنشاء الكود");await loadStaffData();};
 
   // Permission save
   $("#savePermissionsBtn").onclick=async()=>{const uid=$("#permissionUser").value;if(!uid)return toast("اختر المستخدم.");const rows=$$("#permissionMatrix input[data-code]").map(x=>({user_id:uid,permission_code:x.dataset.code,allowed:x.checked,updated_by:state.session.user.id,updated_at:new Date().toISOString()}));const {error}=await client.from("profile_permissions").upsert(rows,{onConflict:"user_id,permission_code"});if(error)toast(error.message,4500);else{toast("تم حفظ الصلاحيات ✅");await loadStaffData();}};
