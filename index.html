@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0f4d3f" />
+  <meta name="description" content="شجرة آل شجاع - Shugaa Family Tree" />
+  <title>شجرة آل شجاع</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+</head>
+<body>
+  <div id="toast" class="toast hidden"></div>
+
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="brand-mark">ش</div>
+      <h1>شجرة آل شجاع</h1>
+      <p class="muted">Shugaa Family Tree</p>
+      <p class="auth-copy">منصة عائلية خاصة لعرض النسب والفروع والأجيال.</p>
+      <form id="loginForm" class="stack">
+        <label>البريد الإلكتروني<input id="email" type="email" autocomplete="username" required /></label>
+        <label>كلمة المرور<input id="password" type="password" autocomplete="current-password" required /></label>
+        <button class="btn primary" type="submit">دخول</button>
+      </form>
+      <button id="forgotBtn" class="btn ghost" type="button">نسيت كلمة المرور</button>
+      <p id="authMsg" class="form-msg"></p>
+    </div>
+  </section>
+
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark small">ش</div>
+        <div><strong>شجرة آل شجاع</strong><span>Shugaa Family Tree</span></div>
+      </div>
+      <nav class="desktop-nav">
+        <button data-view="home" class="nav-btn active">الرئيسية</button>
+        <button data-view="tree" class="nav-btn">الشجرة</button>
+        <button data-view="people" class="nav-btn">الأفراد</button>
+        <button data-view="admin" class="nav-btn admin-only hidden">الإدارة</button>
+      </nav>
+      <div class="user-box"><span id="userRoleBadge" class="badge"></span><button id="logoutBtn" class="btn ghost small-btn">خروج</button></div>
+    </header>
+
+    <main>
+      <section id="view-home" class="view active">
+        <div class="hero"><div class="hero-pattern"></div><div class="hero-content">
+          <span class="eyebrow">حفظ للأصول • ربط للأجيال</span>
+          <h2>شجرة آل شجاع</h2>
+          <p>استعرض أفراد العائلة وفروعها عبر الأجيال، وابحث عن أي شخص وافتح ملفه العائلي.</p>
+          <div class="hero-actions"><button class="btn primary" data-go="tree">استعرض الشجرة</button><button class="btn light" data-go="people">ابحث عن فرد</button></div>
+        </div></div>
+
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-icon">👥</div><strong id="statPeople">0</strong><span>عدد الأفراد</span></article>
+          <article class="stat-card"><div class="stat-icon">🌿</div><strong id="statBranches">0</strong><span>الفروع</span></article>
+          <article class="stat-card"><div class="stat-icon">🔗</div><strong id="statRelations">0</strong><span>روابط النسب</span></article>
+          <article class="stat-card"><div class="stat-icon">💍</div><strong id="statMarriages">0</strong><span>روابط الزواج</span></article>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card"><span>🌳</span><h3>شجرة تفاعلية</h3><p>تكبير وتصغير وتحريك الشجرة والضغط على أي فرد لفتح ملفه.</p></article>
+          <article class="feature-card"><span>🔎</span><h3>بحث سريع</h3><p>ابحث بالاسم للوصول إلى الشخص مباشرة داخل الشجرة.</p></article>
+          <article class="feature-card"><span>📜</span><h3>تاريخ العائلة</h3><p>الأساس جاهز لإضافة السيرة والأماكن والأحداث والمصادر لاحقًا.</p></article>
+        </div>
+      </section>
+
+      <section id="view-tree" class="view">
+        <div class="page-head"><div><h2>شجرة العائلة</h2><p>العلاقات الظاهرة تُبنى من الأب/الأم والزواج المسجلين في قاعدة البيانات.</p></div>
+        <div class="tree-tools"><input id="treeSearch" class="search-input" placeholder="ابحث عن اسم..." /><button id="fitTreeBtn" class="btn light">ملاءمة</button><button id="relayoutBtn" class="btn light">ترتيب</button></div></div>
+        <div id="treeEmpty" class="empty-state hidden"><div>🌱</div><h3>الشجرة ما زالت فارغة</h3><p>أضف أول شخص من لوحة الإدارة، وبعدها تبدأ الشجرة بالنمو.</p></div>
+        <div id="cy" class="tree-canvas"></div>
+      </section>
+
+      <section id="view-people" class="view">
+        <div class="page-head"><div><h2>الأفراد</h2><p>جميع الأشخاص المسجلين في شجرة آل شجاع.</p></div><input id="peopleSearch" class="search-input" placeholder="بحث بالاسم..." /></div>
+        <div id="peopleGrid" class="people-grid"></div>
+        <div id="peopleEmpty" class="empty-state hidden"><div>👤</div><h3>لا يوجد أفراد بعد</h3></div>
+      </section>
+
+      <section id="view-admin" class="view">
+        <div class="page-head"><div><h2>لوحة الإدارة</h2><p>إضافة شخص وربطه بالأب والأم. الصلاحية متاحة للمدير والمحرر فقط.</p></div></div>
+        <div class="admin-grid">
+          <form id="addPersonForm" class="panel stack">
+            <h3>إضافة شخص</h3>
+            <label>الاسم الكامل *<input id="pName" required placeholder="مثال: محمد بن عبدالله شجاع" /></label>
+            <label>الجنس<select id="pGender"><option value="male">ذكر</option><option value="female">أنثى</option><option value="unknown">غير محدد</option></select></label>
+            <div class="two-cols"><label>سنة الميلاد<input id="pBirthYear" type="number" min="1" max="3000" /></label><label>سنة الوفاة<input id="pDeathYear" type="number" min="1" max="3000" /></label></div>
+            <label class="check-row"><input id="pLiving" type="checkbox" checked /> الشخص على قيد الحياة</label>
+            <label>درجة التوثيق<select id="pConfidence"><option value="family_tradition">متوارث عائليًا</option><option value="documented">موثق</option><option value="likely">مرجح</option><option value="uncertain">غير مؤكد</option></select></label>
+            <label>الأب<select id="pFather"><option value="">— غير معروف / لا يوجد —</option></select></label>
+            <label>الأم<select id="pMother"><option value="">— غير معروفة / لا يوجد —</option></select></label>
+            <label>نبذة<textarea id="pBio" rows="4" placeholder="معلومات مختصرة عن الشخص..."></textarea></label>
+            <button class="btn primary" type="submit">حفظ الشخص</button><p id="adminMsg" class="form-msg"></p>
+          </form>
+          <div class="panel"><h3>ملاحظات مهمة</h3><ul class="notes-list">
+            <li>لا تسجل «أخ» أو «عم» يدويًا؛ النظام يستنتجها من روابط الأب والأم.</li>
+            <li>يمكن إضافة شخص قديم حتى لو لم نعرف أباه بعد، ثم ربطه لاحقًا.</li>
+            <li>درجة التوثيق تساعدنا عندما نصل لأنساب تاريخية بعيدة.</li>
+            <li>أماكن الميلاد والوفاة والهجرات والمصادر موجودة في قاعدة البيانات وسنضيف واجهتها في المرحلة التالية.</li>
+          </ul></div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="mobile-nav">
+      <button data-view="home" class="nav-btn active">⌂<span>الرئيسية</span></button>
+      <button data-view="tree" class="nav-btn">🌳<span>الشجرة</span></button>
+      <button data-view="people" class="nav-btn">👥<span>الأفراد</span></button>
+      <button data-view="admin" class="nav-btn admin-only hidden">⚙️<span>الإدارة</span></button>
+    </nav>
+  </div>
+
+  <div id="personModal" class="modal hidden" aria-hidden="true"><div class="modal-backdrop" data-close-modal></div><article class="modal-card">
+    <button class="modal-close" data-close-modal>×</button>
+    <div class="profile-hero"><div id="profileAvatar" class="avatar big">ش</div><div><span id="profileConfidence" class="badge gold"></span><h2 id="profileName"></h2><p id="profileLife" class="muted"></p></div></div>
+    <div class="profile-grid"><div class="info-box"><span>الأب</span><strong id="profileFather">—</strong></div><div class="info-box"><span>الأم</span><strong id="profileMother">—</strong></div><div class="info-box"><span>الزوج/الزوجة</span><strong id="profileSpouses">—</strong></div><div class="info-box"><span>الأبناء</span><strong id="profileChildren">—</strong></div></div>
+    <div class="panel soft"><h3>نبذة</h3><p id="profileBio">لا توجد نبذة مسجلة.</p></div>
+  </article></div>
+
+  <script src="./config.js"></script>
+  <script src="./app.js"></script>
+</body></html>
