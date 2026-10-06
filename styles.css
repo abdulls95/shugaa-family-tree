@@ -276,3 +276,13 @@ label small{
 @media(max-width:560px){
   .edit-name-grid{grid-template-columns:1fr}
 }
+
+
+/* V3.0.8 — Add child from person profile */
+#addChildModal .modal-card{max-width:980px}
+#addChildParentInfo{
+  background:#f7f1e5;
+  border:1px solid #e3d6ba;
+  border-radius:14px;
+  padding:10px 12px;
+}

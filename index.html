@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#082f29" />
   <meta name="description" content="شجرة آل شجاع — متحف رقمي وشجرة نسب ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=3.0.7" />
+  <link rel="manifest" href="./manifest.webmanifest?v=3.0.8" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=3.0.7" />
+  <link rel="stylesheet" href="./styles.css?v=3.0.8" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -447,6 +447,7 @@
       </div>
       <div class="profile-actions">
         <button id="profileEditBtn" class="btn primary staff-only hidden">✏️ تعديل مباشر</button>
+        <button id="profileAddChildBtn" class="btn primary staff-only hidden">➕ إضافة ابن/ابنة</button>
         <button id="profileLineageBtn" class="btn gold">رحلة النسب</button>
         <button id="profileKinshipBtn" class="btn light">صلة القرابة</button>
         <button id="profileContributeBtn" class="btn light contribution-only hidden">تصحيح / إضافة معلومة</button>
@@ -455,6 +456,88 @@
     </article>
   </div>
 
+
+  <!-- ADD CHILD FROM PERSON PROFILE -->
+  <div id="addChildModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-add-child></div>
+    <article class="modal-card edit-person-card">
+      <button class="modal-close" type="button" data-close-add-child>×</button>
+      <div class="edit-person-heading">
+        <span class="section-kicker">إضافة مباشرة</span>
+        <h2>إضافة ابن / ابنة</h2>
+        <p id="addChildParentInfo" class="muted"></p>
+      </div>
+
+      <form id="addChildForm" class="stack">
+        <div class="two-cols">
+          <label>صلة الشخص المفتوح بالطفل
+            <select id="childCurrentParentRole">
+              <option value="father">هو الأب</option>
+              <option value="mother">هي الأم</option>
+            </select>
+          </label>
+          <label>الوالد الآخر
+            <select id="childOtherParent">
+              <option value="">— غير معروف / غير مسجل —</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="name-grid edit-name-grid">
+          <label>اسم الطفل الأول *<input id="childFirstName" required placeholder="مثال: إبراهيم" /></label>
+          <label>اسم الأب<input id="childFatherNameText" /></label>
+          <label>اسم الجد<input id="childGrandfatherNameText" /></label>
+          <label>اسم جد الأب<input id="childGreatNameText" /></label>
+          <label>اسم العائلة / القبيلة<input id="childFamilyNameText" /></label>
+        </div>
+
+        <div class="name-preview">
+          <small>الاسم الكامل المقترح</small>
+          <strong id="childNamePreview">—</strong>
+        </div>
+
+        <div class="two-cols">
+          <label>الجنس
+            <select id="childGender">
+              <option value="male">ذكر</option>
+              <option value="female">أنثى</option>
+              <option value="unknown">غير محدد</option>
+            </select>
+          </label>
+          <label>كود الأسرة / المسار<input id="childLineageCode" placeholder="يُقترح تلقائيًا" /></label>
+        </div>
+
+        <div class="two-cols">
+          <label>تاريخ الميلاد الكامل<input id="childBirthDate" type="date" /></label>
+          <label>سنة الميلاد فقط<input id="childBirthYear" type="number" min="1" max="3000" /></label>
+        </div>
+
+        <label>درجة التوثيق
+          <select id="childConfidence">
+            <option value="family_tradition">متوارث عائليًا</option>
+            <option value="documented">موثق</option>
+            <option value="likely">مرجح</option>
+            <option value="uncertain">غير مؤكد</option>
+          </select>
+        </label>
+
+        <label>نبذة / ملاحظة<textarea id="childBio" rows="3"></textarea></label>
+
+        <div id="childDuplicateBox" class="duplicate-box hidden"></div>
+        <label id="childDuplicateConfirmWrap" class="check-row hidden">
+          <input id="childDuplicateConfirm" type="checkbox" />
+          راجعت الأسماء المشابهة وأؤكد أن هذا طفل جديد
+        </label>
+
+        <div class="edit-person-actions">
+          <button type="button" class="btn light" data-close-add-child>إلغاء</button>
+          <button type="button" id="checkChildDuplicatesBtn" class="btn light">فحص التكرار</button>
+          <button class="btn primary">إضافة وربط الطفل</button>
+        </div>
+        <p id="addChildMsg" class="form-msg"></p>
+      </form>
+    </article>
+  </div>
 
   <!-- DIRECT PERSON EDIT MODAL -->
   <div id="editPersonModal" class="modal hidden">
@@ -534,7 +617,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=3.0.7"></script>
-  <script src="./app.js?v=3.0.7"></script>
+  <script src="./config.js?v=3.0.8"></script>
+  <script src="./app.js?v=3.0.8"></script>
 </body>
 </html>
