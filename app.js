@@ -1067,20 +1067,29 @@
   function v4InferPersonParts(p){
     if(!p)return {first:"",father:"",grand:"",great:"",family:""};
 
+    // V5.0.4:
+    // Use the visible full name as the primary source because some older records
+    // have incomplete structured name columns. The structured columns are fallbacks.
     const tokens=String(p.full_name_ar||"").trim().split(/\s+/).filter(Boolean);
-    const first=(p.first_name_ar||tokens[0]||"").trim();
 
-    // If the structured family field is missing, the last token is the best safe fallback
-    // for our current آل شجاع naming pattern.
-    const inferredFamily=(!p.family_name_text && tokens.length>=4) ? tokens[tokens.length-1] : "";
-    const family=(p.family_name_text||inferredFamily||"").trim();
+    const structuredFirst=String(p.first_name_ar||"").trim();
+    const structuredFather=String(p.father_name_text||"").trim();
+    const structuredGrand=String(p.grandfather_name_text||"").trim();
+    const structuredGreat=String(p.great_grandfather_name_text||"").trim();
+    const structuredFamily=String(p.family_name_text||"").trim();
 
-    // When family was inferred from the final token, don't also treat it as an ancestor.
-    const lineageTokens=(family && tokens[tokens.length-1]===family) ? tokens.slice(1,-1) : tokens.slice(1);
+    const first=tokens[0]||structuredFirst||"";
 
-    const father=(p.father_name_text||lineageTokens[0]||"").trim();
-    const grand=(p.grandfather_name_text||lineageTokens[1]||"").trim();
-    const great=(p.great_grandfather_name_text||lineageTokens[2]||"").trim();
+    let family=structuredFamily;
+    if(!family && tokens.length>=4)family=tokens[tokens.length-1];
+
+    const lineage=(family && tokens[tokens.length-1]===family)
+      ? tokens.slice(1,-1)
+      : tokens.slice(1);
+
+    const father=lineage[0]||structuredFather||"";
+    const grand=lineage[1]||structuredGrand||"";
+    const great=lineage[2]||structuredGreat||"";
 
     return {first,father,grand,great,family};
   }
@@ -1095,13 +1104,19 @@
 
     if(["son","daughter"].includes(t)){
       let fatherPerson=null;
+      const otherId=$("#relativeOtherParent")?.value||"";
+      const other=getPerson(otherId);
 
-      if(a.gender==="male"){
+      // If the current person is explicitly female, the paternal chain must come
+      // from the selected father. Otherwise (male OR old record with unknown gender),
+      // use the current person as the paternal source unless a male other-parent
+      // was explicitly selected.
+      if(a.gender==="female"){
+        if(other && other.gender==="male")fatherPerson=other;
+      }else if(a.gender==="male"){
         fatherPerson=a;
       }else{
-        const otherId=$("#relativeOtherParent")?.value||"";
-        const other=getPerson(otherId);
-        if(other?.gender==="male" || (other && a.gender==="female"))fatherPerson=other;
+        fatherPerson=(other && other.gender==="male") ? other : a;
       }
 
       if(fatherPerson){
@@ -1284,7 +1299,7 @@
     }else if(!$("#relativeExistingPerson").value)return toast("اختر الشخص الموجود.");
     const rp=state.relativeDraft.mode==="new"?v4RelativePersonData():getPerson($("#relativeExistingPerson").value);
     const arrow=["father","mother"].includes(t)?"↓":["son","daughter"].includes(t)?"↓":"↔";
-    $("#relativePreview").innerHTML=`<div class="v4-preview-person"><small>الشخص الحالي</small><strong>${esc(a.full_name_ar)}</strong><small>${esc(a.record_code||"")}</small></div><div class="v4-preview-relation"><span>${esc(V4_REL_LABEL[t])}</span><b>${arrow}</b></div><div class="v4-preview-person"><small>${state.relativeDraft.mode==="existing"?"سجل موجود":"سجل جديد"}</small><strong>${esc(rp?.full_name_ar||"—")}</strong><small>${state.relativeDraft.mode==="existing"?esc(rp?.record_code||""):"سيصدر له رقم SHG تلقائيًا"}</small></div>`;
+    $("#relativePreview").innerHTML=`<div class="v4-preview-person"><small>الشخص الحالي</small><strong>${esc(a.full_name_ar)}</strong><small>${esc(a.record_code||"")}</small></div><div class="v4-preview-relation"><span>${esc(V4_REL_LABEL[t])}</span><b>${arrow}</b></div><div class="v4-preview-person"><small>${state.relativeDraft.mode==="existing"?"سجل موجود":"الاسم الذي سيُحفظ"}</small><strong>${esc(rp?.full_name_ar||"—")}</strong><small>${state.relativeDraft.mode==="existing"?esc(rp?.record_code||""):"سيصدر له رقم SHG تلقائيًا"}</small></div>`;
     v4ShowRelativeStep(3);
   }
   async function v4SaveRelative(){
@@ -1668,5 +1683,5 @@
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.3").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.4").catch(console.warn));
 })();

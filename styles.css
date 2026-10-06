@@ -1082,3 +1082,10 @@ label small{
   color:#aaa494;
   opacity:.85;
 }
+
+
+/* V5.0.4 — make the derived full name unmistakable in the review step */
+.v4-preview-person strong{
+  line-height:1.6;
+  overflow-wrap:anywhere;
+}
