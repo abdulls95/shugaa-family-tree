@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0f4d3f" />
-  <meta name="description" content="شجرة آل شجاع - Shugaa Family Tree" />
+  <meta name="theme-color" content="#082f29" />
+  <meta name="description" content="شجرة آل شجاع — متحف رقمي، شجرة نسب، ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=2.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -18,22 +18,55 @@
 <body>
   <div id="toast" class="toast hidden"></div>
 
+  <!-- AUTH -->
   <section id="authScreen" class="auth-screen">
-    <div class="auth-card">
-      <div class="brand-mark">ش</div>
-      <h1>شجرة آل شجاع</h1>
-      <p class="muted">Shugaa Family Tree</p>
-      <p class="auth-copy">منصة عائلية خاصة لعرض النسب والفروع والأجيال.</p>
-      <form id="loginForm" class="stack">
-        <label>البريد الإلكتروني<input id="email" type="email" autocomplete="username" required /></label>
-        <label>كلمة المرور<input id="password" type="password" autocomplete="current-password" required /></label>
-        <button class="btn primary" type="submit">دخول</button>
-      </form>
-      <button id="forgotBtn" class="btn ghost" type="button">نسيت كلمة المرور</button>
-      <p id="authMsg" class="form-msg"></p>
+    <div class="auth-atmosphere"><span></span><span></span><span></span></div>
+    <div class="auth-shell">
+      <div class="auth-story">
+        <div class="heritage-seal">ش</div>
+        <span class="museum-kicker">متحف رقمي • شجرة نسب • رحلة تاريخية</span>
+        <h1>شجرة آل شجاع</h1>
+        <p>مكان واحد تحفظ فيه الأسماء والأنساب والوثائق والسجلات والصور والروايات، حتى تبقى ذاكرة العائلة حاضرة بين الأجيال.</p>
+        <div class="story-line"><i></i><b>جذور تمتد… وأجيال تتصل</b><i></i></div>
+      </div>
+
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button id="loginTab" class="auth-tab active" type="button">تسجيل الدخول</button>
+          <button id="signupTab" class="auth-tab" type="button">طلب عضوية</button>
+        </div>
+
+        <form id="loginForm" class="stack auth-form">
+          <label>البريد الإلكتروني<input id="email" type="email" autocomplete="username" required /></label>
+          <label>كلمة المرور<input id="password" type="password" autocomplete="current-password" required /></label>
+          <button class="btn primary wide" type="submit">دخول إلى شجرة آل شجاع</button>
+          <button id="forgotBtn" class="btn ghost" type="button">نسيت كلمة المرور</button>
+        </form>
+
+        <form id="signupForm" class="stack auth-form hidden">
+          <label>الاسم الكامل<input id="signupName" required placeholder="اكتب اسمك الكامل" /></label>
+          <label>البريد الإلكتروني<input id="signupEmail" type="email" autocomplete="email" required /></label>
+          <label>كلمة المرور<input id="signupPassword" type="password" minlength="8" autocomplete="new-password" required /></label>
+          <label>تأكيد كلمة المرور<input id="signupPassword2" type="password" minlength="8" autocomplete="new-password" required /></label>
+          <button class="btn primary wide" type="submit">إرسال طلب العضوية</button>
+          <p class="micro-copy">بعد إنشاء الحساب يبقى الطلب «بانتظار الموافقة» حتى يقبله مدير العائلة.</p>
+        </form>
+        <p id="authMsg" class="form-msg"></p>
+      </div>
     </div>
   </section>
 
+  <!-- ACCOUNT STATUS -->
+  <section id="statusScreen" class="status-screen hidden">
+    <div class="status-card">
+      <div id="statusIcon" class="status-icon">⌛</div>
+      <h2 id="statusTitle">طلبك بانتظار الموافقة</h2>
+      <p id="statusText">تم إنشاء حسابك، لكن الشجرة خاصة بالعائلة ولا تفتح إلا بعد موافقة الإدارة.</p>
+      <button id="statusLogoutBtn" class="btn light">تسجيل الخروج</button>
+    </div>
+  </section>
+
+  <!-- APP -->
   <div id="app" class="app hidden">
     <header class="topbar">
       <div class="brand">
@@ -44,76 +77,227 @@
         <button data-view="home" class="nav-btn active">الرئيسية</button>
         <button data-view="tree" class="nav-btn">الشجرة</button>
         <button data-view="people" class="nav-btn">الأفراد</button>
-        <button data-view="admin" class="nav-btn admin-only hidden">الإدارة</button>
+        <button data-view="library" class="nav-btn">مكتبة العائلة</button>
+        <button data-view="history" class="nav-btn">رحلة العائلة</button>
+        <button data-view="admin" class="nav-btn staff-only hidden">الإدارة</button>
       </nav>
-      <div class="user-box"><span id="userRoleBadge" class="badge"></span><button id="logoutBtn" class="btn ghost small-btn">خروج</button></div>
+      <div class="user-box">
+        <span id="userWelcome" class="user-welcome"></span>
+        <span id="userRoleBadge" class="badge"></span>
+        <button id="logoutBtn" class="btn ghost small-btn">خروج</button>
+      </div>
     </header>
 
     <main>
+      <!-- HOME -->
       <section id="view-home" class="view active">
-        <div class="hero"><div class="hero-pattern"></div><div class="hero-content">
-          <span class="eyebrow">حفظ للأصول • ربط للأجيال</span>
-          <h2>شجرة آل شجاع</h2>
-          <p>استعرض أفراد العائلة وفروعها عبر الأجيال، وابحث عن أي شخص وافتح ملفه العائلي.</p>
-          <div class="hero-actions"><button class="btn primary" data-go="tree">استعرض الشجرة</button><button class="btn light" data-go="people">ابحث عن فرد</button></div>
-        </div></div>
-
-        <div class="stats-grid">
-          <article class="stat-card"><div class="stat-icon">👥</div><strong id="statPeople">0</strong><span>عدد الأفراد</span></article>
-          <article class="stat-card"><div class="stat-icon">🌿</div><strong id="statBranches">0</strong><span>الفروع</span></article>
-          <article class="stat-card"><div class="stat-icon">🔗</div><strong id="statRelations">0</strong><span>روابط النسب</span></article>
-          <article class="stat-card"><div class="stat-icon">💍</div><strong id="statMarriages">0</strong><span>روابط الزواج</span></article>
+        <div class="museum-hero">
+          <div class="hero-orbit orbit-a"></div><div class="hero-orbit orbit-b"></div>
+          <div class="hero-ancestry-line"></div>
+          <div class="hero-content">
+            <span class="eyebrow">متحف آل شجاع الرقمي</span>
+            <h2>كل اسمٍ له قصة.<br><em>وكل جيلٍ امتداد.</em></h2>
+            <p>استكشف النسب، اسلك طريق الأجداد، اكتشف صلة القرابة، وادخل أرشيف العائلة من السجلات والوثائق والصور والروايات.</p>
+            <div class="hero-actions">
+              <button class="btn gold" data-go="tree">استكشف الشجرة</button>
+              <button class="btn glass" data-go="lineage">ابدأ رحلة النسب</button>
+            </div>
+          </div>
+          <div class="hero-emblem" aria-hidden="true"><span>ش</span><small>آل شجاع</small></div>
         </div>
 
-        <div class="feature-grid">
-          <button type="button" class="feature-card feature-button" data-go="tree"><span>🌳</span><h3>شجرة تفاعلية</h3><p>تكبير وتصغير وتحريك الشجرة والضغط على أي فرد لفتح ملفه.</p><b>فتح الشجرة ←</b></button>
-          <button type="button" class="feature-card feature-button" id="quickSearchCard" data-go="people" onclick="setTimeout(function(){var e=document.getElementById('peopleSearch'); if(e){e.focus();}},250)"><span>🔎</span><h3>بحث سريع</h3><p>ابحث بالاسم للوصول إلى الشخص مباشرة داخل الشجرة.</p><b>ابدأ البحث ←</b></button>
-          <button type="button" class="feature-card feature-button" data-go="history"><span>📜</span><h3>تاريخ العائلة</h3><p>اعرض أحداث الميلاد والسكن والهجرة والوفاة والتاريخ المسجل للعائلة.</p><b>عرض التاريخ ←</b></button>
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-icon">👥</div><strong id="statPeople">0</strong><span>فردًا في الشجرة</span></article>
+          <article class="stat-card"><div class="stat-icon">🌿</div><strong id="statBranches">0</strong><span>فروع مسجلة</span></article>
+          <article class="stat-card"><div class="stat-icon">📚</div><strong id="statLibrary">0</strong><span>قطعة في المكتبة</span></article>
+          <article class="stat-card"><div class="stat-icon">⏳</div><strong id="statEvents">0</strong><span>حدثًا تاريخيًا</span></article>
+        </div>
+
+        <div class="portal-grid">
+          <button type="button" class="portal-card tree-portal" data-go="tree">
+            <span class="portal-icon">🌳</span><small>01</small><h3>الشجرة التفاعلية</h3><p>افتح الفروع وتحرك بين الأجيال واضغط على أي اسم لتعرف أسرته.</p><b>دخول الشجرة ←</b>
+          </button>
+          <button type="button" class="portal-card kinship-portal" data-go="kinship">
+            <span class="portal-icon">🧬</span><small>02</small><h3>اكتشف صلة القرابة</h3><p>اختر شخصين، وسيبحث النظام عن أقرب جد مشترك ويرسم المسار بينهما.</p><b>اكتشف الصلة ←</b>
+          </button>
+          <button type="button" class="portal-card lineage-portal" data-go="lineage">
+            <span class="portal-icon">✨</span><small>03</small><h3>رحلة النسب</h3><p>ابدأ من أي شخص واسلك خط النسب أبًا عن جد حتى أقدم جد مسجل.</p><b>اسلك الطريق ←</b>
+          </button>
+        </div>
+
+        <div class="home-two-col">
+          <section class="museum-panel">
+            <div class="section-title"><div><span>الأرشيف</span><h3>مكتبة آل شجاع</h3></div><button class="text-link" data-go="library">فتح المكتبة ←</button></div>
+            <div class="library-shortcuts">
+              <button data-library-filter="documents"><b>📜</b><span>الوثائق</span></button>
+              <button data-library-filter="records"><b>📚</b><span>السجلات</span></button>
+              <button data-library-filter="photos"><b>📷</b><span>الصور</span></button>
+              <button data-library-filter="media"><b>🎙️</b><span>الروايات والمرئيات</span></button>
+              <button data-library-filter="genealogy"><b>🌳</b><span>المشجرات</span></button>
+              <button data-library-filter="maps"><b>🗺️</b><span>الخرائط والأماكن</span></button>
+            </div>
+          </section>
+          <section class="museum-panel">
+            <div class="section-title"><div><span>حديثًا</span><h3>آخر ما أضيف</h3></div></div>
+            <div id="latestAdditions" class="latest-list"></div>
+          </section>
         </div>
       </section>
 
+      <!-- TREE -->
       <section id="view-tree" class="view">
-        <div class="page-head"><div><h2>شجرة العائلة</h2><p>العلاقات الظاهرة تُبنى من الأب/الأم والزواج المسجلين في قاعدة البيانات.</p></div>
-        <div class="tree-tools"><input id="treeSearch" class="search-input" placeholder="ابحث عن اسم..." /><button id="fitTreeBtn" class="btn light">ملاءمة</button><button id="relayoutBtn" class="btn light">ترتيب</button></div></div>
+        <div class="page-head">
+          <div><span class="section-kicker">النسب</span><h2>شجرة العائلة</h2><p>تكبير، تصغير، وتحريك. اضغط على أي شخص لفتح ملفه.</p></div>
+          <div class="tree-tools"><input id="treeSearch" class="search-input" placeholder="ابحث عن اسم داخل الشجرة..." /><button id="fitTreeBtn" class="btn light">ملاءمة</button><button id="relayoutBtn" class="btn light">ترتيب</button></div>
+        </div>
         <div id="treeEmpty" class="empty-state hidden"><div>🌱</div><h3>الشجرة ما زالت فارغة</h3><p>أضف أول شخص من لوحة الإدارة، وبعدها تبدأ الشجرة بالنمو.</p></div>
         <div id="cy" class="tree-canvas"></div>
       </section>
 
+      <!-- PEOPLE -->
       <section id="view-people" class="view">
-        <div class="page-head"><div><h2>الأفراد</h2><p>جميع الأشخاص المسجلين في شجرة آل شجاع.</p></div><input id="peopleSearch" class="search-input" placeholder="بحث بالاسم..." /></div>
+        <div class="page-head">
+          <div><span class="section-kicker">السجل العائلي</span><h2>الأفراد</h2><p>جميع الأشخاص المسجلين في شجرة آل شجاع.</p></div>
+          <input id="peopleSearch" class="search-input" placeholder="ابحث بالاسم..." />
+        </div>
         <div id="peopleGrid" class="people-grid"></div>
         <div id="peopleEmpty" class="empty-state hidden"><div>👤</div><h3>لا يوجد أفراد بعد</h3></div>
       </section>
 
-      <section id="view-history" class="view">
-        <div class="page-head">
-          <div><h2>تاريخ العائلة</h2><p>الأحداث التاريخية والتنقلات وأماكن الميلاد والوفاة المسجلة في شجرة آل شجاع.</p></div>
+      <!-- KINSHIP -->
+      <section id="view-kinship" class="view">
+        <div class="page-head"><div><span class="section-kicker">اكتشاف</span><h2>صلة القرابة</h2><p>اختر شخصين لنبحث عن أقرب جد مشترك ونرسم طريق القرابة.</p></div></div>
+        <div class="journey-shell">
+          <div class="journey-controls two-person-controls">
+            <label>الشخص الأول<select id="kinshipA"></select></label>
+            <div class="dna-mark">🧬</div>
+            <label>الشخص الثاني<select id="kinshipB"></select></label>
+            <button id="findKinshipBtn" class="btn gold">اكتشف صلة القرابة</button>
+          </div>
+          <div id="kinshipResult" class="journey-stage intro-stage">
+            <div class="stage-symbol">∞</div><h3>اختر شخصين</h3><p>سنبحث في شجرة الآباء والأمهات عن نقطة الالتقاء الأقرب.</p>
+          </div>
         </div>
-        <div id="historyList" class="history-list"></div>
-        <div id="historyEmpty" class="empty-state hidden"><div>📜</div><h3>لا توجد أحداث تاريخية مسجلة بعد</h3><p>عندما نضيف الميلاد أو السكن أو الهجرة أو الوفاة ستظهر هنا بالترتيب الزمني.</p></div>
       </section>
 
+      <!-- LINEAGE -->
+      <section id="view-lineage" class="view">
+        <div class="page-head"><div><span class="section-kicker">رحلة</span><h2>مسار النسب</h2><p>رحلة بصرية تبدأ من الشخص وتصعد عبر الآباء حتى أقدم جد مسجل.</p></div></div>
+        <div class="journey-shell lineage-shell">
+          <div class="journey-controls lineage-controls">
+            <label>ابدأ من<select id="lineagePerson"></select></label>
+            <button id="startLineageBtn" class="btn gold">اسلك طريق النسب</button>
+          </div>
+          <div id="lineageStage" class="journey-stage intro-stage"><div class="stage-symbol">✦</div><h3>جذور تمتد عبر الزمن</h3><p>اختر اسمًا ثم ابدأ الرحلة.</p></div>
+        </div>
+      </section>
+
+      <!-- HISTORY -->
+      <section id="view-history" class="view">
+        <div class="page-head"><div><span class="section-kicker">الزمن</span><h2>رحلة العائلة عبر التاريخ</h2><p>الميلاد، السكن، الهجرة، الزواج، الوفاة، والأحداث التي مرت بالعائلة.</p></div></div>
+        <div id="historyList" class="history-list"></div>
+        <div id="historyEmpty" class="empty-state hidden"><div>📜</div><h3>لا توجد أحداث تاريخية مسجلة بعد</h3><p>ابدأ بإضافة أحداث من لوحة الإدارة وستتحول إلى خط زمني للعائلة.</p></div>
+      </section>
+
+      <!-- LIBRARY -->
+      <section id="view-library" class="view">
+        <div class="page-head library-head">
+          <div><span class="section-kicker">الأرشيف الرقمي</span><h2>مكتبة آل شجاع</h2><p>وثائق، سجلات، صور، مشجرات، روايات، مراسلات، خرائط، ومواد تحفظ ذاكرة العائلة.</p></div>
+          <input id="librarySearch" class="search-input" placeholder="ابحث في المكتبة..." />
+        </div>
+        <div class="archive-notice">⚖️ السجلات والوثائق هنا أرشيف عائلي للمعلومة والتوثيق، وليست حكمًا قانونيًا على الملكية أو الحقوق.</div>
+        <div id="libraryFilters" class="library-filters">
+          <button class="filter-chip active" data-filter="all">الكل</button>
+          <button class="filter-chip" data-filter="documents">📜 الوثائق</button>
+          <button class="filter-chip" data-filter="records">📚 السجلات</button>
+          <button class="filter-chip" data-filter="photos">📷 الصور</button>
+          <button class="filter-chip" data-filter="media">🎙️ الصوت والمرئيات</button>
+          <button class="filter-chip" data-filter="genealogy">🌳 المشجرات والأنساب</button>
+          <button class="filter-chip" data-filter="maps">🗺️ الخرائط</button>
+          <button class="filter-chip admin-only hidden" data-filter="vault">🔐 الخزانة</button>
+        </div>
+        <div id="libraryGrid" class="library-grid"></div>
+        <div id="libraryEmpty" class="empty-state hidden"><div>🏛️</div><h3>المكتبة ما زالت تنتظر أول قطعة</h3><p>يمكن للمدير ومدخل البيانات إضافة سجل أو وثيقة أو صورة من لوحة الإدارة.</p></div>
+      </section>
+
+      <!-- ADMIN -->
       <section id="view-admin" class="view">
-        <div class="page-head"><div><h2>لوحة الإدارة</h2><p>إضافة شخص وربطه بالأب والأم. الصلاحية متاحة للمدير والمحرر فقط.</p></div></div>
-        <div class="admin-grid">
-          <form id="addPersonForm" class="panel stack">
-            <h3>إضافة شخص</h3>
-            <label>الاسم الكامل *<input id="pName" required placeholder="مثال: محمد بن عبدالله شجاع" /></label>
-            <label>الجنس<select id="pGender"><option value="male">ذكر</option><option value="female">أنثى</option><option value="unknown">غير محدد</option></select></label>
-            <div class="two-cols"><label>سنة الميلاد<input id="pBirthYear" type="number" min="1" max="3000" /></label><label>سنة الوفاة<input id="pDeathYear" type="number" min="1" max="3000" /></label></div>
-            <label class="check-row"><input id="pLiving" type="checkbox" checked /> الشخص على قيد الحياة</label>
-            <label>درجة التوثيق<select id="pConfidence"><option value="family_tradition">متوارث عائليًا</option><option value="documented">موثق</option><option value="likely">مرجح</option><option value="uncertain">غير مؤكد</option></select></label>
-            <label>الأب<select id="pFather"><option value="">— غير معروف / لا يوجد —</option></select></label>
-            <label>الأم<select id="pMother"><option value="">— غير معروفة / لا يوجد —</option></select></label>
-            <label>نبذة<textarea id="pBio" rows="4" placeholder="معلومات مختصرة عن الشخص..."></textarea></label>
-            <button class="btn primary" type="submit">حفظ الشخص</button><p id="adminMsg" class="form-msg"></p>
+        <div class="page-head"><div><span class="section-kicker">لوحة التحكم</span><h2>إدارة شجرة آل شجاع</h2><p>الأشخاص، الأحداث، المكتبة، الحسابات، والصلاحيات من مكان واحد.</p></div></div>
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-admin-panel="person">إضافة فرد</button>
+          <button class="admin-tab" data-admin-panel="event">إضافة حدث</button>
+          <button class="admin-tab" data-admin-panel="library">إضافة للمكتبة</button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="requests">طلبات الحسابات <span id="pendingCount" class="count-badge">0</span></button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="users">الصلاحيات</button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="audit">سجل التعديلات</button>
+        </div>
+
+        <div id="admin-person" class="admin-panel active">
+          <div class="admin-grid">
+            <form id="addPersonForm" class="panel stack">
+              <h3>إضافة شخص إلى الشجرة</h3>
+              <label>الاسم الكامل *<input id="pName" required placeholder="مثال: محمد بن عبدالله شجاع" /></label>
+              <label>الجنس<select id="pGender"><option value="male">ذكر</option><option value="female">أنثى</option><option value="unknown">غير محدد</option></select></label>
+              <div class="two-cols"><label>سنة الميلاد<input id="pBirthYear" type="number" min="1" max="3000" /></label><label>مكان الميلاد<input id="pBirthPlace" placeholder="مثال: يافع" /></label></div>
+              <div class="two-cols"><label>سنة الوفاة<input id="pDeathYear" type="number" min="1" max="3000" /></label><label>مكان الوفاة<input id="pDeathPlace" placeholder="مثال: عدن" /></label></div>
+              <label class="check-row"><input id="pLiving" type="checkbox" checked /> الشخص على قيد الحياة</label>
+              <label>درجة التوثيق<select id="pConfidence"><option value="family_tradition">متوارث عائليًا</option><option value="documented">موثق</option><option value="likely">مرجح</option><option value="uncertain">غير مؤكد</option></select></label>
+              <label>الأب<select id="pFather"><option value="">— غير معروف / لا يوجد —</option></select></label>
+              <label>الأم<select id="pMother"><option value="">— غير معروفة / لا يوجد —</option></select></label>
+              <label>نبذة<textarea id="pBio" rows="4" placeholder="أين عاش؟ ماذا يُعرف عنه؟"></textarea></label>
+              <button class="btn primary" type="submit">حفظ الشخص</button><p id="adminMsg" class="form-msg"></p>
+            </form>
+            <div class="panel"><h3>قاعدة ذهبية</h3><div class="gold-rule">نحن نسجل «الأب والأم والزواج» فقط، والنظام يستنتج الإخوة والأعمام وأبناء العم وبقية القرابات.</div><ul class="notes-list"><li>يمكن إضافة جد لا نعرف أباه، ثم ربطه لاحقًا عندما تظهر معلومة أقدم.</li><li>لا نعرض المعلومة غير المؤكدة وكأنها حقيقة؛ لكل سجل درجة توثيق.</li><li>كل تعديل مهم يُحفظ في سجل التعديلات.</li></ul></div>
+          </div>
+        </div>
+
+        <div id="admin-event" class="admin-panel">
+          <form id="addEventForm" class="panel stack compact-form">
+            <h3>إضافة حدث إلى رحلة العائلة</h3>
+            <label>الشخص<select id="eventPerson" required></select></label>
+            <label>نوع الحدث<select id="eventType"><option value="residence">سكن</option><option value="migration">هجرة / انتقال</option><option value="historical">حدث تاريخي</option><option value="marriage">زواج</option><option value="birth">ميلاد</option><option value="death">وفاة</option><option value="burial">دفن</option><option value="other">أخرى</option></select></label>
+            <div class="two-cols"><label>السنة<input id="eventYear" type="number" min="1" max="3000" /></label><label>المكان<input id="eventPlace" placeholder="مثال: يافع، عدن، جدة..." /></label></div>
+            <label>عنوان الحدث<input id="eventTitle" placeholder="مثال: انتقل إلى عدن" /></label>
+            <label>الوصف<textarea id="eventDescription" rows="4"></textarea></label>
+            <label>درجة التوثيق<select id="eventConfidence"><option value="family_tradition">متوارث عائليًا</option><option value="documented">موثق</option><option value="likely">مرجح</option><option value="uncertain">غير مؤكد</option></select></label>
+            <button class="btn primary">حفظ الحدث</button><p id="eventMsg" class="form-msg"></p>
           </form>
-          <div class="panel"><h3>ملاحظات مهمة</h3><ul class="notes-list">
-            <li>لا تسجل «أخ» أو «عم» يدويًا؛ النظام يستنتجها من روابط الأب والأم.</li>
-            <li>يمكن إضافة شخص قديم حتى لو لم نعرف أباه بعد، ثم ربطه لاحقًا.</li>
-            <li>درجة التوثيق تساعدنا عندما نصل لأنساب تاريخية بعيدة.</li>
-            <li>أماكن الميلاد والوفاة والهجرات والمصادر موجودة في قاعدة البيانات وسنضيف واجهتها في المرحلة التالية.</li>
-          </ul></div>
+        </div>
+
+        <div id="admin-library" class="admin-panel">
+          <div class="admin-grid">
+            <form id="addLibraryForm" class="panel stack">
+              <h3>إضافة قطعة إلى مكتبة العائلة</h3>
+              <label>العنوان *<input id="libTitle" required placeholder="مثال: سجل أرض كذا" /></label>
+              <div class="two-cols">
+                <label>القسم<select id="libType"><option value="document">وثيقة</option><option value="record">سجل</option><option value="land_record">سجل أرض / ملكية</option><option value="photo">صورة</option><option value="video">فيديو</option><option value="audio">تسجيل صوتي</option><option value="oral_history">رواية شفهية</option><option value="genealogy">مشجرة / نسب</option><option value="correspondence">مراسلة</option><option value="map">خريطة</option><option value="historical_event">مادة تاريخية</option><option value="other">أخرى</option></select></label>
+                <label>السنة<input id="libYear" type="number" min="1" max="3000" /></label>
+              </div>
+              <label>شخص مرتبط<select id="libPerson"><option value="">— بدون ربط بشخص محدد —</option></select></label>
+              <label>الوصف<textarea id="libSummary" rows="4" placeholder="ما الذي يحتويه هذا السجل أو الملف؟"></textarea></label>
+              <label>كلمات مفتاحية<input id="libKeywords" placeholder="أرض، يافع، صلح، فرع فلان..." /></label>
+              <div class="two-cols">
+                <label>درجة التوثيق<select id="libConfidence"><option value="documented">موثق</option><option value="family_tradition">متوارث عائليًا</option><option value="likely">مرجح</option><option value="uncertain">غير مؤكد</option></select></label>
+                <label>من يستطيع رؤيته<select id="libAccess"><option value="family">كل الأعضاء المقبولين</option><option value="editors">المدير ومدخلو البيانات</option><option value="admins">المدير فقط</option><option value="restricted">أشخاص محددون</option><option value="vault">الخزانة السرية</option></select></label>
+              </div>
+              <label>ملف مرفق (صورة / PDF / صوت / فيديو)<input id="libFile" type="file" /></label>
+              <label>أو رابط خارجي<input id="libExternalUrl" type="url" placeholder="https://..." /></label>
+              <button class="btn primary">إضافة إلى المكتبة</button><p id="libraryAdminMsg" class="form-msg"></p>
+            </form>
+            <div class="panel"><h3>🔐 مستويات الخصوصية</h3><ul class="notes-list"><li><b>كل الأعضاء:</b> أي حساب وافقت عليه الإدارة.</li><li><b>مدخلو البيانات:</b> المدير والمحررون فقط.</li><li><b>المدير فقط:</b> مواد إدارية حساسة.</li><li><b>أشخاص محددون:</b> لا تظهر إلا لمن تمنحه الإدارة إذنًا خاصًا.</li><li><b>الخزانة:</b> أعلى مستوى، للمدير فقط.</li></ul></div>
+          </div>
+        </div>
+
+        <div id="admin-requests" class="admin-panel admin-only hidden">
+          <div class="panel"><div class="section-title"><div><span>الوصول</span><h3>طلبات العضوية</h3></div></div><div id="accountRequests" class="account-list"></div></div>
+        </div>
+
+        <div id="admin-users" class="admin-panel admin-only hidden">
+          <div class="panel"><div class="section-title"><div><span>الصلاحيات</span><h3>أعضاء النظام</h3></div></div><div id="userManagement" class="account-list"></div></div>
+        </div>
+
+        <div id="admin-audit" class="admin-panel admin-only hidden">
+          <div class="panel"><div class="section-title"><div><span>الأمان</span><h3>سجل التعديلات</h3></div></div><div id="auditList" class="audit-list"></div></div>
         </div>
       </section>
     </main>
@@ -122,17 +306,34 @@
       <button data-view="home" class="nav-btn active">⌂<span>الرئيسية</span></button>
       <button data-view="tree" class="nav-btn">🌳<span>الشجرة</span></button>
       <button data-view="people" class="nav-btn">👥<span>الأفراد</span></button>
-      <button data-view="admin" class="nav-btn admin-only hidden">⚙️<span>الإدارة</span></button>
+      <button data-view="library" class="nav-btn">🏛️<span>المكتبة</span></button>
+      <button data-view="admin" class="nav-btn staff-only hidden">⚙️<span>الإدارة</span></button>
     </nav>
   </div>
 
-  <div id="personModal" class="modal hidden" aria-hidden="true"><div class="modal-backdrop" data-close-modal></div><article class="modal-card">
-    <button class="modal-close" data-close-modal>×</button>
-    <div class="profile-hero"><div id="profileAvatar" class="avatar big">ش</div><div><span id="profileConfidence" class="badge gold"></span><h2 id="profileName"></h2><p id="profileLife" class="muted"></p></div></div>
-    <div class="profile-grid"><div class="info-box"><span>الأب</span><strong id="profileFather">—</strong></div><div class="info-box"><span>الأم</span><strong id="profileMother">—</strong></div><div class="info-box"><span>الزوج/الزوجة</span><strong id="profileSpouses">—</strong></div><div class="info-box"><span>الأبناء</span><strong id="profileChildren">—</strong></div></div>
-    <div class="panel soft"><h3>نبذة</h3><p id="profileBio">لا توجد نبذة مسجلة.</p></div>
-  </article></div>
+  <!-- PERSON MODAL -->
+  <div id="personModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <article class="modal-card">
+      <button class="modal-close" data-close-modal>×</button>
+      <div class="profile-hero">
+        <div id="profileAvatar" class="avatar big">ش</div>
+        <div><span id="profileConfidence" class="badge gold"></span><h2 id="profileName"></h2><p id="profileLife" class="muted"></p></div>
+      </div>
+      <div class="profile-grid">
+        <div class="info-box"><span>الأب</span><strong id="profileFather">—</strong></div>
+        <div class="info-box"><span>الأم</span><strong id="profileMother">—</strong></div>
+        <div class="info-box"><span>الزوج/الزوجة</span><strong id="profileSpouses">—</strong></div>
+        <div class="info-box"><span>الأبناء</span><strong id="profileChildren">—</strong></div>
+        <div class="info-box"><span>مكان الميلاد</span><strong id="profileBirthPlace">—</strong></div>
+        <div class="info-box"><span>مكان الوفاة</span><strong id="profileDeathPlace">—</strong></div>
+      </div>
+      <div class="profile-actions"><button id="profileLineageBtn" class="btn gold">اسلك طريق النسب</button><button id="profileKinshipBtn" class="btn light">قارن صلة القرابة</button></div>
+      <div class="panel soft"><h3>نبذة</h3><p id="profileBio">لا توجد نبذة مسجلة.</p></div>
+    </article>
+  </div>
 
-  <script src="./config.js"></script>
-  <script src="./app.js"></script>
-</body></html>
+  <script src="./config.js?v=2.0.0"></script>
+  <script src="./app.js?v=2.0.0"></script>
+</body>
+</html>
