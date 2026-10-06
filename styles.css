@@ -1068,3 +1068,17 @@ label small{
     padding:14px;
   }
 }
+
+
+/* V5.0.2 — automatic relationship-derived names */
+.v4-auto-name-hint{
+  display:block;
+  margin-top:5px;
+  color:#7b806f;
+  font-size:11px;
+  font-style:normal;
+}
+.v4-optional-details input::placeholder{
+  color:#aaa494;
+  opacity:.85;
+}

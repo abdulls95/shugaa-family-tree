@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#082f29" />
   <meta name="description" content="شجرة آل شجاع — متحف رقمي وشجرة نسب ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=5.0.1" />
+  <link rel="manifest" href="./manifest.webmanifest?v=5.0.2" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=5.0.1" />
+  <link rel="stylesheet" href="./styles.css?v=5.0.2" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -560,7 +560,11 @@
             <label>الاسم الأول *<input id="relativeFirstName" autocomplete="off" /></label>
             <label>الجنس<select id="relativeGender"><option value="male">ذكر</option><option value="female">أنثى</option><option value="unknown">غير محدد</option></select></label>
           </div>
-          <div class="v4-auto-name"><small>الاسم الكامل المقترح</small><strong id="relativeNamePreview">—</strong></div>
+          <div class="v4-auto-name">
+            <small>الاسم الكامل المقترح — يُستكمل تلقائيًا من صلة القرابة</small>
+            <strong id="relativeNamePreview">—</strong>
+            <em id="relativeAutoNameHint" class="v4-auto-name-hint"></em>
+          </div>
           <details class="v4-optional-details">
             <summary>معلومات إضافية (اختياري)</summary>
             <div class="name-grid v4-name-grid">
@@ -826,7 +830,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=5.0.1"></script>
-  <script src="./app.js?v=5.0.1"></script>
+  <script src="./config.js?v=5.0.2"></script>
+  <script src="./app.js?v=5.0.2"></script>
 </body>
 </html>

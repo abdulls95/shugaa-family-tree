@@ -1060,37 +1060,192 @@
     const fam=familyOf(anchor.id), spouseIds=new Set(fam.spouses.map(x=>x.id));
     const rows=v4OtherParentCandidates(anchor,state.relativeDraft.type);
     sel.innerHTML='<option value="">— غير معروف / غير مسجل —</option>'+rows.map(p=>`<option value="${p.id}">${spouseIds.has(p.id)?"★ ":""}${esc(personLabel(p))}</option>`).join("");
-    const spouses=rows.filter(p=>spouseIds.has(p.id)); if(spouses.length===1)sel.value=spouses[0].id;
-  }
-  function v4PrefillRelative(){
-    const a=getPerson(state.activePersonId),t=state.relativeDraft.type;if(!a)return;
-    const fixed=v4FixedGender(t); if(fixed)$("#relativeGender").value=fixed;
-    else $("#relativeGender").value=a.gender==="male"?"female":a.gender==="female"?"male":"unknown";
-    $("#relativeFirstName").value=""; $("#relativeFatherNameText").value=""; $("#relativeGrandfatherNameText").value=""; $("#relativeGreatNameText").value=""; $("#relativeFamilyNameText").value=""; $("#relativeLineageCode").value="";
-    const fam=familyOf(a.id);
-    if(["son","daughter"].includes(t) && a.gender==="male"){
-      $("#relativeFatherNameText").value=a.first_name_ar||a.full_name_ar.split(" ")[0]||"";
-      $("#relativeGrandfatherNameText").value=a.father_name_text||"";
-      $("#relativeGreatNameText").value=a.grandfather_name_text||"";
-      $("#relativeFamilyNameText").value=a.family_name_text||"";
-    }else if(["brother","sister"].includes(t)){
-      $("#relativeFatherNameText").value=a.father_name_text||fam.father?.first_name_ar||"";
-      $("#relativeGrandfatherNameText").value=a.grandfather_name_text||fam.father?.father_name_text||"";
-      $("#relativeGreatNameText").value=a.great_grandfather_name_text||fam.father?.grandfather_name_text||"";
-      $("#relativeFamilyNameText").value=a.family_name_text||"";
-    }else if(t==="father"){
-      $("#relativeFirstName").value=a.father_name_text||fam.father?.first_name_ar||"";
-      $("#relativeFatherNameText").value=a.grandfather_name_text||"";
-      $("#relativeGrandfatherNameText").value=a.great_grandfather_name_text||"";
-      $("#relativeFamilyNameText").value=a.family_name_text||"";
-    }
+    const spouses=rows.filter(p=>spouseIds.has(p.id));
+    if(spouses.length===1)sel.value=spouses[0].id;
     v4UpdateRelativeName();
   }
-  function v4RelativePersonData(){
-    const first=$("#relativeFirstName").value.trim(),father=$("#relativeFatherNameText").value.trim(),grand=$("#relativeGrandfatherNameText").value.trim(),great=$("#relativeGreatNameText").value.trim(),family=$("#relativeFamilyNameText").value.trim(),date=$("#relativeBirthDate").value||null;
-    return {first_name_ar:first,father_name_text:father||null,grandfather_name_text:grand||null,great_grandfather_name_text:great||null,family_name_text:family||null,full_name_ar:[first,father,grand,great,family].filter(Boolean).join(" "),gender:$("#relativeGender").value,birth_date:date,birth_year:toInt($("#relativeBirthYear").value)||(date?parseInt(date.slice(0,4),10):null),is_living:$("#relativeLiving").checked,record_confidence:$("#relativeConfidence").value,lineage_code:$("#relativeLineageCode").value.trim()||null,bio:$("#relativeBio").value.trim()||null};
+  function v4InferPersonParts(p){
+    if(!p)return {first:"",father:"",grand:"",great:"",family:""};
+
+    const tokens=String(p.full_name_ar||"").trim().split(/\s+/).filter(Boolean);
+    const first=(p.first_name_ar||tokens[0]||"").trim();
+
+    // If the structured family field is missing, the last token is the best safe fallback
+    // for our current آل شجاع naming pattern.
+    const inferredFamily=(!p.family_name_text && tokens.length>=4) ? tokens[tokens.length-1] : "";
+    const family=(p.family_name_text||inferredFamily||"").trim();
+
+    // When family was inferred from the final token, don't also treat it as an ancestor.
+    const lineageTokens=(family && tokens[tokens.length-1]===family) ? tokens.slice(1,-1) : tokens.slice(1);
+
+    const father=(p.father_name_text||lineageTokens[0]||"").trim();
+    const grand=(p.grandfather_name_text||lineageTokens[1]||"").trim();
+    const great=(p.great_grandfather_name_text||lineageTokens[2]||"").trim();
+
+    return {first,father,grand,great,family};
   }
-  function v4UpdateRelativeName(){ const d=v4RelativePersonData(); $("#relativeNamePreview").textContent=d.full_name_ar||"—"; $("#relativeDuplicateBox").classList.add("hidden"); $("#relativeDuplicateConfirmWrap").classList.add("hidden"); $("#relativeDuplicateConfirm").checked=false; }
+
+  function v4InheritedRelativeParts(){
+    const a=getPerson(state.activePersonId);
+    const t=state.relativeDraft.type;
+    if(!a||!t)return {father:"",grand:"",great:"",family:"",source:""};
+
+    const ap=v4InferPersonParts(a);
+    const fam=familyOf(a.id);
+
+    if(["son","daughter"].includes(t)){
+      let fatherPerson=null;
+
+      if(a.gender==="male"){
+        fatherPerson=a;
+      }else{
+        const otherId=$("#relativeOtherParent")?.value||"";
+        const other=getPerson(otherId);
+        if(other?.gender==="male" || (other && a.gender==="female"))fatherPerson=other;
+      }
+
+      if(fatherPerson){
+        const fp=v4InferPersonParts(fatherPerson);
+        return {
+          father:fp.first,
+          grand:fp.father,
+          great:fp.grand,
+          family:fp.family,
+          source:`من اسم الأب: ${fatherPerson.full_name_ar}`
+        };
+      }
+
+      return {
+        father:"",
+        grand:"",
+        great:"",
+        family:"",
+        source:a.gender==="female" ? "اختر الأب ليكتمل اسم الطفل تلقائيًا." : ""
+      };
+    }
+
+    if(["brother","sister"].includes(t)){
+      const fatherPerson=fam.father;
+      if(fatherPerson){
+        const fp=v4InferPersonParts(fatherPerson);
+        return {
+          father:fp.first,
+          grand:fp.father,
+          great:fp.grand,
+          family:fp.family||ap.family,
+          source:`من نفس والد ${a.full_name_ar}`
+        };
+      }
+
+      return {
+        father:ap.father,
+        grand:ap.grand,
+        great:ap.great,
+        family:ap.family,
+        source:`من نسب ${a.full_name_ar}`
+      };
+    }
+
+    if(t==="father"){
+      return {
+        father:ap.grand,
+        grand:ap.great,
+        great:"",
+        family:ap.family,
+        source:`مستنتج من نسب ${a.full_name_ar}`
+      };
+    }
+
+    // Mother and spouse do not inherit the anchor's paternal chain.
+    return {father:"",grand:"",great:"",family:"",source:""};
+  }
+
+  function v4ApplyRelativePlaceholders(){
+    const auto=v4InheritedRelativeParts();
+    const fields=[
+      ["#relativeFatherNameText",auto.father,"اسم الأب"],
+      ["#relativeGrandfatherNameText",auto.grand,"اسم الجد"],
+      ["#relativeGreatNameText",auto.great,"اسم جد الأب"],
+      ["#relativeFamilyNameText",auto.family,"اسم العائلة"]
+    ];
+
+    fields.forEach(([sel,value,label])=>{
+      const el=$(sel);
+      if(!el)return;
+      el.placeholder=value ? `${value} — تلقائي` : label;
+    });
+
+    const hint=$("#relativeAutoNameHint");
+    if(hint)hint.textContent=auto.source||"";
+  }
+
+  function v4PrefillRelative(){
+    const a=getPerson(state.activePersonId),t=state.relativeDraft.type;
+    if(!a)return;
+
+    const fixed=v4FixedGender(t);
+    if(fixed)$("#relativeGender").value=fixed;
+    else $("#relativeGender").value=a.gender==="male"?"female":a.gender==="female"?"male":"unknown";
+
+    // Important: inherited lineage fields stay visually empty.
+    // The proposed name is calculated from the relationship, not from the user having
+    // to manually fill "additional information".
+    $("#relativeFirstName").value="";
+    $("#relativeFatherNameText").value="";
+    $("#relativeGrandfatherNameText").value="";
+    $("#relativeGreatNameText").value="";
+    $("#relativeFamilyNameText").value="";
+    $("#relativeLineageCode").value="";
+
+    const fam=familyOf(a.id);
+    const ap=v4InferPersonParts(a);
+
+    // If we already know the father's name from the anchor, help the admin when adding him.
+    if(t==="father"){
+      $("#relativeFirstName").value=ap.father||fam.father?.first_name_ar||"";
+    }
+
+    v4ApplyRelativePlaceholders();
+    v4UpdateRelativeName();
+  }
+
+  function v4RelativePersonData(){
+    const first=$("#relativeFirstName").value.trim();
+    const auto=v4InheritedRelativeParts();
+
+    // Manual values are overrides only. If left blank, relationship-derived values are used.
+    const father=$("#relativeFatherNameText").value.trim()||auto.father||"";
+    const grand=$("#relativeGrandfatherNameText").value.trim()||auto.grand||"";
+    const great=$("#relativeGreatNameText").value.trim()||auto.great||"";
+    const family=$("#relativeFamilyNameText").value.trim()||auto.family||"";
+    const date=$("#relativeBirthDate").value||null;
+
+    return {
+      first_name_ar:first,
+      father_name_text:father||null,
+      grandfather_name_text:grand||null,
+      great_grandfather_name_text:great||null,
+      family_name_text:family||null,
+      full_name_ar:[first,father,grand,great,family].filter(Boolean).join(" "),
+      gender:$("#relativeGender").value,
+      birth_date:date,
+      birth_year:toInt($("#relativeBirthYear").value)||(date?parseInt(date.slice(0,4),10):null),
+      is_living:$("#relativeLiving").checked,
+      record_confidence:$("#relativeConfidence").value,
+      lineage_code:$("#relativeLineageCode").value.trim()||null,
+      bio:$("#relativeBio").value.trim()||null
+    };
+  }
+
+  function v4UpdateRelativeName(){
+    v4ApplyRelativePlaceholders();
+    const d=v4RelativePersonData();
+    $("#relativeNamePreview").textContent=d.full_name_ar||"—";
+    $("#relativeDuplicateBox").classList.add("hidden");
+    $("#relativeDuplicateConfirmWrap").classList.add("hidden");
+    $("#relativeDuplicateConfirm").checked=false;
+  }
+
   function v4SetRelativeMode(mode){ state.relativeDraft.mode=mode; $("#relativeModeNew").classList.toggle("active",mode==="new"); $("#relativeModeExisting").classList.toggle("active",mode==="existing"); $("#relativeNewFields").classList.toggle("hidden",mode!=="new"); $("#relativeExistingFields").classList.toggle("hidden",mode!=="existing"); }
   function openRelativeBuilder(anchorId,preset=null){
     if(!canAddPeopleDirect())return toast("لا تملك صلاحية إضافة أفراد مباشرة.");
@@ -1154,7 +1309,40 @@
   }
   function closeFamilyBuilder(){$("#familyBuilderModal").classList.add("hidden");}
   function v4FamilyChildrenPayload(){
-    const a=getPerson(state.activePersonId);return $$("#familyChildrenRows .v4-child-row").map(row=>{const first=row.querySelector(".fb-child-name").value.trim(),gender=row.querySelector(".fb-child-gender").value,other=row.querySelector(".fb-child-other").value||null;let father=null;if(a?.gender==="male")father=a;else if(other&&other!=="__new_spouse__")father=getPerson(other);const person={first_name_ar:first,gender,is_living:true,record_confidence:"family_tradition",father_name_text:father?(father.first_name_ar||father.full_name_ar.split(" ")[0]):null,grandfather_name_text:father?.father_name_text||null,great_grandfather_name_text:father?.grandfather_name_text||null,family_name_text:father?.family_name_text||a?.family_name_text||null};person.full_name_ar=[person.first_name_ar,person.father_name_text,person.grandfather_name_text,person.great_grandfather_name_text,person.family_name_text].filter(Boolean).join(" ");return {person,other_parent_id:other};}).filter(x=>x.person.first_name_ar);
+    const a=getPerson(state.activePersonId);
+    return $$("#familyChildrenRows .v4-child-row").map(row=>{
+      const first=row.querySelector(".fb-child-name").value.trim();
+      const gender=row.querySelector(".fb-child-gender").value;
+      const other=row.querySelector(".fb-child-other").value||null;
+
+      let father=null;
+      if(a?.gender==="male")father=a;
+      else if(other&&other!=="__new_spouse__")father=getPerson(other);
+
+      const fp=v4InferPersonParts(father);
+      const ap=v4InferPersonParts(a);
+
+      const person={
+        first_name_ar:first,
+        gender,
+        is_living:true,
+        record_confidence:"family_tradition",
+        father_name_text:father?fp.first:null,
+        grandfather_name_text:father?fp.father:null,
+        great_grandfather_name_text:father?fp.grand:null,
+        family_name_text:father?(fp.family||null):(ap.family||null)
+      };
+
+      person.full_name_ar=[
+        person.first_name_ar,
+        person.father_name_text,
+        person.grandfather_name_text,
+        person.great_grandfather_name_text,
+        person.family_name_text
+      ].filter(Boolean).join(" ");
+
+      return {person,other_parent_id:other};
+    }).filter(x=>x.person.first_name_ar);
   }
   function v4RenderFamilyPreview(){
     const a=getPerson(state.activePersonId),box=$("#familyBuilderPreview");if(!a||!box)return;const chips=[`<span>رب الأسرة: ${esc(a.full_name_ar)}</span>`];if(state.familyBuilder.spouseMode==="existing"){const p=getPerson($("#familyExistingSpouse").value);if(p)chips.push(`<span>زوج/زوجة: ${esc(p.full_name_ar)}</span>`);}if(state.familyBuilder.spouseMode==="new"&&$("#familyNewSpouseName").value.trim())chips.push(`<span>زوج/زوجة جديد: ${esc($("#familyNewSpouseName").value.trim())}</span>`);v4FamilyChildrenPayload().forEach(x=>chips.push(`<span>${x.person.gender==="female"?"ابنة":"ابن"}: ${esc(x.person.full_name_ar||x.person.first_name_ar)}</span>`));box.innerHTML=chips.join("");
@@ -1231,6 +1419,19 @@
   $$("[data-relative-back]").forEach(b=>b.onclick=()=>v4ShowRelativeStep(Number(b.dataset.relativeBack)));
   $("#relativeModeNew").onclick=()=>v4SetRelativeMode("new");
   $("#relativeModeExisting").onclick=()=>v4SetRelativeMode("existing");
+  $("#relativeOtherParent")?.addEventListener("change",async()=>{
+    v4UpdateRelativeName();
+    const a=getPerson(state.activePersonId);
+    if(["son","daughter"].includes(state.relativeDraft.type)){
+      try{
+        const parentForCode=a?.gender==="male"?a:getPerson($("#relativeOtherParent").value);
+        if(parentForCode){
+          const {data}=await client.rpc("suggest_lineage_code",{p_parent_id:parentForCode.id});
+          if(data)$("#relativeLineageCode").value=data;
+        }
+      }catch(_e){}
+    }
+  });
   ["#relativeFirstName","#relativeFatherNameText","#relativeGrandfatherNameText","#relativeGreatNameText","#relativeFamilyNameText","#relativeBirthDate","#relativeBirthYear"].forEach(s=>$(s)?.addEventListener("input",v4UpdateRelativeName));
   $("#relativeToPreviewBtn").onclick=v4PrepareRelativePreview;
   $("#saveRelativeBtn").onclick=v4SaveRelative;
@@ -1467,5 +1668,5 @@
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.1").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.2").catch(console.warn));
 })();
