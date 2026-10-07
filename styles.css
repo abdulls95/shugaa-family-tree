@@ -1309,3 +1309,16 @@ label small{
     border-radius:12px!important;
   }
 }
+
+
+/* V5.0.7 — blood-line tree only */
+.awraq-tree-summary small::after{
+  content:" • الزوج/الزوجة وعائلتهم الجانبية تظهر داخل الملف فقط";
+  color:#9a9e9c;
+}
+
+
+/* V5.0.8 — main tree follows the paternal آل شجاع line */
+.awraq-tree-summary small::after{
+  content:" • الزوجات وأبناء البنات المتزوجات خارج آل شجاع تظهر داخل الملفات فقط";
+}

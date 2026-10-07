@@ -200,8 +200,10 @@
     $("#statRelations").textContent=state.relations.length;
     $("#statMarriages").textContent=state.marriages.length;
     $("#statLibrary").textContent=state.library.length;
-    if($("#treeMemberCount"))$("#treeMemberCount").textContent=state.people.length;
-    if($("#treeCapacityText"))$("#treeCapacityText").textContent=`${state.people.length} فردًا في الشجرة`;
+
+    const visibleTreeCount=state.people.length ? buildTreeModel().people.length : 0;
+    if($("#treeMemberCount"))$("#treeMemberCount").textContent=visibleTreeCount;
+    if($("#treeCapacityText"))$("#treeCapacityText").textContent=`${visibleTreeCount} فردًا في شجرة النسب`;
   }
 
   function getPerson(id){ return state.people.find(p=>p.id===id); }
@@ -310,37 +312,179 @@
   }
 
   function buildTreeModel(){
+    const allPeople=state.people;
+    const allIds=new Set(allPeople.map(p=>p.id));
+
+    const parentRels=state.relations.filter(r=>
+      ["father","mother","parent"].includes(r.parent_role) &&
+      allIds.has(r.parent_id) &&
+      allIds.has(r.child_id)
+    );
+
+    const parentsByChild=new Map();
+    const childrenByParentAll=new Map();
+
+    parentRels.forEach(r=>{
+      if(!parentsByChild.has(r.child_id))parentsByChild.set(r.child_id,[]);
+      parentsByChild.get(r.child_id).push({id:r.parent_id,role:r.parent_role});
+
+      if(!childrenByParentAll.has(r.parent_id))childrenByParentAll.set(r.parent_id,[]);
+      childrenByParentAll.get(r.parent_id).push(r.child_id);
+    });
+
+    const normFamily=v=>String(v||"")
+      .trim()
+      .replace(/[\u064B-\u065F\u0670\u0640]/g,"")
+      .replace(/\s+/g," ");
+
+    const isShugaaName=p=>{
+      if(!p)return false;
+      const family=normFamily(p.family_name_text);
+      const full=normFamily(p.full_name_ar);
+      const last=full.split(" ").filter(Boolean).pop()||"";
+      return family==="شجاع" || last==="شجاع";
+    };
+
+    // Main-tree rule:
+    // 1) آل شجاع men continue the visible lineage through their children.
+    // 2) آل شجاع women remain visible as daughters/sisters in their paternal branch.
+    // 3) If an آل شجاع woman marries outside the tribe, her husband and children
+    //    are NOT shown on the main tree; they remain available only in her profile.
+    // 4) If her husband is himself an آل شجاع man in the tree, their children may
+    //    appear through HIS paternal branch, not through her branch.
+
+    const visible=new Set();
+
+    // Seed with people whose own record is clearly آل شجاع.
+    allPeople.filter(isShugaaName).forEach(p=>visible.add(p.id));
+
+    // If old records are missing the family marker, start from the largest root branch.
+    if(!visible.size){
+      const candidateRoots=allPeople.filter(p=>!(parentsByChild.get(p.id)||[]).length);
+      const descendantMemo=new Map();
+
+      const countDesc=id=>{
+        if(descendantMemo.has(id))return descendantMemo.get(id);
+        const seen=new Set();
+        const stack=[id];
+        while(stack.length){
+          const cur=stack.pop();
+          for(const child of childrenByParentAll.get(cur)||[]){
+            if(!seen.has(child)){
+              seen.add(child);
+              stack.push(child);
+            }
+          }
+        }
+        descendantMemo.set(id,seen.size);
+        return seen.size;
+      };
+
+      candidateRoots.sort((a,b)=>countDesc(b.id)-countDesc(a.id));
+      if(candidateRoots[0])visible.add(candidateRoots[0].id);
+      else if(allPeople[0])visible.add(allPeople[0].id);
+    }
+
+    // Pull in paternal ancestors needed to connect visible records.
+    let changed=true;
+    while(changed){
+      changed=false;
+      for(const id of [...visible]){
+        const rels=parentsByChild.get(id)||[];
+
+        // Prefer father, then generic parent. We intentionally do not pull an
+        // outside mother/spouse into the main tribe tree.
+        const fatherRel=rels.find(x=>x.role==="father"||x.role==="parent");
+        const parentId=fatherRel?.id||null;
+
+        if(parentId && allIds.has(parentId) && !visible.has(parentId)){
+          visible.add(parentId);
+          changed=true;
+        }
+      }
+    }
+
+    // Now expand descendants ONLY through male-line members.
+    // A daughter remains visible, but her children do not continue the main tree
+    // unless their father is himself a visible آل شجاع male.
+    const queue=[...visible];
+    const processed=new Set();
+
+    while(queue.length){
+      const parentId=queue.shift();
+      if(processed.has(parentId))continue;
+      processed.add(parentId);
+
+      const parent=getPerson(parentId);
+      if(!parent)continue;
+
+      // Only men continue the main tribe lineage.
+      if(parent.gender!=="male")continue;
+
+      for(const childId of childrenByParentAll.get(parentId)||[]){
+        if(!visible.has(childId)){
+          visible.add(childId);
+          queue.push(childId);
+        }
+      }
+    }
+
+    // Build exactly one structural edge per visible child.
     const parentByChild=new Map();
     const childrenByParent=new Map();
 
-    state.people.forEach(p=>{
-      const parentId=preferredTreeParent(p.id);
-      if(parentId&&parentId!==p.id){
-        parentByChild.set(p.id,parentId);
-        if(!childrenByParent.has(parentId))childrenByParent.set(parentId,[]);
-        childrenByParent.get(parentId).push(p.id);
-      }
-    });
+    for(const childId of visible){
+      const rels=parentsByChild.get(childId)||[];
 
-    const structuralIds=new Set();
-    for(const [child,parent] of parentByChild){
-      structuralIds.add(child);
-      structuralIds.add(parent);
+      // Father is the only preferred structural parent for the main tree.
+      let parentId=(rels.find(x=>x.role==="father")||rels.find(x=>x.role==="parent"))?.id||null;
+
+      // If that father is outside the visible tree, do not attach the child through
+      // the mother. This is what hides a married-out daughter's children.
+      if(parentId && !visible.has(parentId)){
+        parentId=null;
+      }
+
+      if(parentId && parentId!==childId){
+        parentByChild.set(childId,parentId);
+        if(!childrenByParent.has(parentId))childrenByParent.set(parentId,[]);
+        childrenByParent.get(parentId).push(childId);
+      }
     }
 
-    // If there are no genealogy links yet, keep the people visible instead of returning an empty tree.
-    if(!structuralIds.size)state.people.forEach(p=>structuralIds.add(p.id));
+    // Keep only the connected tribe structure. A spouse/outside child that slipped
+    // in only because of a legacy family-name value is dropped unless it is a root
+    // or connected through a visible father.
+    const connected=new Set();
+    const roots=[...visible].filter(id=>!parentByChild.has(id));
 
-    const people=state.people.filter(p=>structuralIds.has(p.id));
+    // Prefer roots that are truly آل شجاع; if none, retain the first available root.
+    const rootSeeds=roots.filter(id=>isShugaaName(getPerson(id)));
+    if(!rootSeeds.length && roots[0])rootSeeds.push(roots[0]);
+
+    const walk=[...rootSeeds];
+    while(walk.length){
+      const id=walk.shift();
+      if(connected.has(id))continue;
+      connected.add(id);
+      for(const childId of childrenByParent.get(id)||[]){
+        walk.push(childId);
+      }
+    }
+
+    // If all data is legacy/malformed, don't blank the tree entirely.
+    const finalVisible=connected.size?connected:visible;
+
+    const people=allPeople.filter(p=>finalVisible.has(p.id));
     const edges=[];
 
     for(const [child,parent] of parentByChild){
-      if(structuralIds.has(child)&&structuralIds.has(parent)){
+      if(finalVisible.has(child)&&finalVisible.has(parent)){
         edges.push({parent,child});
       }
     }
 
-    return {people,edges,parentByChild,childrenByParent};
+    return {people,edges,parentByChild,childrenByParent,visibleIds:finalVisible};
   }
 
   function buildTreeElements(){
@@ -1869,5 +2013,5 @@
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.6").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.8").catch(console.warn));
 })();
