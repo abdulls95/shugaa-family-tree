@@ -31,6 +31,8 @@
     lastDuplicateCheckKey: "",
     changeFilter: "pending",
     relativeDraft: { type:null, mode:"new" },
+    relativeExistingCandidates: [],
+    relativeOtherParentCandidates: [],
     familyBuilder: { spouseMode:"none", childSeq:0 }
   };
 
@@ -1049,21 +1051,158 @@
       return true;
     }).sort((a,b)=>(spouseIds.has(a.id)?0:1)-(spouseIds.has(b.id)?0:1)||(a.full_name_ar||"").localeCompare(b.full_name_ar||"","ar"));
   }
-  function v4FillExistingCandidates(){
-    const type=state.relativeDraft.type, anchor=getPerson(state.activePersonId), sel=$("#relativeExistingPerson"); if(!anchor||!sel)return;
-    const fixed=v4FixedGender(type);
-    const rows=state.people.filter(p=>p.id!==anchor.id).filter(p=>!fixed||p.gender===fixed||p.gender==="unknown");
-    sel.innerHTML='<option value="">— اختر —</option>'+rows.map(p=>`<option value="${p.id}">${esc(personLabel(p))}</option>`).join("");
+  function personSearchNorm(v){
+    return String(v??"")
+      .trim()
+      .toLowerCase()
+      .replace(/[\u064B-\u065F\u0670\u0640]/g,"")
+      .replace(/[إأآٱ]/g,"ا")
+      .replace(/ى/g,"ي")
+      .replace(/ؤ/g,"و")
+      .replace(/ئ/g,"ي")
+      .replace(/\s+/g," ");
   }
+
+  function v4PersonSearchCandidates(kind){
+    return kind==="existing" ? state.relativeExistingCandidates : state.relativeOtherParentCandidates;
+  }
+
+  function v4PersonSearchElements(kind){
+    if(kind==="existing"){
+      return {
+        hidden:$("#relativeExistingPerson"),
+        input:$("#relativeExistingPersonSearch"),
+        results:$("#relativeExistingPersonResults"),
+        selected:$("#relativeExistingPersonSelected"),
+        clear:$("#relativeExistingPersonClear")
+      };
+    }
+    return {
+      hidden:$("#relativeOtherParent"),
+      input:$("#relativeOtherParentSearch"),
+      results:$("#relativeOtherParentResults"),
+      selected:$("#relativeOtherParentSelected"),
+      clear:$("#relativeOtherParentClear")
+    };
+  }
+
+  function v4ClosePersonSearch(kind){
+    v4PersonSearchElements(kind).results?.classList.add("hidden");
+  }
+
+  function v4RenderPersonSearch(kind,query=""){
+    const els=v4PersonSearchElements(kind);
+    if(!els.results)return;
+
+    const q=personSearchNorm(query);
+    const rows=v4PersonSearchCandidates(kind)
+      .filter(p=>{
+        if(!q)return true;
+        const hay=personSearchNorm([
+          p.full_name_ar,
+          p.record_code,
+          p.first_name_ar,
+          p.father_name_text,
+          p.grandfather_name_text,
+          p.family_name_text
+        ].filter(Boolean).join(" "));
+        return hay.includes(q);
+      })
+      .slice(0,10);
+
+    if(!rows.length){
+      els.results.innerHTML='<div class="person-search-empty">لا يوجد اسم مطابق</div>';
+      els.results.classList.remove("hidden");
+      return;
+    }
+
+    const anchor=getPerson(state.activePersonId);
+    const fam=anchor?familyOf(anchor.id):{spouses:[]};
+    const spouseIds=new Set((fam.spouses||[]).map(x=>x.id));
+
+    els.results.innerHTML=rows.map(p=>`
+      <button type="button" class="person-search-result" data-person-search-kind="${kind}" data-person-id="${p.id}">
+        <span class="person-search-avatar ${p.gender==="female"?"female":p.gender==="male"?"male":""}">${esc(genderIcon(p.gender))}</span>
+        <span class="person-search-result-text">
+          <b>${spouseIds.has(p.id)&&kind==="other"?"★ ":""}${esc(p.full_name_ar||"بدون اسم")}</b>
+          <small>${esc(p.record_code||"")} ${p.birth_year?`• ${esc(p.birth_year)}`:""}</small>
+        </span>
+      </button>
+    `).join("");
+
+    els.results.classList.remove("hidden");
+  }
+
+  function v4SelectPersonSearch(kind,personId,{silent=false}={}){
+    const els=v4PersonSearchElements(kind);
+    const p=getPerson(personId);
+
+    if(!p){
+      if(els.hidden)els.hidden.value="";
+      if(els.input)els.input.value="";
+      els.selected?.classList.add("hidden");
+      els.clear?.classList.add("hidden");
+      v4ClosePersonSearch(kind);
+      if(kind==="other" && !silent){
+        els.hidden?.dispatchEvent(new Event("change",{bubbles:true}));
+      }
+      return;
+    }
+
+    els.hidden.value=p.id;
+    els.input.value=p.full_name_ar||"";
+    if(els.selected){
+      els.selected.innerHTML=`<span>تم الاختيار</span><b>${esc(p.full_name_ar||"")}</b><small>${esc(p.record_code||"")}</small>`;
+      els.selected.classList.remove("hidden");
+    }
+    els.clear?.classList.remove("hidden");
+    v4ClosePersonSearch(kind);
+
+    if(kind==="other" && !silent){
+      els.hidden.dispatchEvent(new Event("change",{bubbles:true}));
+    }
+  }
+
+  function v4ResetPersonSearch(kind){
+    const els=v4PersonSearchElements(kind);
+    if(els.hidden)els.hidden.value="";
+    if(els.input)els.input.value="";
+    if(els.results){els.results.innerHTML="";els.results.classList.add("hidden");}
+    els.selected?.classList.add("hidden");
+    els.clear?.classList.add("hidden");
+  }
+
+  function v4FillExistingCandidates(){
+    const type=state.relativeDraft.type,anchor=getPerson(state.activePersonId);
+    if(!anchor)return;
+
+    const fixed=v4FixedGender(type);
+    state.relativeExistingCandidates=state.people
+      .filter(p=>p.id!==anchor.id)
+      .filter(p=>!fixed||p.gender===fixed||p.gender==="unknown")
+      .sort((a,b)=>(a.full_name_ar||"").localeCompare(b.full_name_ar||"","ar"));
+
+    v4ResetPersonSearch("existing");
+  }
+
   function v4FillOtherParent(){
-    const anchor=getPerson(state.activePersonId),sel=$("#relativeOtherParent"); if(!anchor||!sel)return;
-    const fam=familyOf(anchor.id), spouseIds=new Set(fam.spouses.map(x=>x.id));
-    const rows=v4OtherParentCandidates(anchor,state.relativeDraft.type);
-    sel.innerHTML='<option value="">— غير معروف / غير مسجل —</option>'+rows.map(p=>`<option value="${p.id}">${spouseIds.has(p.id)?"★ ":""}${esc(personLabel(p))}</option>`).join("");
-    const spouses=rows.filter(p=>spouseIds.has(p.id));
-    if(spouses.length===1)sel.value=spouses[0].id;
+    const anchor=getPerson(state.activePersonId);
+    if(!anchor)return;
+
+    const fam=familyOf(anchor.id);
+    const spouseIds=new Set(fam.spouses.map(x=>x.id));
+
+    state.relativeOtherParentCandidates=v4OtherParentCandidates(anchor,state.relativeDraft.type);
+    v4ResetPersonSearch("other");
+
+    const spouses=state.relativeOtherParentCandidates.filter(p=>spouseIds.has(p.id));
+    if(spouses.length===1){
+      v4SelectPersonSearch("other",spouses[0].id,{silent:true});
+    }
+
     v4UpdateRelativeName();
   }
+
   function v4InferPersonParts(p){
     if(!p)return {first:"",father:"",grand:"",great:"",family:""};
 
@@ -1432,8 +1571,55 @@
   $$("[data-close-relative-builder]").forEach(x=>x.onclick=closeRelativeBuilder);
   $$("[data-relative-type]").forEach(b=>b.onclick=()=>v4ChooseRelation(b.dataset.relativeType));
   $$("[data-relative-back]").forEach(b=>b.onclick=()=>v4ShowRelativeStep(Number(b.dataset.relativeBack)));
+  function v4BindPersonSearch(kind){
+    const els=v4PersonSearchElements(kind);
+    if(!els.input)return;
+
+    els.input.addEventListener("focus",()=>{
+      v4RenderPersonSearch(kind,els.input.value);
+    });
+
+    els.input.addEventListener("input",()=>{
+      // Typing after a selection means the user is searching for a different person.
+      if(els.hidden.value){
+        els.hidden.value="";
+        els.selected?.classList.add("hidden");
+        els.clear?.classList.add("hidden");
+        if(kind==="other"){
+          els.hidden.dispatchEvent(new Event("change",{bubbles:true}));
+        }
+      }
+      v4RenderPersonSearch(kind,els.input.value);
+    });
+
+    els.clear?.addEventListener("click",()=>{
+      v4SelectPersonSearch(kind,"");
+      els.input.focus();
+      v4RenderPersonSearch(kind,"");
+    });
+  }
+
+  v4BindPersonSearch("existing");
+  v4BindPersonSearch("other");
+
+  document.addEventListener("click",e=>{
+    const result=e.target.closest("[data-person-search-kind][data-person-id]");
+    if(result){
+      v4SelectPersonSearch(result.dataset.personSearchKind,result.dataset.personId);
+      return;
+    }
+
+    if(!e.target.closest(".person-search-field")){
+      v4ClosePersonSearch("existing");
+      v4ClosePersonSearch("other");
+    }
+  });
+
   $("#relativeModeNew").onclick=()=>v4SetRelativeMode("new");
-  $("#relativeModeExisting").onclick=()=>v4SetRelativeMode("existing");
+  $("#relativeModeExisting").onclick=()=>{
+    v4SetRelativeMode("existing");
+    setTimeout(()=>$("#relativeExistingPersonSearch")?.focus(),60);
+  };
   $("#relativeOtherParent")?.addEventListener("change",async()=>{
     v4UpdateRelativeName();
     const a=getPerson(state.activePersonId);
@@ -1683,5 +1869,5 @@
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.4").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.5").catch(console.warn));
 })();

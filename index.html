@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#082f29" />
   <meta name="description" content="شجرة آل شجاع — متحف رقمي وشجرة نسب ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=5.0.4" />
+  <link rel="manifest" href="./manifest.webmanifest?v=5.0.5" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=5.0.4" />
+  <link rel="stylesheet" href="./styles.css?v=5.0.5" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -583,12 +583,32 @@
         </div>
 
         <div id="relativeExistingFields" class="stack hidden">
-          <label>اختر الشخص الموجود<select id="relativeExistingPerson"><option value="">— اختر —</option></select></label>
-          <p class="micro-copy">بهذا الخيار لن ننشئ سجلًا جديدًا؛ سنربط السجل الموجود فقط.</p>
+          <label class="person-search-field">
+            اختر الشخص الموجود
+            <div class="person-search-box">
+              <span class="person-search-icon">⌕</span>
+              <input id="relativeExistingPersonSearch" type="search" autocomplete="off" placeholder="اكتب الاسم للبحث..." />
+              <button id="relativeExistingPersonClear" class="person-search-clear hidden" type="button" aria-label="مسح الاختيار">×</button>
+            </div>
+            <input id="relativeExistingPerson" type="hidden" value="" />
+            <div id="relativeExistingPersonResults" class="person-search-results hidden"></div>
+          </label>
+          <div id="relativeExistingPersonSelected" class="person-search-selected hidden"></div>
+          <p class="micro-copy">اكتب جزءًا من الاسم، ثم اختر الشخص من النتائج. بهذا الخيار لن ننشئ سجلًا جديدًا؛ سنربط السجل الموجود فقط.</p>
         </div>
 
         <div id="relativeContextFields" class="stack">
-          <label id="relativeOtherParentWrap" class="hidden">الوالد الآخر للطفل<select id="relativeOtherParent"><option value="">— غير معروف / غير مسجل —</option></select></label>
+          <label id="relativeOtherParentWrap" class="hidden person-search-field">
+            الوالد الآخر للطفل
+            <div class="person-search-box">
+              <span class="person-search-icon">⌕</span>
+              <input id="relativeOtherParentSearch" type="search" autocomplete="off" placeholder="اكتب اسم الأب أو الأم..." />
+              <button id="relativeOtherParentClear" class="person-search-clear hidden" type="button" aria-label="إلغاء اختيار الوالد الآخر">×</button>
+            </div>
+            <input id="relativeOtherParent" type="hidden" value="" />
+            <div id="relativeOtherParentResults" class="person-search-results hidden"></div>
+          </label>
+          <div id="relativeOtherParentSelected" class="person-search-selected hidden"></div>
           <label id="relativeMarriageStatusWrap" class="hidden">حالة العلاقة<select id="relativeMarriageStatus"><option value="married">زواج قائم</option><option value="divorced">طلاق</option><option value="widowed">ترمّل</option><option value="unknown">غير محدد</option></select></label>
         </div>
 
@@ -830,7 +850,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=5.0.4"></script>
-  <script src="./app.js?v=5.0.4"></script>
+  <script src="./config.js?v=5.0.5"></script>
+  <script src="./app.js?v=5.0.5"></script>
 </body>
 </html>
