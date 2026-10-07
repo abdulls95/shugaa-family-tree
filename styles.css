@@ -1245,3 +1245,67 @@ label small{
     font-size:15px;
   }
 }
+
+
+/* =========================================================
+   V5.0.6 — profile modal scrolling fix
+   ========================================================= */
+
+/* V5 originally set overflow:hidden on the person card, which clipped
+   long family sections on iPad. Restore native modal scrolling. */
+.modal:has(.awraq-person-card){
+  overflow:hidden;
+}
+
+.awraq-person-card{
+  width:min(900px,calc(100vw - 40px))!important;
+  max-width:min(900px,calc(100vw - 40px))!important;
+  max-height:92dvh!important;
+  height:auto!important;
+  margin:4dvh auto!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+
+/* Keep content from being hidden behind the bottom edge. */
+.awraq-person-card .v4-profile-panel.active{
+  padding-bottom:28px;
+}
+
+.awraq-person-card .v4-family-section:last-child{
+  margin-bottom:18px;
+}
+
+/* Make long children/relative sections easy to read and tap. */
+.awraq-person-card .v4-relative-list{
+  align-items:start;
+}
+
+.awraq-person-card .v4-relative-chip{
+  min-height:50px;
+}
+
+/* Tablet portrait/landscape: almost full-screen card, still independently scrollable. */
+@media(max-width:1100px){
+  .awraq-person-card{
+    width:calc(100vw - 24px)!important;
+    max-width:calc(100vw - 24px)!important;
+    max-height:calc(100dvh - 24px)!important;
+    margin:12px auto!important;
+    border-radius:14px!important;
+  }
+}
+
+/* Phones: use nearly the entire viewport and preserve vertical scroll. */
+@media(max-width:620px){
+  .awraq-person-card{
+    width:calc(100vw - 12px)!important;
+    max-width:calc(100vw - 12px)!important;
+    max-height:calc(100dvh - 12px)!important;
+    margin:6px auto!important;
+    border-radius:12px!important;
+  }
+}
