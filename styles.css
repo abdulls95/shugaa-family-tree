@@ -1331,3 +1331,17 @@ label small{
 .gate-admin-link{display:block;margin:16px auto 0;border:0;background:transparent;color:#8a6722;font-weight:700;text-decoration:underline;cursor:pointer}
 .code-share-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .code-share-actions a.btn{text-decoration:none}
+
+/* V6.1 — searchable dropdowns */
+select.ps-native{display:none!important}
+.ps-combo{position:relative;width:100%}
+.ps-field{position:relative}
+.ps-input{width:100%;font-size:16px}
+.ps-input::-webkit-search-cancel-button{display:none}
+.ps-clear{position:absolute;left:10px;top:50%;transform:translateY(-50%);border:0;background:#efe6d3;color:#0b5244;width:28px;height:28px;border-radius:50%;font-size:18px;line-height:1;cursor:pointer}
+.ps-list{position:absolute;z-index:60;top:calc(100% + 6px);right:0;left:0;max-height:300px;overflow-y:auto;background:#fffdf8;border:1px solid #d9c79b;border-radius:16px;box-shadow:0 18px 45px rgba(0,0,0,.16);padding:6px}
+.ps-item{padding:11px 12px;border-radius:11px;cursor:pointer;line-height:1.6;color:#243a33}
+.ps-item:hover,.ps-item.active{background:#f3ead4}
+.ps-item.selected{font-weight:800;color:#0b5244}
+.ps-empty,.ps-more{padding:12px;color:#7a7f7b;text-align:center;font-size:14px}
+.ps-disabled{opacity:.6}

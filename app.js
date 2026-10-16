@@ -2044,5 +2044,103 @@
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=6.0.1").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=6.1.0").catch(console.warn));
+})();
+
+// V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".
+// The original <select> stays as the source of truth (value, onchange, form reset all keep working).
+(() => {
+  const MIN_OPTIONS = 12, MAX_RESULTS = 40;
+  const nativeValue = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  const normAr = s => String(s || "").toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/ؤ/g, "و").replace(/ئ/g, "ي")
+    .replace(/\s+/g, " ").trim();
+  const escHtml = v => String(v ?? "").replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));
+
+  function enhance(sel) {
+    sel.dataset.searchable = "1";
+    const wrap = document.createElement("div");
+    wrap.className = "ps-combo";
+    wrap.innerHTML = `<div class="ps-field"><input type="search" class="ps-input" autocomplete="off" spellcheck="false" enterkeyhint="search"/><button type="button" class="ps-clear hidden" aria-label="مسح">×</button></div><div class="ps-list hidden" role="listbox"></div>`;
+    sel.insertAdjacentElement("afterend", wrap);
+    sel.classList.add("ps-native");
+    const input = wrap.querySelector(".ps-input"), list = wrap.querySelector(".ps-list"), clear = wrap.querySelector(".ps-clear");
+    if (sel.required) { input.required = true; sel.required = false; }
+    let active = -1, results = [];
+
+    const blankText = () => (sel.querySelector('option[value=""]')?.textContent || "").replace(/[—–-]/g, "").trim();
+    input.placeholder = "🔍 اكتب الاسم للبحث" + (blankText() ? ` (${blankText()})` : "");
+
+    const sync = () => {
+      const opt = sel.selectedOptions[0];
+      const has = opt && opt.value !== "";
+      if (document.activeElement !== input) input.value = has ? opt.textContent : "";
+      clear.classList.toggle("hidden", !has);
+      wrap.classList.toggle("ps-disabled", sel.disabled);
+      input.disabled = sel.disabled;
+    };
+    sel._psSync = sync;
+
+    Object.defineProperty(sel, "value", {
+      configurable: true,
+      get() { return nativeValue.get.call(this); },
+      set(v) { nativeValue.set.call(this, v); sync(); }
+    });
+
+    const choose = opt => {
+      nativeValue.set.call(sel, opt ? opt.value : "");
+      input.value = opt && opt.value ? opt.textContent : "";
+      close();
+      input.blur();
+      sel.dispatchEvent(new Event("input", { bubbles: true }));
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+      sync();
+    };
+    const close = () => { list.classList.add("hidden"); active = -1; };
+    const render = () => {
+      const q = normAr(input.value);
+      const words = q.split(" ").filter(Boolean);
+      const all = [...sel.options].filter(o => o.value !== "" && !o.disabled);
+      results = (words.length ? all.filter(o => { const t = normAr(o.textContent); return words.every(w => t.includes(w)); }) : all)
+        .sort((a, b) => (normAr(a.textContent).startsWith(q) ? 0 : 1) - (normAr(b.textContent).startsWith(q) ? 0 : 1));
+      const shown = results.slice(0, MAX_RESULTS);
+      list.innerHTML = shown.length
+        ? shown.map((o, i) => `<div class="ps-item${i === active ? " active" : ""}${o.selected ? " selected" : ""}" data-i="${i}" role="option">${escHtml(o.textContent)}</div>`).join("")
+          + (results.length > MAX_RESULTS ? `<div class="ps-more">+${results.length - MAX_RESULTS} نتيجة أخرى — اكتب أكثر لتضييق البحث</div>` : "")
+        : `<div class="ps-empty">لا توجد نتائج</div>`;
+      list.classList.remove("hidden");
+    };
+
+    input.addEventListener("focus", () => { input.select(); render(); });
+    input.addEventListener("input", () => { active = -1; render(); });
+    input.addEventListener("keydown", e => {
+      if (list.classList.contains("hidden") && ["ArrowDown", "ArrowUp"].includes(e.key)) render();
+      const n = Math.min(results.length, MAX_RESULTS);
+      if (e.key === "ArrowDown") { e.preventDefault(); active = (active + 1) % n; render(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); active = (active - 1 + n) % n; render(); }
+      else if (e.key === "Enter" && !list.classList.contains("hidden")) { e.preventDefault(); if (results[active >= 0 ? active : 0]) choose(results[active >= 0 ? active : 0]); }
+      else if (e.key === "Escape") { close(); input.blur(); }
+    });
+    list.addEventListener("mousedown", e => e.preventDefault());
+    list.addEventListener("click", e => { const it = e.target.closest(".ps-item"); if (it) choose(results[+it.dataset.i]); });
+    input.addEventListener("blur", () => setTimeout(() => { close(); sync(); }, 120));
+    clear.addEventListener("click", () => { choose(null); });
+    sel.form?.addEventListener("reset", () => setTimeout(sync, 0));
+    sync();
+  }
+
+  let queued = false;
+  const scan = () => {
+    queued = false;
+    document.querySelectorAll("select").forEach(sel => {
+      if (sel.dataset.searchable) { sel._psSync?.(); return; }
+      if (sel.multiple || sel.classList.contains("no-search")) return;
+      if (sel.options.length >= MIN_OPTIONS) enhance(sel);
+    });
+  };
+  const queue = () => { if (!queued) { queued = true; requestAnimationFrame(scan); } };
+  new MutationObserver(queue).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener("change", e => { if (e.target.matches?.("select[data-searchable]")) e.target._psSync?.(); }, true);
+  queue();
 })();
