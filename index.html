@@ -9,13 +9,16 @@
   <link rel="manifest" href="./manifest.webmanifest?v=5.0.8" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./styles.css?v=6.1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="./styles.css?v=7.1.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
 </head>
-<body class="awraq-inspired-shell">
+<body class="awraq-inspired-shell shugaa-v7">
   <div id="toast" class="toast hidden"></div>
 
   <!-- FAMILY GATE -->
@@ -35,7 +38,7 @@
         <h2>الدخول برمزك</h2>
         <p>اكتب رمز الدخول اللي وصلك من إدارة العائلة.</p>
         <form id="codeLoginForm" class="stack">
-          <label>رمز الدخول<input id="loginCode" dir="ltr" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="مثال: K7M-4QX" required /></label>
+          <label>رمز الدخول<input id="loginCode" dir="ltr" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7M-4QX" required /></label>
           <button class="btn gold wide">دخول</button>
         </form>
         <p id="codeLoginMsg" class="form-msg"></p>
@@ -300,6 +303,7 @@
           <button class="admin-tab" data-admin-panel="changes">طلبات الشجرة <span id="changeCount" class="count-badge">0</span></button>
           <button class="admin-tab admin-only hidden" data-admin-panel="accounts">الأعضاء والضيوف <span id="pendingCount" class="count-badge">0</span></button>
           <button class="admin-tab admin-only hidden" data-admin-panel="permissions">إدارة المستخدمين</button>
+          <button class="admin-tab staff-only hidden" data-admin-panel="bulk">إضافة جماعية وتصدير</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="health">اكتمال البيانات</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="event">أخبار / حدث</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="library">محتوى العائلة</button>
@@ -386,6 +390,37 @@
           <div class="admin-grid">
             <div class="panel"><h3>أعضاء النظام</h3><div id="userManagement" class="account-list"></div></div>
             <div class="panel"><h3>صلاحيات دقيقة</h3><label>اختر مستخدمًا<select id="permissionUser"><option value="">— اختر —</option></select></label><div id="permissionMatrix" class="permission-matrix"></div><button id="savePermissionsBtn" class="btn primary">حفظ الصلاحيات</button></div>
+          </div>
+        </div>
+
+        <div id="admin-bulk" class="admin-panel staff-only hidden">
+          <div class="admin-grid">
+            <div class="panel stack">
+              <h3>إضافة أبناء دفعة وحدة</h3>
+              <p class="micro-copy">اختر الأب، واكتب الاسم الأول لكل ابن أو بنت. النظام يكمّل باقي الاسم (الأب والجد والعائلة) ويربطهم بالشجرة ويعطيهم كود النسب تلقائيًا.</p>
+              <label>الأب<select id="bulkFather"><option value="">— اختر الأب —</option></select></label>
+              <label id="bulkMotherWrap" class="hidden">الأم (اختياري)<select id="bulkMother" class="no-search"><option value="">— غير محددة —</option></select></label>
+              <label>سنوات الميلاد مكتوبة بـ<select id="bulkCalendar" class="no-search"><option value="gregorian">التقويم الميلادي</option><option value="hijri">التقويم الهجري</option></select></label>
+              <div id="bulkExisting" class="bulk-existing hidden"></div>
+              <div id="bulkRows" class="bulk-rows"></div>
+              <div class="bulk-row-actions">
+                <button type="button" id="bulkAddRow" class="btn light">+ صف جديد</button>
+                <button type="button" id="bulkPasteToggle" class="btn ghost">لصق قائمة أسماء</button>
+              </div>
+              <div id="bulkPasteBox" class="stack hidden">
+                <textarea id="bulkPaste" rows="5" placeholder="كل اسم في سطر. اكتب (بنت) بعد الاسم للإناث، مثال:&#10;محمد&#10;نورة (بنت)&#10;عبدالله"></textarea>
+                <button type="button" id="bulkPasteApply" class="btn light">حوّلها إلى صفوف</button>
+              </div>
+              <button type="button" id="bulkSave" class="btn primary wide">حفظ الأبناء</button>
+              <p id="bulkMsg" class="form-msg"></p>
+            </div>
+            <div class="panel stack admin-only hidden">
+              <h3>تصدير الشجرة إلى Excel</h3>
+              <p class="micro-copy">ملف فيه كل أفراد العائلة: الاسم، الأب، الأم، الأزواج، عدد الأبناء، سنوات الميلاد والوفاة، وكود النسب. يصلح كنسخة احتياطية أو للمراجعة والطباعة.</p>
+              <div class="archive-notice">🔒 الملف فيه بيانات شخصية للعائلة، احفظه في مكان آمن ولا تنشره.</div>
+              <button type="button" id="exportExcelBtn" class="btn gold wide">تنزيل ملف Excel</button>
+              <p id="exportMsg" class="form-msg"></p>
+            </div>
           </div>
         </div>
 
@@ -841,7 +876,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=6.1.0"></script>
-  <script src="./app.js?v=6.1.0"></script>
+  <script src="./config.js?v=7.1.0"></script>
+  <script src="./app.js?v=7.1.0"></script>
 </body>
 </html>

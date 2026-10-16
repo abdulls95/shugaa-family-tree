@@ -1,3 +1,39 @@
+// V7.1 — Hijri calendar: conversion, display and dual-calendar year fields.
+window.ShugaaHijri=(()=>{
+  const FMT=(()=>{for(const cal of["islamic-umalqura","islamic-civil","islamic"]){try{const f=new Intl.DateTimeFormat("en-u-ca-"+cal+"-nu-latn",{year:"numeric",month:"numeric",day:"numeric",timeZone:"UTC"});const y=+f.formatToParts(new Date(Date.UTC(2000,0,1))).find(x=>x.type==="year").value;if(y>1400&&y<1430)return f;}catch(e){}}return null;})();
+  const MONTHS=["محرم","صفر","ربيع الأول","ربيع الآخر","جمادى الأولى","جمادى الآخرة","رجب","شعبان","رمضان","شوال","ذو القعدة","ذو الحجة"];
+  // tabular fallback (Kuwaiti algorithm)
+  const jdFromG=(y,m,d)=>{const a=Math.floor((14-m)/12),yy=y+4800-a,mm=m+12*a-3;return d+Math.floor((153*mm+2)/5)+365*yy+Math.floor(yy/4)-Math.floor(yy/100)+Math.floor(yy/400)-32045;};
+  const gFromJd=jd=>{const a=jd+32044,b=Math.floor((4*a+3)/146097),c=a-Math.floor(146097*b/4),d=Math.floor((4*c+3)/1461),e=c-Math.floor(1461*d/4),m=Math.floor((5*e+2)/153);return{y:100*b+d-4800+Math.floor(m/10),m:m+3-12*Math.floor(m/10),d:e-Math.floor((153*m+2)/5)+1};};
+  const jdFromH=(y,m,d)=>d+Math.ceil(29.5*(m-1))+(y-1)*354+Math.floor((3+11*y)/30)+1948439-1;
+  const hFromJd=jd=>{const y=Math.floor((30*(jd-1948439)+10646)/10631),m=Math.min(12,Math.ceil((jd-(29+jdFromH(y,1,1)))/29.5)+1);return{y,m,d:jd-jdFromH(y,m,1)+1};};
+  function gToH(y,m,d){
+    if(FMT){const parts=FMT.formatToParts(new Date(Date.UTC(y,m-1,d)));const g=t=>+parts.find(x=>x.type===t).value;return{y:g("year"),m:g("month"),d:g("day")};}
+    return hFromJd(jdFromG(y,m,d));
+  }
+  function hToG(y,m,d){
+    let g=gFromJd(jdFromH(y,m,d));
+    if(FMT){for(let off=-3;off<=3;off++){const dt=new Date(Date.UTC(g.y,g.m-1,g.d+off));const h=gToH(dt.getUTCFullYear(),dt.getUTCMonth()+1,dt.getUTCDate());if(h.y===y&&h.m===m&&h.d===d)return{y:dt.getUTCFullYear(),m:dt.getUTCMonth()+1,d:dt.getUTCDate()};}}
+    return g;
+  }
+  const hYearToG=h=>hToG(h,6,15).y;                       // gregorian year around the middle of hijri year h
+  const gYearToH=g=>{const a=gToH(g,1,1).y,b=gToH(g,12,31).y;return a===b?String(a):`${a}/${b}`;};
+  const isoToH=iso=>{const [y,m,d]=String(iso).slice(0,10).split("-").map(Number);return gToH(y,m,d);};
+  const fmtHDate=h=>`${h.d} ${MONTHS[h.m-1]} ${h.y} هـ`;
+  const fmtGDate=iso=>{const [y,m,d]=String(iso).slice(0,10).split("-").map(Number);return `${d}/${m}/${y} م`;};
+  const getMode=()=>{try{return localStorage.getItem("shugaa_calendar")||"both";}catch(e){return "both";}};
+  const setMode=v=>{try{localStorage.setItem("shugaa_calendar",v);}catch(e){}};
+  // one side of a life: returns {h,g} strings (either may be "")
+  function side(year,hYear,iso){
+    if(iso){const h=isoToH(iso);return{h:`${h.y} هـ`,g:`${String(iso).slice(0,4)} م`,full:{h:fmtHDate(h),g:fmtGDate(iso)}};}
+    if(hYear)return{h:`${hYear} هـ`,g:year?`${year} م`:`${hYearToG(hYear)} م`};
+    if(year)return{h:`${gYearToH(year)} هـ`,g:`${year} م`};
+    return{h:"",g:""};
+  }
+  const pick=(o,mode=getMode())=>!o.h&&!o.g?"":mode==="hijri"?o.h:mode==="gregorian"?o.g:`${o.h} (${o.g})`;
+  return {gToH,hToG,hYearToG,gYearToH,isoToH,fmtHDate,fmtGDate,side,pick,getMode,setMode,MONTHS};
+})();
+
 (() => {
   const cfg = window.SHUGAA_CONFIG;
   const client = supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
@@ -70,10 +106,16 @@
   function confidenceLabel(v){ return ({documented:"موثق",family_tradition:"متوارث عائليًا",likely:"مرجح",uncertain:"غير مؤكد"})[v] || "غير محدد"; }
   function genderIcon(v){ return v==="female" ? "ن" : v==="male" ? "ش" : "•"; }
   function yearText(p){
-    const b=p.birth_year || (p.birth_date ? String(p.birth_date).slice(0,4) : "");
-    const d=p.death_year || (p.death_date ? String(p.death_date).slice(0,4) : "");
-    if(b||d) return `${b||"؟"} — ${p.is_living ? "حتى الآن" : (d||"؟")}`;
+    const H=window.ShugaaHijri, mode=H.getMode();
+    const b=H.side(p.birth_year,p.birth_year_hijri,p.birth_date), d=H.side(p.death_year,p.death_year_hijri,p.death_date);
+    const bs=mode==="both"?(b.h||b.g):H.pick(b,mode), ds=mode==="both"?(d.h||d.g):H.pick(d,mode);
+    if(bs||ds) return `${bs||"؟"} — ${p.is_living ? "حتى الآن" : (ds||"؟")}`;
     return p.is_living ? "على قيد الحياة" : "التاريخ غير مسجل";
+  }
+  function lifeDateText(p,kind){
+    const H=window.ShugaaHijri, o=kind==="death"?H.side(p.death_year,p.death_year_hijri,p.death_date):H.side(p.birth_year,p.birth_year_hijri,p.birth_date);
+    if(o.full) return H.pick(o.full);
+    return H.pick(o)||"غير مسجل";
   }
   function itemTypeLabel(t){ return ({document:"وثيقة",record:"سجل",land_record:"سجل أرض / ملكية",photo:"صورة",video:"فيديو",audio:"تسجيل صوتي",oral_history:"رواية شفهية",genealogy:"مشجرة / نسب",correspondence:"مراسلة",map:"خريطة",historical_event:"مادة تاريخية",other:"أخرى"})[t]||"مادة"; }
   function itemTypeIcon(t){ return ({document:"📜",record:"📚",land_record:"🧾",photo:"📷",video:"🎥",audio:"🎧",oral_history:"🎙️",genealogy:"🌳",correspondence:"✉️",map:"🗺️",historical_event:"🏺",other:"📦"})[t]||"📦"; }
@@ -284,8 +326,8 @@
     $$(".open-v4-relative").forEach(b=>b.onclick=()=>openPerson(b.dataset.id));
 
     $("#profileDetailFacts").innerHTML=`
-      <div class="v4-detail-fact"><span>تاريخ الميلاد</span><b>${esc(p.birth_date||p.birth_year||"غير مسجل")}</b></div>
-      <div class="v4-detail-fact"><span>تاريخ الوفاة</span><b>${esc(p.is_living?"على قيد الحياة":(p.death_date||p.death_year||"غير مسجل"))}</b></div>
+      <div class="v4-detail-fact"><span>تاريخ الميلاد</span><b>${esc(lifeDateText(p,"birth"))}</b></div>
+      <div class="v4-detail-fact"><span>تاريخ الوفاة</span><b>${esc(p.is_living?"على قيد الحياة":(lifeDateText(p,"death")||"غير مسجل"))}</b></div>
       <div class="v4-detail-fact"><span>درجة التوثيق</span><b>${esc(confidenceLabel(p.record_confidence))}</b></div>
       <div class="v4-detail-fact"><span>كود السجل</span><b>${esc(p.record_code||"—")}</b></div>`;
     $("#profileMergeBtn").classList.toggle("hidden",!canMergePeople());
@@ -302,8 +344,8 @@
   function closePerson(){ $("#personModal").classList.add("hidden"); }
 
   function fillPersonSelects(){
-    const selectors=["#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
-    selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if(sel==="#pFather"&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
+    const selectors=["#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
+    selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if((sel==="#pFather"||sel==="#bulkFather")&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
   }
 
   // V5 — clean family-tree canvas.
@@ -525,7 +567,7 @@
       out.push({
         data:{
           id:p.id,
-          label:p.full_name_ar,
+          label:(p.first_name_ar||String(p.full_name_ar||"").split(/\s+/)[0]||"؟"),
           gender:p.gender,
           spouseText,
           hasSpouse:!!spouseText
@@ -574,17 +616,17 @@
           selector:"node",
           style:{
             "background-color":"#ffffff",
-            "border-width":1.6,
-            "border-color":"#4b91ff",
+            "border-width":1.4,
+            "border-color":"#0C3530",
             "label":"data(label)",
             "text-wrap":"wrap",
-            "text-max-width":128,
-            "font-family":"Arial",
-            "font-size":11,
-            "font-weight":700,
-            "color":"#27352f",
-            "width":148,
-            "height":58,
+            "text-max-width":96,
+            "font-family":"IBM Plex Sans Arabic, Segoe UI, sans-serif",
+            "font-size":15,
+            "font-weight":600,
+            "color":"#0C3530",
+            "width":104,
+            "height":44,
             "shape":"round-rectangle",
             "text-valign":"center",
             "text-halign":"center",
@@ -598,15 +640,16 @@
         {
           selector:'node[gender="female"]',
           style:{
-            "border-color":"#ef7ba2",
-            "background-color":"#fffafb"
+            "border-color":"#9E5A63",
+            "color":"#6E3540",
+            "background-color":"#FBF5F4"
           }
         },
         {
           selector:'edge[kind="parent"]',
           style:{
-            "width":1.5,
-            "line-color":"#8a9892",
+            "width":1.3,
+            "line-color":"#B9A57A",
             "curve-style":"taxi",
             "taxi-direction":"downward",
             "taxi-turn":28,
@@ -620,17 +663,17 @@
         {
           selector:".search-hit",
           style:{
-            "background-color":"#eff8ee",
-            "border-width":3,
-            "border-color":"#16a34a"
+            "background-color":"#F6EBCF",
+            "border-width":2.6,
+            "border-color":"#B08A3E"
           }
         },
         {
           selector:":selected",
           style:{
-            "border-width":3,
-            "border-color":"#16a34a",
-            "background-color":"#f2fff4"
+            "border-width":2.6,
+            "border-color":"#B08A3E",
+            "background-color":"#FFF8E8"
           }
         }
       ],
@@ -638,8 +681,8 @@
       layout:{
         name:"dagre",
         rankDir:"TB",
-        rankSep:92,
-        nodeSep:42,
+        rankSep:70,
+        nodeSep:18,
         edgeSep:24,
         padding:64,
         acyclicer:"greedy",
@@ -649,6 +692,7 @@
     });
 
     state.cy.on("tap","node",e=>openPerson(e.target.id()));
+    if(document.fonts&&!renderTree._fontsHooked){renderTree._fontsHooked=true;document.fonts.ready.then(()=>{if(state.cy)state.cy.style().update();});}
     setTimeout(()=>state.cy?.fit(undefined,70),110);
   }
 
@@ -959,9 +1003,9 @@
     $("#eGender").value=p.gender||"unknown";
     $("#eLineageCode").value=p.lineage_code||"";
     $("#eBirthDate").value=p.birth_date||"";
-    $("#eBirthYear").value=p.birth_year||"";
+    setYearField("#eBirthYear",p.birth_year,p.birth_year_hijri);
     $("#eDeathDate").value=p.death_date||"";
-    $("#eDeathYear").value=p.death_year||"";
+    setYearField("#eDeathYear",p.death_year,p.death_year_hijri);
     $("#eLiving").checked=!!p.is_living;
     $("#eConfidence").value=p.record_confidence||"family_tradition";
     $("#eBio").value=p.bio||"";
@@ -1557,6 +1601,7 @@
       gender:$("#relativeGender").value,
       birth_date:date,
       birth_year:toInt($("#relativeBirthYear").value)||(date?parseInt(date.slice(0,4),10):null),
+      birth_year_hijri:hijriYearOf("#relativeBirthYear"),
       is_living:$("#relativeLiving").checked,
       record_confidence:$("#relativeConfidence").value,
       lineage_code:$("#relativeLineageCode").value.trim()||null,
@@ -1903,6 +1948,7 @@
         gender:$("#childGender").value,
         birth_date:birthDate,
         birth_year:birthYear,
+        birth_year_hijri:hijriYearOf("#childBirthYear"),
         is_living:true,
         record_confidence:$("#childConfidence").value,
         bio:$("#childBio").value.trim()||null,
@@ -1956,8 +2002,10 @@
         lineage_code:$("#eLineageCode").value.trim()||null,
         birth_date:birthDate,
         birth_year:toInt($("#eBirthYear").value)||(birthDate?parseInt(birthDate.slice(0,4),10):null),
+        birth_year_hijri:hijriYearOf("#eBirthYear"),
         death_date:deathDate,
         death_year:toInt($("#eDeathYear").value)||(deathDate?parseInt(deathDate.slice(0,4),10):null),
+        death_year_hijri:hijriYearOf("#eDeathYear"),
         is_living:$("#eLiving").checked,
         record_confidence:$("#eConfidence").value,
         bio:$("#eBio").value.trim()||null,
@@ -2018,7 +2066,7 @@
     if(dups.length&&!$("#duplicateConfirm").checked){msg.textContent="راجع الأسماء المشابهة ثم أكد أن الشخص جديد.";return;}
     try{
       const birthPlace=await ensurePlace($("#pBirthPlace").value),deathPlace=await ensurePlace($("#pDeathPlace").value);
-      const row={full_name_ar:buildDisplayName(),first_name_ar:n.first,father_name_text:n.father||null,grandfather_name_text:n.grand||null,great_grandfather_name_text:n.great||null,family_name_text:n.family||null,gender:$("#pGender").value,birth_date:$("#pBirthDate").value||null,birth_year:toInt($("#pBirthYear").value)||($("#pBirthDate").value?parseInt($("#pBirthDate").value.slice(0,4),10):null),death_date:$("#pDeathDate").value||null,death_year:toInt($("#pDeathYear").value)||($("#pDeathDate").value?parseInt($("#pDeathDate").value.slice(0,4),10):null),birth_place_id:birthPlace,death_place_id:deathPlace,is_living:$("#pLiving").checked,record_confidence:$("#pConfidence").value,bio:$("#pBio").value.trim()||null,lineage_code:$("#pLineageCode").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id};
+      const row={full_name_ar:buildDisplayName(),first_name_ar:n.first,father_name_text:n.father||null,grandfather_name_text:n.grand||null,great_grandfather_name_text:n.great||null,family_name_text:n.family||null,gender:$("#pGender").value,birth_date:$("#pBirthDate").value||null,birth_year:toInt($("#pBirthYear").value)||($("#pBirthDate").value?parseInt($("#pBirthDate").value.slice(0,4),10):null),death_date:$("#pDeathDate").value||null,death_year:toInt($("#pDeathYear").value)||($("#pDeathDate").value?parseInt($("#pDeathDate").value.slice(0,4),10):null),birth_place_id:birthPlace,death_place_id:deathPlace,birth_year_hijri:hijriYearOf("#pBirthYear"),death_year_hijri:hijriYearOf("#pDeathYear"),is_living:$("#pLiving").checked,record_confidence:$("#pConfidence").value,bio:$("#pBio").value.trim()||null,lineage_code:$("#pLineageCode").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id};
       const {data,error}=await client.from("people").insert(row).select().single();if(error)throw error;
       const rels=[];if($("#pFather").value)rels.push({parent_id:$("#pFather").value,child_id:data.id,parent_role:"father",relation_kind:"biological",confidence:row.record_confidence,created_by:state.session.user.id});if($("#pMother").value)rels.push({parent_id:$("#pMother").value,child_id:data.id,parent_role:"mother",relation_kind:"biological",confidence:row.record_confidence,created_by:state.session.user.id});if(rels.length){const {error:re}=await client.from("parent_child_relations").insert(rels);if(re)throw re;}
       msg.textContent="تمت إضافة الشخص ✅";e.target.reset();$("#pLiving").checked=true;updateNamePreview();$("#duplicateBox").classList.add("hidden");$("#duplicateConfirmWrap").classList.add("hidden");await loadAccountData();
@@ -2037,6 +2085,126 @@
   $("#addEventForm").onsubmit=async e=>{e.preventDefault();try{const place=await ensurePlace($("#eventPlace").value);const {error}=await client.from("life_events").insert({person_id:$("#eventPerson").value,event_type:$("#eventType").value,event_year:toInt($("#eventYear").value),place_id:place,title:$("#eventTitle").value.trim()||null,description:$("#eventDescription").value.trim()||null,confidence:$("#eventConfidence").value});if(error)throw error;$("#eventMsg").textContent="تم حفظ الحدث ✅";e.target.reset();await loadAccountData();}catch(err){$("#eventMsg").textContent=err.message;}};
   $("#addLibraryForm").onsubmit=async e=>{e.preventDefault();try{const row={title:$("#libTitle").value.trim(),item_type:$("#libType").value,record_year:toInt($("#libYear").value),summary:$("#libSummary").value.trim()||null,confidence:"family_tradition",access_level:$("#libAccess").value,external_url:$("#libExternalUrl").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id,status:"published"};const {data:item,error}=await client.from("library_items").insert(row).select().single();if(error)throw error;if($("#libPerson").value)await client.from("library_item_people").insert({item_id:item.id,person_id:$("#libPerson").value});const file=$("#libFile").files[0];if(file){const path=`${item.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,file,{contentType:file.type||undefined});if(ue)throw ue;await client.from("library_items").update({file_path:path,mime_type:file.type||null}).eq("id",item.id);}$("#libraryAdminMsg").textContent="تمت الإضافة ✅";e.target.reset();await loadAccountData();}catch(err){$("#libraryAdminMsg").textContent=err.message;}};
 
+  // V7.1 — dual-calendar year inputs. Existing code keeps reading .value as a Gregorian year;
+  // when the field is in Hijri mode the typed Hijri year is kept in data-hijri and converted.
+  const YEAR_FIELDS=["#pBirthYear","#pDeathYear","#eBirthYear","#eDeathYear","#relativeBirthYear","#childBirthYear"];
+  const nativeInputValue=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value");
+  function hijriYearOf(sel){const el=$(sel);return el&&el.dataset.cal==="hijri"?toInt(nativeInputValue.get.call(el)):null;}
+  function setYearField(sel,greg,hijri){const el=$(sel);if(!el)return;if(hijri){el._setCal?.("hijri");nativeInputValue.set.call(el,hijri);}else{el._setCal?.("gregorian");nativeInputValue.set.call(el,greg||"");}el._hint?.();}
+  function enhanceYearField(el){
+    if(!el||el.dataset.calReady)return; el.dataset.calReady="1"; el.dataset.cal="gregorian";
+    const wrap=document.createElement("div"); wrap.className="cal-field";
+    el.parentNode.insertBefore(wrap,el); wrap.appendChild(el);
+    const tog=document.createElement("div"); tog.className="cal-toggle"; tog.setAttribute("role","group"); tog.setAttribute("aria-label","التقويم");
+    tog.innerHTML='<button type="button" data-c="hijri">هـ</button><button type="button" data-c="gregorian" class="on">م</button>';
+    wrap.appendChild(tog);
+    const hint=document.createElement("small"); hint.className="cal-hint"; wrap.after(hint);
+    const raw=()=>toInt(nativeInputValue.get.call(el));
+    el._hint=()=>{const v=raw(),H=window.ShugaaHijri;hint.textContent=!v?"":el.dataset.cal==="hijri"?`يوافق تقريبًا ${H.hYearToG(v)} م`:`يوافق ${H.gYearToH(v)} هـ`;};
+    el._setCal=c=>{el.dataset.cal=c;el.max=c==="hijri"?"1700":"3000";el.placeholder=c==="hijri"?"مثال: 1385":"مثال: 1965";tog.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.c===c));};
+    Object.defineProperty(el,"value",{configurable:true,
+      get(){const v=nativeInputValue.get.call(this);if(this.dataset.cal!=="hijri"||!v)return v;const n=parseInt(v,10);return Number.isFinite(n)?String(window.ShugaaHijri.hYearToG(n)):v;},
+      set(v){nativeInputValue.set.call(this,v);if(this.dataset.cal==="hijri"&&!v){} el._hint?.();}});
+    tog.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.dataset.c===el.dataset.cal)return;const v=raw(),H=window.ShugaaHijri;
+      el._setCal(b.dataset.c);
+      if(v)nativeInputValue.set.call(el,b.dataset.c==="hijri"?String(H.side(v,null,null).h).split("/")[0].replace(" هـ",""):String(H.hYearToG(v)));
+      el._hint();el.dispatchEvent(new Event("input",{bubbles:true}));});
+    el.addEventListener("input",el._hint);
+    el.form?.addEventListener("reset",()=>setTimeout(()=>{el._setCal("gregorian");el._hint();},0));
+    el._setCal("gregorian");
+  }
+  YEAR_FIELDS.forEach(s=>enhanceYearField($(s)));
+
+  // calendar display preference (per viewer)
+  (()=>{const box=$(".user-box");if(!box)return;const sel=document.createElement("select");sel.id="calendarPref";sel.className="calendar-pref no-search";sel.setAttribute("aria-label","طريقة عرض التواريخ");
+    sel.innerHTML='<option value="both">التاريخ: هجري وميلادي</option><option value="hijri">التاريخ: هجري</option><option value="gregorian">التاريخ: ميلادي</option>';
+    sel.value=window.ShugaaHijri.getMode(); box.appendChild(sel);
+    sel.onchange=()=>{window.ShugaaHijri.setMode(sel.value);renderPeople($("#peopleSearch")?.value||"");if(state.activePersonId&&!$("#personModal").classList.contains("hidden"))openPerson(state.activePersonId);toast("تم تغيير طريقة عرض التاريخ");};})();
+
+  // V6.3 — bulk add children + Excel export
+  const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
+  function bulkAddRow(name="",gender="male"){
+    const row=document.createElement("div"); row.className="bulk-row";
+    row.innerHTML=`<input class="bulk-name" placeholder="الاسم الأول" value="${esc(name)}"/>
+      <select class="bulk-gender no-search"><option value="male">ذكر</option><option value="female">أنثى</option></select>
+      <input class="bulk-year" type="number" inputmode="numeric" min="1" max="3000" placeholder="سنة الميلاد"/>
+      <label class="bulk-living"><input type="checkbox" class="bulk-alive" checked/> حي</label>
+      <button type="button" class="bulk-remove" aria-label="حذف الصف">×</button>`;
+    row.querySelector(".bulk-gender").value=gender;
+    row.querySelector(".bulk-remove").onclick=()=>{row.remove(); if(!$$("#bulkRows .bulk-row").length) bulkAddRow();};
+    row.querySelector(".bulk-name").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const next=row.nextElementSibling;if(next)next.querySelector(".bulk-name").focus();else{bulkAddRow();$$("#bulkRows .bulk-name").pop().focus();}}});
+    $("#bulkRows").appendChild(row);
+  }
+  function bulkRefreshFather(){
+    const id=$("#bulkFather").value, f=id?familyOf(id):null;
+    const mSel=$("#bulkMother"); mSel.innerHTML='<option value="">— غير محددة —</option>';
+    (f?.spouses||[]).filter(s=>s.gender!=="male").forEach(s=>mSel.add(new Option(s.full_name_ar,s.id)));
+    $("#bulkMotherWrap").classList.toggle("hidden",!(f?.spouses||[]).length);
+    const box=$("#bulkExisting");
+    if(f&&f.children.length){box.innerHTML=`<b>مسجلين حاليًا (${f.children.length}):</b> `+f.children.map(c=>`<span class="meta-pill">${esc(c.first_name_ar||String(c.full_name_ar).split(" ")[0])}</span>`).join(" ");box.classList.remove("hidden");}
+    else box.classList.add("hidden");
+  }
+  $("#bulkFather").addEventListener("change",bulkRefreshFather);
+  $("#bulkAddRow").onclick=()=>{bulkAddRow();$$("#bulkRows .bulk-name").pop().focus();};
+  $("#bulkPasteToggle").onclick=()=>$("#bulkPasteBox").classList.toggle("hidden");
+  $("#bulkPasteApply").onclick=()=>{
+    const lines=$("#bulkPaste").value.split(/\n|،|,/).map(x=>x.trim()).filter(Boolean);
+    if(!lines.length)return;
+    $$("#bulkRows .bulk-row").forEach(r=>{if(!r.querySelector(".bulk-name").value.trim())r.remove();});
+    lines.forEach(l=>{const female=/\((بنت|انثى|أنثى)\)|\s(بنت|انثى|أنثى)$/.test(l);bulkAddRow(l.replace(/\((بنت|انثى|أنثى)\)|\s(بنت|انثى|أنثى)$/,"").trim(),female?"female":"male");});
+    $("#bulkPaste").value="";$("#bulkPasteBox").classList.add("hidden");
+  };
+  $("#bulkSave").onclick=async()=>{
+    const msg=$("#bulkMsg"), fatherId=$("#bulkFather").value;
+    if(!fatherId){msg.textContent="اختر الأب أولًا.";return;}
+    const rows=$$("#bulkRows .bulk-row").map(r=>({name:r.querySelector(".bulk-name").value.trim(),gender:r.querySelector(".bulk-gender").value,year:toInt(r.querySelector(".bulk-year").value),alive:r.querySelector(".bulk-alive").checked})).filter(r=>r.name);
+    if(!rows.length){msg.textContent="اكتب اسم واحد على الأقل.";return;}
+    const bad=rows.find(r=>r.name.split(/\s+/).length>2);
+    if(bad&&!confirm(`الاسم «${bad.name}» فيه أكثر من كلمتين. المفروض تكتب الاسم الأول بس، والنظام يكمل الباقي. متابعة كذا؟`))return;
+    const existing=new Set(familyOf(fatherId).children.map(c=>BULK_NORM(c.first_name_ar||String(c.full_name_ar).split(" ")[0])));
+    const dups=rows.filter(r=>existing.has(BULK_NORM(r.name))).map(r=>r.name);
+    if(dups.length&&!confirm(`هذي الأسماء مسجلة أصلًا تحت نفس الأب: ${dups.join("، ")}\nتبي تضيفها مرة ثانية؟`))return;
+    const mother=$("#bulkMother").value||"";
+    const bulkHijri=$("#bulkCalendar")?.value==="hijri";
+    const children=rows.map(r=>({person:{first_name_ar:r.name,gender:r.gender,birth_year:r.year?String(bulkHijri?window.ShugaaHijri.hYearToG(r.year):r.year):"",birth_year_hijri:bulkHijri&&r.year?String(r.year):"",is_living:r.alive},other_parent_id:mother}));
+    msg.textContent="جاري الحفظ..."; $("#bulkSave").disabled=true;
+    const {data,error}=await client.rpc("staff_add_family_bundle_v4",{p_anchor_id:fatherId,p_spouse:{mode:"none"},p_children:children});
+    $("#bulkSave").disabled=false;
+    if(error){msg.textContent="تعذر الحفظ: "+error.message+" (لم يُحفظ أي اسم)";return;}
+    msg.textContent=`تم حفظ ${data?.children_count||rows.length} ✅`;
+    $("#bulkRows").innerHTML=""; bulkAddRow();
+    try{await loadAccountData();}catch(e){console.error(e);}
+    bulkRefreshFather();
+  };
+  bulkAddRow();
+
+  function loadScriptOnce(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`)&&window.XLSX)return res();const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("تعذر تحميل مكتبة Excel"));document.head.appendChild(s);});}
+  $("#exportExcelBtn").onclick=async()=>{
+    const msg=$("#exportMsg"); msg.textContent="جاري تجهيز الملف...";
+    try{
+      await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+      const gl=g=>g==="male"?"ذكر":g==="female"?"أنثى":"غير محدد";
+      const yr=(y,d)=>y||(d?parseInt(String(d).slice(0,4),10):"")||"";
+      const rows=state.people.slice().sort((a,b)=>(a.lineage_code||"~").localeCompare(b.lineage_code||"~",undefined,{numeric:true})||a.full_name_ar.localeCompare(b.full_name_ar,"ar")).map(p=>{
+        const f=familyOf(p.id);
+        return {"رقم السجل":p.record_code||"","كود النسب":p.lineage_code||"","الاسم الكامل":p.full_name_ar||"","الاسم الأول":p.first_name_ar||"","الجنس":gl(p.gender),
+          "الأب":f.father?.full_name_ar||p.father_name_text||"","الأم":f.mother?.full_name_ar||"","الزوج/الزوجة":f.spouses.map(s=>s.full_name_ar).join("، "),
+          "عدد الأبناء":f.children.length,"سنة الميلاد م":yr(p.birth_year,p.birth_date),"سنة الميلاد هـ":window.ShugaaHijri.side(p.birth_year,p.birth_year_hijri,p.birth_date).h.replace(" هـ",""),"سنة الوفاة م":yr(p.death_year,p.death_date),"سنة الوفاة هـ":window.ShugaaHijri.side(p.death_year,p.death_year_hijri,p.death_date).h.replace(" هـ",""),
+          "الحالة":p.is_living===true?"على قيد الحياة":p.is_living===false?"متوفى":"غير محدد","درجة التوثيق":confidenceLabel(p.record_confidence),"نبذة":p.bio||""};
+      });
+      const ws=XLSX.utils.json_to_sheet(rows);
+      ws["!cols"]=[12,12,40,14,8,36,30,40,10,11,11,11,11,14,14,40].map(w=>({wch:w}));
+      ws["!autofilter"]={ref:ws["!ref"]};
+      const total=state.people.length, males=state.people.filter(p=>p.gender==="male").length, females=state.people.filter(p=>p.gender==="female").length, living=state.people.filter(p=>p.is_living===true).length;
+      const ws2=XLSX.utils.aoa_to_sheet([["شجرة آل شجاع — ملخص"],[],["عدد الأفراد",total],["الذكور",males],["الإناث",females],["على قيد الحياة",living],["علاقات النسب",state.relations.length],["الزيجات",state.marriages.length],[],["تاريخ التصدير",new Date().toLocaleString("ar")]]);
+      ws2["!cols"]=[{wch:22},{wch:24}];
+      const wb=XLSX.utils.book_new(); wb.Workbook={Views:[{RTL:true}]};
+      XLSX.utils.book_append_sheet(wb,ws,"أفراد العائلة"); XLSX.utils.book_append_sheet(wb,ws2,"ملخص");
+      XLSX.writeFile(wb,`شجرة-آل-شجاع-${new Date().toISOString().slice(0,10)}.xlsx`);
+      msg.textContent=`تم تصدير ${total} فرد ✅`;
+    }catch(e){console.error(e);msg.textContent="تعذر التصدير: "+e.message;}
+  };
+
   // Init
   client.auth.getSession().then(async({data})=>{
     if(data.session){await enterAccount(data.session);return;}
@@ -2044,7 +2212,7 @@
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=6.1.0").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=7.1.0").catch(console.warn));
 })();
 
 // V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".
