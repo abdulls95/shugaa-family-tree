@@ -1699,7 +1699,7 @@
   $("#personalCodeForm").onsubmit=e=>{e.preventDefault();enterCodeMode($("#personalCode").value.trim(),"personal");};
   $("#loginTab").onclick=()=>{$("#loginTab").classList.add("active");$("#signupTab").classList.remove("active");$("#loginForm").classList.remove("hidden");$("#signupForm").classList.add("hidden");};
   $("#signupTab").onclick=()=>{$("#signupTab").classList.add("active");$("#loginTab").classList.remove("active");$("#signupForm").classList.remove("hidden");$("#loginForm").classList.add("hidden");if(state.accessCode){$("#claimCodeWrap").classList.remove("hidden");$("#signupClaimCode").value=state.accessCode;}};
-  $("#loginForm").onsubmit=async e=>{e.preventDefault();$("#authMsg").textContent="جاري الدخول...";const {data,error}=await client.auth.signInWithPassword({email:$("#email").value.trim(),password:$("#password").value});if(error){$("#authMsg").textContent="تعذر الدخول: "+error.message;return;}$("#authMsg").textContent="";await enterAccount(data.session);};
+  $("#loginForm").onsubmit=async e=>{e.preventDefault();$("#authMsg").textContent="جاري الدخول...";const {data,error}=await client.auth.signInWithPassword({email:$("#email").value.trim(),password:$("#password").value});if(error){$("#authMsg").textContent="تعذر الدخول: "+error.message;return;}$("#authMsg").textContent="";if(state.mode!=="account")await enterAccount(data.session);};
   $("#signupForm").onsubmit=async e=>{e.preventDefault();const p1=$("#signupPassword").value,p2=$("#signupPassword2").value;if(p1!==p2){$("#authMsg").textContent="كلمتا المرور غير متطابقتين.";return;}const claim=$("#signupClaimCode").value.trim();if(claim)localStorage.setItem("shugaa_pending_claim_code",claim);const {data,error}=await client.auth.signUp({email:$("#signupEmail").value.trim(),password:p1,options:{data:{display_name:$("#signupName").value.trim()},emailRedirectTo:window.location.href}});if(error){$("#authMsg").textContent="تعذر إنشاء الحساب: "+error.message;return;}if(data.session)await enterAccount(data.session);else $("#authMsg").textContent="تم إنشاء الحساب. افتح رسالة تأكيد البريد ثم سجل الدخول، وسيتم ربطه بملفك تلقائيًا إذا أدخلت كودك الشخصي.";};
   $("#forgotBtn").onclick=async()=>{const email=$("#email").value.trim();if(!email)return $("#authMsg").textContent="اكتب بريدك أولًا.";const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});$("#authMsg").textContent=error?error.message:"تم إرسال رابط الاستعادة إذا كان البريد مسجلًا.";};
 
@@ -2043,6 +2043,6 @@
     const mode=sessionStorage.getItem("shugaa_access_mode"),code=sessionStorage.getItem("shugaa_access_code");
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
-  client.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=6.0.0").catch(console.warn));
+  client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=6.0.1").catch(console.warn));
 })();
