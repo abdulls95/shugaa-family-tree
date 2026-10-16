@@ -2117,7 +2117,7 @@ window.ShugaaHijri=(()=>{
 
   // calendar display preference (per viewer)
   (()=>{const box=$(".user-box");if(!box)return;const sel=document.createElement("select");sel.id="calendarPref";sel.className="calendar-pref no-search";sel.setAttribute("aria-label","طريقة عرض التواريخ");
-    sel.innerHTML='<option value="both">التاريخ: هجري وميلادي</option><option value="hijri">التاريخ: هجري</option><option value="gregorian">التاريخ: ميلادي</option>';
+    sel.innerHTML='<option value="both">📅 هجري وميلادي</option><option value="hijri">📅 هجري</option><option value="gregorian">📅 ميلادي</option>';
     sel.value=window.ShugaaHijri.getMode(); box.appendChild(sel);
     sel.onchange=()=>{window.ShugaaHijri.setMode(sel.value);renderPeople($("#peopleSearch")?.value||"");if(state.activePersonId&&!$("#personModal").classList.contains("hidden"))openPerson(state.activePersonId);toast("تم تغيير طريقة عرض التاريخ");};})();
 
@@ -2212,7 +2212,7 @@ window.ShugaaHijri=(()=>{
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=7.1.0").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=7.3.0").catch(console.warn));
 })();
 
 // V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".
