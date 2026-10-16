@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./styles.css?v=5.0.8" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
@@ -27,29 +27,19 @@
         <div>
           <span class="museum-kicker">جذور تمتد… وأجيال تتصل</span>
           <h1>شجرة آل شجاع</h1>
-          <p>مساحة عائلية لحفظ النسب وربط الأجيال. اختر طريقة الدخول المناسبة لك.</p>
+          <p>مساحة عائلية لحفظ النسب وربط الأجيال.</p>
         </div>
       </header>
 
-      <div class="gate-cards">
-        <button class="gate-card primary-gate" data-gate="general">
-          <span class="gate-icon">🌳</span>
-          <strong>استعراض شجرة آل شجاع</strong>
-          <small>لأفراد العائلة — عرض النسب، البحث، صلة القرابة ورحلة النسب فقط.</small>
-          <b>الدخول بكود العائلة ←</b>
-        </button>
-        <button class="gate-card" data-gate="personal">
-          <span class="gate-icon">🔑</span>
-          <strong>لدي كود شخصي</strong>
-          <small>لإضافة أسرتك، إرسال تصحيح، ومتابعة طلباتك بدون بريد إلكتروني.</small>
-          <b>الدخول بالكود الشخصي ←</b>
-        </button>
-        <button class="gate-card" data-gate="account">
-          <span class="gate-icon">🛡️</span>
-          <strong>الدخول بحساب</strong>
-          <small>للحسابات الشخصية، مدخلي البيانات، ومديري النظام.</small>
-          <b>تسجيل الدخول ←</b>
-        </button>
+      <div class="gate-cards gate-code-box panel-glass">
+        <h2>الدخول برمزك</h2>
+        <p>اكتب رمز الدخول اللي وصلك من إدارة العائلة.</p>
+        <form id="codeLoginForm" class="stack">
+          <label>رمز الدخول<input id="loginCode" dir="ltr" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="P-XXXX-XXXX-XXXX-XXXX" required /></label>
+          <button class="btn gold wide">دخول</button>
+        </form>
+        <p id="codeLoginMsg" class="form-msg"></p>
+        <button class="gate-admin-link" type="button" data-gate="account">دخول الإدارة بالبريد الإلكتروني</button>
       </div>
 
       <div id="gate-general" class="gate-form panel-glass hidden">
@@ -78,7 +68,7 @@
         <button class="back-gate" type="button">← رجوع</button>
         <div class="auth-tabs">
           <button id="loginTab" class="auth-tab active" type="button">تسجيل الدخول</button>
-          <button id="signupTab" class="auth-tab" type="button">إنشاء حساب</button>
+          <button id="signupTab" class="auth-tab hidden" type="button">إنشاء حساب</button>
         </div>
         <form id="loginForm" class="stack auth-form">
           <label>البريد الإلكتروني<input id="email" type="email" autocomplete="username" required /></label>
@@ -100,7 +90,7 @@
 
       <footer class="gate-footer">
         <b>خصوصية العائلة أولًا</b>
-        <span>الدخول العام لا يفتح مكتبة العائلة أو الصور أو الوثائق أو السجلات.</span>
+        <span>كل رمز مرتبط بصاحبه. لا تشارك رمزك مع أحد، وإذا ضاع تواصل مع الإدارة لإصدار رمز جديد.</span>
       </footer>
     </div>
   </section>
@@ -360,10 +350,11 @@
           <div class="admin-grid">
             <form id="accessCodeForm" class="panel stack">
               <h3>إنشاء كود وصول</h3>
-              <label>نوع الكود<select id="accessCodeType"><option value="general">كود عام للعائلة</option><option value="personal">كود شخصي</option><option value="invite">دعوة مؤقتة</option></select></label>
+              <label>نوع الكود<select id="accessCodeType"><option value="personal">كود شخصي (دخول بحساب)</option><option value="general">كود عام للعائلة (مشاهدة فقط)</option><option value="invite">دعوة مؤقتة</option></select></label>
               <label id="accessPersonWrap" class="hidden">ربطه بشخص<select id="accessPerson"><option value="">— اختر الشخص —</option></select></label>
+              <label id="accessRoleWrap" class="hidden">صلاحيته عند الدخول<select id="accessGrantRole"><option value="viewer">مشاهد — يتصفح الشجرة ويرسل طلبات</option><option value="editor">مدخل بيانات — يضيف ويعدل حسب صلاحياته</option></select></label>
               <label>وصف الكود<input id="accessLabel" placeholder="مثال: كود افتتاح الموقع" /></label>
-              <div class="two-cols"><label>ينتهي في<input id="accessExpires" type="datetime-local" /></label><label>الحد الأقصى للاستخدام<input id="accessMaxUses" type="number" min="1" /></label></div>
+              <div class="two-cols"><label>ينتهي في<input id="accessExpires" type="datetime-local" /></label><label id="accessMaxUsesWrap">الحد الأقصى للاستخدام<input id="accessMaxUses" type="number" min="1" /></label></div>
               <button class="btn primary">إنشاء الكود</button>
               <div id="newCodeResult" class="new-code-result hidden"></div>
             </form>
@@ -850,7 +841,7 @@
     </article>
   </div>
 
-  <script src="./config.js?v=5.0.8"></script>
-  <script src="./app.js?v=5.0.8"></script>
+  <script src="./config.js?v=6.0.0"></script>
+  <script src="./app.js?v=6.0.0"></script>
 </body>
 </html>

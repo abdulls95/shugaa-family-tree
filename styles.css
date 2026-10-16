@@ -1322,3 +1322,12 @@ label small{
 .awraq-tree-summary small::after{
   content:" • الزوجات وأبناء البنات المتزوجات خارج آل شجاع تظهر داخل الملفات فقط";
 }
+
+/* V6 — code login */
+.gate-cards.gate-code-box{display:block;max-width:480px;margin:22px auto 0;color:#243a33;text-align:right}
+.gate-code-box h2{margin:0 0 6px;color:#0b5244}
+.gate-code-box p{margin:0 0 14px;color:#66736e}
+.gate-code-box #loginCode{text-align:center;font-size:19px;letter-spacing:1px;font-weight:800}
+.gate-admin-link{display:block;margin:16px auto 0;border:0;background:transparent;color:#8a6722;font-weight:700;text-decoration:underline;cursor:pointer}
+.code-share-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.code-share-actions a.btn{text-decoration:none}

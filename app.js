@@ -94,7 +94,7 @@
   }
 
   async function enterCodeMode(code, expectedMode){
-    const msg = expectedMode==="general" ? $("#generalCodeMsg") : $("#personalCodeMsg");
+    const msg = $("#codeLoginMsg");
     msg.textContent="جاري التحقق...";
     const {data,error}=await client.rpc("guest_tree_by_code",{p_code:code});
     if(error){ msg.textContent="تعذر الدخول: "+error.message; return; }
@@ -109,6 +109,32 @@
     applyModeUI(); showApp(); renderAllPublic();
     if(state.mode==="personal") await loadPersonalRequests();
     setView("home"); msg.textContent="";
+  }
+
+  const CODE_LOGIN_ERRORS={
+    invalid:"الرمز غير صحيح أو منتهي. تأكد منه أو تواصل مع الإدارة.",
+    rate_limited:"محاولات كثيرة خاطئة. حاول مرة ثانية بعد ربع ساعة.",
+    suspended:"تم إيقاف هذا الحساب. تواصل مع إدارة العائلة.",
+    person_missing:"الملف المرتبط بهذا الرمز غير متاح. تواصل مع الإدارة.",
+    person_linked_other:"هذا الملف مربوط بحساب آخر. تواصل مع الإدارة.",
+    account_linked_other:"هذا الحساب مربوط بملف آخر. تواصل مع الإدارة."
+  };
+  async function loginWithCode(raw){
+    const msg=$("#codeLoginMsg"), code=String(raw||"").trim();
+    if(!code) return;
+    msg.textContent="جاري التحقق...";
+    let out={}, res;
+    try{
+      res=await fetch(`${cfg.supabaseUrl}/functions/v1/code-login`,{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.supabasePublishableKey},body:JSON.stringify({code})});
+      out=await res.json().catch(()=>({}));
+    }catch(e){ msg.textContent="تعذر الاتصال. تأكد من الإنترنت وحاول مرة ثانية."; return; }
+    if(out.error==="general_code") return enterCodeMode(code,"general");
+    if(!res.ok || !out.token_hash){ msg.textContent=CODE_LOGIN_ERRORS[out.error]||"تعذر الدخول. حاول مرة ثانية."; return; }
+    const {data,error}=await client.auth.verifyOtp({token_hash:out.token_hash,type:"email"});
+    if(error||!data?.session){ msg.textContent="تعذر فتح الجلسة: "+(error?.message||""); return; }
+    msg.textContent="";
+    $("#loginCode").value="";
+    if(state.mode!=="account") await enterAccount(data.session);
   }
 
   async function getMyProfile(){
@@ -791,16 +817,19 @@
     $$(".reject-account").forEach(b=>b.onclick=()=>updateProfile(b.dataset.id,{status:"rejected"}));
   }
   function renderUsers(){
-    const box=$("#userManagement"); box.innerHTML=state.adminUsers.filter(u=>u.status!=="pending").map(u=>`<div class="account-row"><div><strong>${esc(u.display_name||"")}</strong><small>${esc(u.email||"")} • ${esc(u.person_id||"غير مربوط بملف")}</small></div><div class="account-actions"><select class="role-select user-role" data-id="${u.id}"><option value="viewer" ${u.role==="viewer"?"selected":""}>مشاهد</option><option value="editor" ${u.role==="editor"?"selected":""}>مدخل بيانات</option><option value="admin" ${u.role==="admin"?"selected":""}>مدير</option></select>${u.id!==state.session.user.id?`<button class="btn light toggle-user" data-id="${u.id}" data-status="${u.status}">${u.status==="suspended"?"تفعيل":"إيقاف"}</button>`:""}</div></div>`).join("");
+    const box=$("#userManagement"); box.innerHTML=state.adminUsers.filter(u=>u.status!=="pending").map(u=>`<div class="account-row"><div><strong>${esc(u.display_name||"")}</strong><small>${esc(/@members\.shugaa-family\.app$/.test(u.email||"")?"🔑 دخول بالرمز":(u.email||""))} • ${esc(getPerson(u.person_id)?.full_name_ar||(u.person_id?"ملف غير متاح":"غير مربوط بملف"))}</small></div><div class="account-actions"><select class="role-select user-role" data-id="${u.id}"><option value="viewer" ${u.role==="viewer"?"selected":""}>مشاهد</option><option value="editor" ${u.role==="editor"?"selected":""}>مدخل بيانات</option><option value="admin" ${u.role==="admin"?"selected":""}>مدير</option></select>${u.id!==state.session.user.id?`<button class="btn light toggle-user" data-id="${u.id}" data-status="${u.status}">${u.status==="suspended"?"تفعيل":"إيقاف"}</button>`:""}</div></div>`).join("");
     $$(".user-role").forEach(s=>s.onchange=()=>updateProfile(s.dataset.id,{role:s.value,status:"active"})); $$(".toggle-user").forEach(b=>b.onclick=()=>updateProfile(b.dataset.id,{status:b.dataset.status==="suspended"?"active":"suspended"}));
     const sel=$("#permissionUser"); sel.innerHTML='<option value="">— اختر —</option>'+state.adminUsers.filter(u=>u.status==="active").map(u=>`<option value="${u.id}">${esc(u.display_name||u.email)} — ${esc(roleLabel(u.role))}</option>`).join("");
   }
   async function updateProfile(id,patch){const {error}=await client.from("profiles").update(patch).eq("id",id);if(error)toast(error.message,4500);else{toast("تم تحديث الحساب ✅");await loadStaffData();}}
 
-  function showGeneratedAccessCode(code, title="تم إنشاء الكود"){
+  function showGeneratedAccessCode(code, title="تم إنشاء الكود", personName=""){
     const box=$("#newCodeResult");
     box.classList.remove("hidden");
-    box.innerHTML=`<b>⚠️ ${esc(title)} — يظهر كاملًا الآن فقط، انسخه واحفظه</b><code>${esc(code)}</code><button id="copyNewCode" type="button" class="btn gold">نسخ الكود</button>`;
+    const link=location.origin+location.pathname;
+    const first=String(personName||"").trim().split(/\s+/)[0]||"";
+    const text=`السلام عليكم${first?" "+first:""} 🌳\nهذا رمز دخولك لموقع شجرة آل شجاع:\n${code}\n\nافتح الرابط واكتب الرمز:\n${link}\n\nالرمز خاص فيك، لا تشاركه مع أحد.`;
+    box.innerHTML=`<b>⚠️ ${esc(title)}${personName?` لـ ${esc(personName)}`:""} — يظهر كاملًا الآن فقط، انسخه أو أرسله</b><code>${esc(code)}</code><div class="code-share-actions"><button id="copyNewCode" type="button" class="btn gold">نسخ الكود</button><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text)}">إرسال بالواتساب</a></div>`;
     $("#copyNewCode").onclick=()=>navigator.clipboard?.writeText(code).then(()=>toast("تم نسخ الكود ✅"));
     box.scrollIntoView({behavior:"smooth",block:"center"});
   }
@@ -813,7 +842,7 @@
       return `<div class="access-code-row">
         <div>
           <b>${esc(c.label||c.code_type)}</b>
-          <small>${esc(c.code_type)} • ${esc(statusText)} • ينتهي: ${c.expires_at?new Date(c.expires_at).toLocaleDateString("ar"):"بدون انتهاء"} • استخدام ${c.use_count||0}${p?` • ${esc(p.full_name_ar)}`:""} • آخر 4: ${esc(c.code_hint||"")}</small>
+          <small>${esc(({personal:"شخصي",general:"عام",invite:"دعوة"})[c.code_type]||c.code_type)}${c.code_type==="personal"?` (${esc(roleLabel(c.grant_role))})`:""} • ${esc(statusText)} • ينتهي: ${c.expires_at?new Date(c.expires_at).toLocaleDateString("ar"):"بدون انتهاء"} • استخدام ${c.use_count||0}${p?` • ${esc(p.full_name_ar)}`:""} • آخر 4: ${esc(c.code_hint||"")}</small>
         </div>
         <div class="account-actions">
           ${c.status==="active"?`<button class="btn gold reissue-code" data-id="${c.id}">إصدار كود بديل</button><button class="btn light revoke-code" data-id="${c.id}">إلغاء</button>`:`<span class="meta-pill">${esc(statusText)}</span>`}
@@ -832,7 +861,7 @@
       const {data,error}=await client.rpc("admin_rotate_access_code",{p_code_id:b.dataset.id});
       if(error)return toast("تعذر إصدار البديل: "+error.message,5000);
       const code=data?.[0]?.access_code||"";
-      if(code) showGeneratedAccessCode(code,"تم إصدار كود بديل");
+      if(code) showGeneratedAccessCode(code,"تم إصدار كود بديل",getPerson(state.accessCodes.find(x=>x.id===b.dataset.id)?.person_id)?.full_name_ar);
       await loadStaffData();
     });
   }
@@ -1665,6 +1694,7 @@
   // Gate interactions
   $$("[data-gate]").forEach(b=>b.onclick=()=>{$$(".gate-cards").forEach(x=>x.classList.add("hidden"));$("#gate-"+b.dataset.gate).classList.remove("hidden");});
   $$(".back-gate").forEach(b=>b.onclick=()=>{$$(".gate-form").forEach(x=>x.classList.add("hidden"));$$(".gate-cards").forEach(x=>x.classList.remove("hidden"));});
+  $("#codeLoginForm").onsubmit=e=>{e.preventDefault();loginWithCode($("#loginCode").value);};
   $("#generalCodeForm").onsubmit=e=>{e.preventDefault();enterCodeMode($("#generalCode").value.trim(),"general");};
   $("#personalCodeForm").onsubmit=e=>{e.preventDefault();enterCodeMode($("#personalCode").value.trim(),"personal");};
   $("#loginTab").onclick=()=>{$("#loginTab").classList.add("active");$("#signupTab").classList.remove("active");$("#loginForm").classList.remove("hidden");$("#signupForm").classList.add("hidden");};
@@ -1996,8 +2026,9 @@
   };
 
   // Access code admin
-  $("#accessCodeType").onchange=()=>$("#accessPersonWrap").classList.toggle("hidden",$("#accessCodeType").value!=="personal");
-  $("#accessCodeForm").onsubmit=async e=>{e.preventDefault();const type=$("#accessCodeType").value,person=$("#accessPerson").value||null;if(type==="personal"&&!person)return toast("اختر الشخص للكود الشخصي.");const exp=$("#accessExpires").value?new Date($("#accessExpires").value).toISOString():null;const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:type,p_person_id:person,p_label:$("#accessLabel").value.trim()||null,p_expires_at:exp,p_max_uses:toInt($("#accessMaxUses").value)});if(error)return toast(error.message,4500);const code=data?.[0]?.access_code||"";if(code)showGeneratedAccessCode(code,"تم إنشاء الكود");await loadStaffData();};
+  $("#accessCodeType").onchange=()=>{const personal=$("#accessCodeType").value==="personal";$("#accessPersonWrap").classList.toggle("hidden",!personal);$("#accessRoleWrap").classList.toggle("hidden",!personal);$("#accessMaxUsesWrap").classList.toggle("hidden",personal);};
+  $("#accessCodeType").onchange();
+  $("#accessCodeForm").onsubmit=async e=>{e.preventDefault();const type=$("#accessCodeType").value,person=$("#accessPerson").value||null;if(type==="personal"&&!person)return toast("اختر الشخص للكود الشخصي.");const exp=$("#accessExpires").value?new Date($("#accessExpires").value).toISOString():null;const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:type,p_person_id:person,p_label:$("#accessLabel").value.trim()||null,p_expires_at:exp,p_max_uses:type==="personal"?null:toInt($("#accessMaxUses").value),p_grant_role:type==="personal"?$("#accessGrantRole").value:"viewer"});if(error)return toast(error.message,4500);const code=data?.[0]?.access_code||"";if(code)showGeneratedAccessCode(code,"تم إنشاء الكود",getPerson(person)?.full_name_ar);await loadStaffData();};
 
   // Permission save
   $("#savePermissionsBtn").onclick=async()=>{const uid=$("#permissionUser").value;if(!uid)return toast("اختر المستخدم.");const rows=$$("#permissionMatrix input[data-code]").map(x=>({user_id:uid,permission_code:x.dataset.code,allowed:x.checked,updated_by:state.session.user.id,updated_at:new Date().toISOString()}));const {error}=await client.from("profile_permissions").upsert(rows,{onConflict:"user_id,permission_code"});if(error)toast(error.message,4500);else{toast("تم حفظ الصلاحيات ✅");await loadStaffData();}};
@@ -2013,5 +2044,5 @@
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=5.0.8").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=6.0.0").catch(console.warn));
 })();
