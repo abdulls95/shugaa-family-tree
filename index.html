@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=7.3.0" />
+  <link rel="stylesheet" href="./styles.css?v=8.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -298,7 +298,7 @@
       <section id="view-admin" class="view staff-only hidden">
         <div class="page-head awraq-settings-head"><div><span class="section-kicker">إدارة الشجرة</span><h2>إعدادات العائلة</h2><p>إدارة الأفراد، الطلبات، الوصول، الصلاحيات والمحتوى.</p></div></div>
         <div class="admin-tabs">
-          <button class="admin-tab active" data-admin-panel="person">إضافة فرد</button>
+          <button class="admin-tab active" data-admin-panel="person">إضافة</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="access">المشاركة والوصول</button>
           <button class="admin-tab" data-admin-panel="changes">طلبات الشجرة <span id="changeCount" class="count-badge">0</span></button>
           <button class="admin-tab admin-only hidden" data-admin-panel="accounts">الأعضاء والضيوف <span id="pendingCount" class="count-badge">0</span></button>
@@ -311,7 +311,13 @@
         </div>
 
         <div id="admin-person" class="admin-panel active">
-          <div class="admin-grid">
+          <div id="addStartCard" class="panel stack add-start-card">
+            <h3>إضافة إلى الشجرة</h3>
+            <p class="muted">كل إضافة تبدأ من شخص موجود، عشان ينربط الجديد بمكانه الصحيح. اختر الشخص، وبعدها اختر صلة القرابة: أب، أم، زوج، إخوة، أو أبناء.</p>
+            <div class="add-start-row"><select id="addStartPerson"><option value="">— اختر الشخص —</option></select><button type="button" id="addStartBtn" class="btn primary">متابعة</button></div>
+          </div>
+          <div id="rootStartNote" class="panel soft hidden"><h3>ابدأ شجرتك بالجد الأكبر</h3><p class="muted">الشجرة فاضية. أضف أقدم جد تعرفه، وبعدها كل الإضافات تكون من عنده.</p></div>
+          <div class="admin-grid" id="rootPersonFormWrap">
             <form id="addPersonForm" class="panel stack">
               <h3>إضافة شخص</h3>
               <div class="name-grid">
@@ -493,7 +499,7 @@
 
       <div class="v4-primary-actions staff-only hidden">
         <button id="profileAddRelativeBtn" class="btn primary v4-big-action">＋ إضافة</button>
-        <button id="profileBuildFamilyBtn" class="btn gold v4-big-action">إضافة أسرة</button>
+        <button id="profileBuildFamilyBtn" class="btn gold v4-big-action hidden">إضافة أسرة</button>
       </div>
 
       <div class="v4-profile-tabs" role="tablist">
@@ -876,7 +882,48 @@
     </article>
   </div>
 
-  <script src="./config.js?v=7.3.0"></script>
-  <script src="./app.js?v=7.3.0"></script>
+
+  <!-- V8 — add hub (relation compass) -->
+  <div id="addHubModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-hub></div>
+    <article class="modal-card hub-card">
+      <button class="modal-close" type="button" data-close-hub aria-label="إغلاق">×</button>
+      <h2>مكان جديد في العائلة</h2>
+      <p id="hubSubtitle" class="muted">اختر صلة القرابة</p>
+      <div id="hubPicker" class="stack hidden">
+        <label>لمن تبي تضيف؟<select id="hubPerson"><option value="">— اختر الشخص —</option></select></label>
+      </div>
+      <div id="hubCompass" class="hub-compass">
+        <div class="hub-tile hub-up" data-hub="parent">
+          <b>الوالدين</b>
+          <div class="hub-split"><button type="button" data-hub-rel="father">أب</button><button type="button" data-hub-rel="mother">أم</button></div>
+        </div>
+        <button type="button" class="hub-tile hub-side-a" data-hub-rel="spouse"><b>زوج / زوجة</b><small id="hubSpouseHint"></small></button>
+        <div class="hub-center"><span id="hubCenterName">—</span></div>
+        <button type="button" class="hub-tile hub-side-b" data-hub-rel="sibling"><b>أخ / أخت</b><small id="hubSiblingHint"></small></button>
+        <button type="button" class="hub-tile hub-down" data-hub-rel="child"><b>ابن / ابنة</b><small id="hubChildHint"></small></button>
+        <i class="hub-line hub-line-v"></i><i class="hub-line hub-line-h"></i>
+      </div>
+    </article>
+  </div>
+
+  <!-- V8 — add several children / siblings -->
+  <div id="batchModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-batch></div>
+    <article class="modal-card batch-card">
+      <button class="modal-close" type="button" data-close-batch aria-label="إغلاق">×</button>
+      <h2 id="batchTitle">إضافة أبناء</h2>
+      <div id="batchExisting" class="bulk-existing hidden"></div>
+      <label id="batchOtherParentWrap" class="hidden"><span id="batchOtherParentLabel">الأم</span><select id="batchOtherParent" class="no-search"><option value="">غير محددة</option></select><small class="micro-copy">إذا الأم مو موجودة، أضفها أولًا كزوجة من «مكان جديد في العائلة».</small></label>
+      <div id="batchRows" class="batch-rows"></div>
+      <button type="button" id="batchAddRow" class="btn light">＋ إضافة فرد آخر</button>
+      <div class="batch-footer">
+        <button type="button" id="batchSave" class="btn primary wide">إضافة الأفراد</button>
+        <p id="batchMsg" class="form-msg"></p>
+      </div>
+    </article>
+  </div>
+  <script src="./config.js?v=8.0.0"></script>
+  <script src="./app.js?v=8.0.0"></script>
 </body>
 </html>

@@ -262,7 +262,8 @@ window.ShugaaHijri=(()=>{
     renderAdminAll();
   }
 
-  function renderAllPublic(){ renderStats(); renderPeople(); fillPersonSelects(); renderTree(); renderHealth(); }
+  function renderAllPublic(){ renderStats(); renderPeople(); fillPersonSelects(); renderTree(); renderHealth(); syncAddStart(); }
+  function syncAddStart(){const empty=!state.people.length;$("#addStartCard")?.classList.toggle("hidden",empty);$("#rootStartNote")?.classList.toggle("hidden",!empty);$("#rootPersonFormWrap")?.classList.toggle("hidden",!empty);}
   function renderStats(){
     $("#statPeople").textContent=state.people.length;
     $("#statRelations").textContent=state.relations.length;
@@ -344,7 +345,7 @@ window.ShugaaHijri=(()=>{
   function closePerson(){ $("#personModal").classList.add("hidden"); }
 
   function fillPersonSelects(){
-    const selectors=["#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
+    const selectors=["#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
     selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if((sel==="#pFather"||sel==="#bulkFather")&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
   }
 
@@ -1774,8 +1775,8 @@ window.ShugaaHijri=(()=>{
 
   $("#treeQuickAddBtn")?.addEventListener("click",()=>{
     if(!canAddPeopleDirect())return toast("لا تملك صلاحية الإضافة المباشرة.");
-    setView("admin");
-    setAdminPanel("person");
+    if(!state.people.length){setView("admin");setAdminPanel("person");return;}
+    const sel=state.cy?.$("node:selected");openAddHub(sel&&sel.length?sel[0].id():null);
   });
   $("#findKinshipBtn").onclick=renderKinship;$("#startLineageBtn").onclick=()=>renderLineage();
   $("#profileLineageBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("lineage");$("#lineagePerson").value=id;renderLineage(id);};
@@ -1783,7 +1784,7 @@ window.ShugaaHijri=(()=>{
   $("#profileContributeBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("contribute");$("#contribTarget").value=id;};
   $("#profileEditBtn").onclick=()=>{const id=state.activePersonId;closePerson();openEditPerson(id);};
   $$(".v4-profile-tab").forEach(b=>b.onclick=()=>setProfileTab(b.dataset.profileTab));
-  $("#profileAddRelativeBtn").onclick=()=>{const id=state.activePersonId;closePerson();openRelativeBuilder(id);};
+  $("#profileAddRelativeBtn").onclick=()=>{const id=state.activePersonId;closePerson();openAddHub(id);};
   $("#profileBuildFamilyBtn").onclick=()=>{const id=state.activePersonId;closePerson();openFamilyBuilder(id);};
   $("#profileBulkChildrenBtn").onclick=()=>{const id=state.activePersonId;closePerson();openFamilyBuilder(id);};
   $$("[data-quick-relative]").forEach(b=>b.onclick=()=>{const id=state.activePersonId,preset=b.dataset.quickRelative;closePerson();openRelativeBuilder(id,preset);});
@@ -2121,6 +2122,100 @@ window.ShugaaHijri=(()=>{
     sel.value=window.ShugaaHijri.getMode(); box.appendChild(sel);
     sel.onchange=()=>{window.ShugaaHijri.setMode(sel.value);renderPeople($("#peopleSearch")?.value||"");if(state.activePersonId&&!$("#personModal").classList.contains("hidden"))openPerson(state.activePersonId);toast("تم تغيير طريقة عرض التاريخ");};})();
 
+  // V8 — one way to add people: start from an existing person, pick the relation, fill a short form.
+  const HUB_ERR={"Add people permission required":"لا تملك صلاحية إضافة أفراد.","Add a father or mother to the anchor person first":"سجّل أب أو أم لهذا الشخص أولًا، عشان نربط الإخوة صح.","No valid names":"اكتب اسم واحد على الأقل."};
+  const hubErr=m=>HUB_ERR[m]||m;
+  let hubAnchor=null, batchState={anchor:null,rel:null};
+  function openAddHub(anchorId){
+    if(!canAddPeopleDirect())return toast("لا تملك صلاحية إضافة أفراد مباشرة.");
+    hubAnchor=anchorId||null;
+    $("#hubPicker").classList.toggle("hidden",!!hubAnchor);
+    if(!hubAnchor) $("#hubPerson").value="";
+    syncHub(); $("#addHubModal").classList.remove("hidden");
+  }
+  function closeAddHub(){$("#addHubModal").classList.add("hidden");}
+  function syncHub(){
+    const a=hubAnchor?getPerson(hubAnchor):null, f=a?familyOf(a.id):null;
+    $("#hubCompass").classList.toggle("disabled",!a);
+    $("#hubCenterName").textContent=a?(a.first_name_ar||a.full_name_ar.split(" ")[0]):"؟";
+    $("#hubSubtitle").textContent=a?`اختر صلة القرابة حول ${a.full_name_ar}`:"اختر الشخص أولًا";
+    const fb=$('[data-hub-rel="father"]'), mb=$('[data-hub-rel="mother"]');
+    fb.disabled=!a||!!f?.father; fb.textContent=f?.father?"أب ✓":"أب";
+    mb.disabled=!a||!!f?.mother; mb.textContent=f?.mother?"أم ✓":"أم";
+    $("#hubSpouseHint").textContent=f&&f.spouses.length?`${f.spouses.length} مسجل`:"";
+    $("#hubChildHint").textContent=f&&f.children.length?`${f.children.length} مسجل`:"";
+    const noParents=f&&!f.father&&!f.mother;
+    $('[data-hub-rel="sibling"]').disabled=!a||noParents;
+    $("#hubSiblingHint").textContent=noParents?"يحتاج أب أو أم أولًا":"";
+    $('[data-hub-rel="spouse"]').disabled=!a; $('[data-hub-rel="child"]').disabled=!a;
+  }
+  $("#hubPerson").addEventListener("change",()=>{hubAnchor=$("#hubPerson").value||null;syncHub();});
+  $$("[data-close-hub]").forEach(b=>b.onclick=closeAddHub);
+  $$("[data-hub-rel]").forEach(b=>b.onclick=()=>{
+    const id=hubAnchor, rel=b.dataset.hubRel; if(!id||b.disabled)return;
+    closeAddHub();
+    if(rel==="child"||rel==="sibling") openBatch(id,rel); else openRelativeBuilder(id,rel);
+  });
+  $("#addStartBtn").onclick=()=>{const id=$("#addStartPerson").value;if(!id)return toast("اختر الشخص أولًا.");openAddHub(id);};
+
+  function batchRow(){
+    const row=document.createElement("div"); row.className="batch-row";
+    const uid="b"+Math.random().toString(36).slice(2,8);
+    row.innerHTML=`<div class="batch-row-head"><b class="batch-num"></b><button type="button" class="batch-remove">حذف</button></div>
+      <label>الاسم الأول<input class="batch-name" placeholder="مثال: أحمد" autocomplete="off"/></label>
+      <div class="batch-grid">
+        <fieldset class="seg"><legend>الجنس</legend><label><input type="radio" name="g${uid}" value="male" checked><span>ذكر</span></label><label><input type="radio" name="g${uid}" value="female"><span>أنثى</span></label></fieldset>
+        <fieldset class="seg"><legend>الحالة</legend><label><input type="radio" name="l${uid}" value="true" checked><span>حي</span></label><label><input type="radio" name="l${uid}" value="false"><span>متوفى</span></label><label><input type="radio" name="l${uid}" value=""><span>غير معروف</span></label></fieldset>
+      </div>
+      <label>سنة الميلاد (اختياري)<input class="batch-year" type="number" inputmode="numeric" min="1" max="3000"/></label>`;
+    $("#batchRows").appendChild(row);
+    enhanceYearField(row.querySelector(".batch-year"));
+    row.querySelector(".batch-remove").onclick=()=>{row.remove();if(!$$("#batchRows .batch-row").length)batchRow();numberBatch();};
+    row.querySelector(".batch-name").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();batchRow();$$("#batchRows .batch-name").pop().focus();}});
+    numberBatch(); return row;
+  }
+  function numberBatch(){const rows=$$("#batchRows .batch-row");rows.forEach((r,i)=>{r.querySelector(".batch-num").textContent=`الفرد ${i+1}`;r.querySelector(".batch-remove").classList.toggle("hidden",rows.length===1);});}
+  function openBatch(anchorId,rel){
+    if(!canAddPeopleDirect())return toast("لا تملك صلاحية إضافة أفراد مباشرة.");
+    const a=getPerson(anchorId); if(!a)return; const f=familyOf(a.id);
+    batchState={anchor:a.id,rel};
+    $("#batchTitle").textContent=rel==="child"?`إضافة أبناء إلى ${a.full_name_ar}`:`إضافة إخوة إلى ${a.full_name_ar}`;
+    const existing=rel==="child"?f.children:[...new Set(state.relations.filter(r=>(f.father&&r.parent_id===f.father.id)||(f.mother&&r.parent_id===f.mother.id)).map(r=>r.child_id))].filter(id=>id!==a.id).map(getPerson).filter(Boolean);
+    const box=$("#batchExisting");
+    if(existing.length){box.innerHTML=`<b>${rel==="child"?"الأبناء المسجلين":"الإخوة المسجلين"} (${existing.length}):</b> `+existing.map(c=>`<span class="meta-pill">${esc(c.first_name_ar||c.full_name_ar.split(" ")[0])}</span>`).join(" ");box.classList.remove("hidden");}else box.classList.add("hidden");
+    const op=$("#batchOtherParent"); op.innerHTML='<option value="">غير محدد</option>';
+    const showOther=rel==="child"&&a.gender!=="unknown"&&a.gender;
+    if(showOther){$("#batchOtherParentLabel").textContent=a.gender==="male"?"الأم":"الأب";f.spouses.forEach(sp=>op.add(new Option(sp.full_name_ar,sp.id)));if(f.spouses.length===1)op.value=f.spouses[0].id;}
+    $("#batchOtherParentWrap").classList.toggle("hidden",!showOther);
+    $("#batchRows").innerHTML=""; batchRow(); $("#batchMsg").textContent="";
+    $("#batchModal").classList.remove("hidden"); setTimeout(()=>$(".batch-name")?.focus(),60);
+  }
+  function closeBatch(){$("#batchModal").classList.add("hidden");}
+  $$("[data-close-batch]").forEach(b=>b.onclick=closeBatch);
+  $("#batchAddRow").onclick=()=>{batchRow();$$("#batchRows .batch-name").pop().focus();};
+  $("#batchSave").onclick=async()=>{
+    const msg=$("#batchMsg"), {anchor,rel}=batchState; if(!anchor)return;
+    const people=$$("#batchRows .batch-row").map(r=>{
+      const y=r.querySelector(".batch-year"), hijri=y.dataset.cal==="hijri"?toInt(nativeInputValue.get.call(y)):null, greg=toInt(y.value);
+      const life=r.querySelector('input[name^="l"]:checked').value;
+      return {first_name_ar:r.querySelector(".batch-name").value.trim(),gender:r.querySelector('input[name^="g"]:checked').value,
+        is_living:life===""?null:life==="true",birth_year:greg?String(greg):"",birth_year_hijri:hijri?String(hijri):""};
+    }).filter(p=>p.first_name_ar);
+    if(!people.length){msg.textContent="اكتب اسم واحد على الأقل.";return;}
+    const long=people.find(p=>p.first_name_ar.split(/\s+/).length>2);
+    if(long&&!confirm(`«${long.first_name_ar}» فيه أكثر من كلمتين. اكتب الاسم الأول بس، والنظام يكمل الباقي. متابعة كذا؟`))return;
+    const existing=new Set(($("#batchExisting").textContent||"").split(/\s+/).map(BULK_NORM));
+    const dups=people.filter(p=>existing.has(BULK_NORM(p.first_name_ar))).map(p=>p.first_name_ar);
+    if(dups.length&&!confirm(`مسجلين أصلًا بنفس الاسم: ${dups.join("، ")}\nتبي تضيفهم مرة ثانية؟`))return;
+    msg.textContent="جاري الحفظ..."; $("#batchSave").disabled=true;
+    const {data,error}=await client.rpc("staff_add_people_batch",{p_anchor_id:anchor,p_relation:rel,p_people:people,p_other_parent_id:$("#batchOtherParent").value||null});
+    $("#batchSave").disabled=false;
+    if(error){msg.textContent="تعذر الحفظ: "+hubErr(error.message)+" (لم يُحفظ أي اسم)";return;}
+    closeBatch(); toast(`تمت إضافة ${data?.count||people.length} ✅`);
+    try{await loadAccountData();}catch(e){console.error(e);}
+    openPerson(anchor); setProfileTab("family");
+  };
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){
@@ -2212,7 +2307,7 @@ window.ShugaaHijri=(()=>{
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=7.3.0").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=8.0.0").catch(console.warn));
 })();
 
 // V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".
