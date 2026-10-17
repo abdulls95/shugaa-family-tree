@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=9.2.0" />
+  <link rel="stylesheet" href="./styles.css?v=10.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -136,6 +136,38 @@
 
     <main>
       <section id="view-home" class="view active">
+        <div id="home2">
+          <section class="h2-hero">
+            <svg id="h2Tree" class="h2-tree" aria-hidden="true"></svg>
+            <div class="h2-hero-text">
+              <p id="h2Date" class="h2-date"></p>
+              <h1 id="h2Greeting">أهلاً بك</h1>
+              <p id="h2Sub" class="h2-sub">في بيت آل شجاع</p>
+              <div id="h2Lineage" class="h2-lineage" aria-label="سلسلة النسب"></div>
+              <div class="h2-search">
+                <input id="h2Search" type="search" autocomplete="off" placeholder="دوّر على أي شخص في العائلة..." aria-label="بحث عن شخص" />
+                <div id="h2Results" class="h2-results hidden"></div>
+              </div>
+            </div>
+          </section>
+          <section id="h2Stats" class="h2-stats"></section>
+          <section class="h2-grid">
+            <article class="h2-card h2-news">
+              <header><div><span class="h2-kicker">نبض العائلة</span><h3>آخر الأخبار</h3></div><button type="button" class="h2-link" data-go="history">كل الأخبار ←</button></header>
+              <div id="h2News" class="h2-news-list"></div>
+            </article>
+            <div class="h2-col">
+              <article class="h2-card h2-know"><header><div><span class="h2-kicker">هل تعرف؟</span><h3 id="h2KnowTitle">اكتشاف اليوم</h3></div><button type="button" id="h2KnowNext" class="h2-link">غيرها ↻</button></header><div id="h2Know"></div></article>
+              <article class="h2-card"><header><div><span class="h2-kicker">آل شجاع بالأرقام</span><h3>أكثر الأسماء</h3></div></header><div id="h2Names" class="h2-names"></div></article>
+            </div>
+          </section>
+          <section class="h2-quick">
+            <button type="button" data-go="tree"><b>الشجرة</b><small>تصفح الفروع والأجيال</small></button>
+            <button type="button" data-go="kinship"><b>صلة القرابة</b><small>من يلتقي بمن؟</small></button>
+            <button type="button" data-go="lineage"><b>مسار النسب</b><small>من الحفيد إلى الجد</small></button>
+            <button type="button" data-go="library" class="account-only hidden"><b>محتوى العائلة</b><small>وثائق وصور وروايات</small></button>
+          </section>
+        </div>
         <div class="museum-hero">
           <div class="hero-orbit orbit-a"></div><div class="hero-orbit orbit-b"></div>
           <div class="hero-content">
@@ -457,7 +489,7 @@
           <form id="addEventForm" class="panel stack compact-form">
             <h3>إضافة حدث</h3>
             <label>الشخص<select id="eventPerson" required></select></label>
-            <label>النوع<select id="eventType"><option value="residence">سكن</option><option value="migration">هجرة / انتقال</option><option value="historical">حدث تاريخي</option><option value="marriage">زواج</option><option value="birth">ميلاد</option><option value="death">وفاة</option><option value="burial">دفن</option><option value="other">أخرى</option></select></label>
+            <label>النوع<select id="eventType"><option value="residence">سكن</option><option value="migration">هجرة / انتقال</option><option value="historical">حدث تاريخي</option><option value="marriage">زواج</option><option value="birth">ميلاد</option><option value="death">وفاة</option><option value="burial">دفن</option><option value="engagement">خطوبة</option><option value="graduation">تخرج</option><option value="achievement">إنجاز</option><option value="other">أخرى</option></select></label>
             <div class="two-cols"><label>السنة<input id="eventYear" type="number" /></label><label>المكان<input id="eventPlace" /></label></div>
             <label>العنوان<input id="eventTitle" /></label><label>الوصف<textarea id="eventDescription" rows="4"></textarea></label>
             <label>التوثيق<select id="eventConfidence"><option value="family_tradition">متوارث عائليًا</option><option value="documented">موثق</option><option value="likely">مرجح</option><option value="uncertain">غير مؤكد</option></select></label>
@@ -971,7 +1003,7 @@
       <div class="batch-footer"><button type="button" id="corrSave" class="btn primary wide">إرسال التصحيح للإدارة</button><p id="corrMsg" class="form-msg"></p></div>
     </article>
   </div>
-  <script src="./config.js?v=9.2.0"></script>
-  <script src="./app.js?v=9.2.0"></script>
+  <script src="./config.js?v=10.0.0"></script>
+  <script src="./app.js?v=10.0.0"></script>
 </body>
 </html>

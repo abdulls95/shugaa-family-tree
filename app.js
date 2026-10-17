@@ -270,7 +270,7 @@ window.ShugaaHijri=(()=>{
     renderAdminAll();
   }
 
-  function renderAllPublic(){ renderStats(); renderPeople(); fillPersonSelects(); renderTree(); renderHealth(); syncAddStart(); }
+  function renderAllPublic(){ renderStats(); renderPeople(); fillPersonSelects(); renderTree(); renderHealth(); syncAddStart(); try{renderHome();}catch(e){console.error("home",e);} }
   function syncAddStart(){const empty=!state.people.length;$("#addStartCard")?.classList.toggle("hidden",empty);$("#rootStartNote")?.classList.toggle("hidden",!empty);$("#rootPersonFormWrap")?.classList.toggle("hidden",!empty);}
   function renderStats(){
     $("#statPeople").textContent=state.people.length;
@@ -2321,6 +2321,112 @@ window.ShugaaHijri=(()=>{
   $$("[data-close-more]").forEach(b=>b.onclick=()=>moreSheet.classList.add("hidden"));
   $$("#moreSheet .nav-btn[data-view]").forEach(b=>b.addEventListener("click",()=>{moreSheet.classList.add("hidden");setView(b.dataset.view);}));
 
+  // V10 — living home page
+  const EVT={marriage:{t:"زواج",k:"joy",btn:"مبروك"},engagement:{t:"خطوبة",k:"joy",btn:"مبروك"},birth:{t:"مولود",k:"joy",btn:"مبروك"},graduation:{t:"تخرج",k:"joy",btn:"مبروك"},achievement:{t:"إنجاز",k:"joy",btn:"مبروك"},
+    death:{t:"وفاة",k:"grief",btn:"رحمه الله"},burial:{t:"وفاة",k:"grief",btn:"رحمه الله"},migration:{t:"انتقال",k:"note",btn:"👍"},residence:{t:"سكن",k:"note",btn:"👍"},historical:{t:"حدث تاريخي",k:"note",btn:"👍"},other:{t:"خبر",k:"note",btn:"👍"}};
+  const homeState={reacts:new Map(),knowIdx:0,counted:false};
+  const nameNorm=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").trim();
+  function firstName(p){return p?(p.first_name_ar||String(p.full_name_ar||"").split(/\s+/)[0]):"";}
+  function treeModelLevels(){
+    const m=buildTreeModel(); const kids=new Map(), hasParent=new Set();
+    m.edges.forEach(({parent,child})=>{(kids.get(parent)||kids.set(parent,[]).get(parent)).push(child);hasParent.add(child);});
+    const roots=m.people.filter(p=>!hasParent.has(p.id)).map(p=>p.id);
+    return {kids,roots,count:m.people.length};
+  }
+  function renderHomeTree(){
+    const svg=$("#h2Tree"); if(!svg)return; const {kids,roots}=treeModelLevels(); if(!roots.length){svg.innerHTML="";return;}
+    const pos=new Map(); let leaf=0, maxD=0;
+    const place=(id,d,seen)=>{if(seen.has(id))return; seen.add(id); maxD=Math.max(maxD,d); const ch=kids.get(id)||[];
+      if(!ch.length){pos.set(id,{x:leaf++,d});return;} ch.forEach(c=>place(c,d+1,seen)); const xs=ch.map(c=>pos.get(c)?.x).filter(x=>x!==undefined); pos.set(id,{x:xs.length?(Math.min(...xs)+Math.max(...xs))/2:leaf++,d});};
+    const seen=new Set(); roots.forEach(r=>place(r,0,seen));
+    const W=1000,H=420, padX=40, step=(H-80)/Math.max(1,maxD), sx=(W-2*padX)/Math.max(1,leaf-1||1);
+    const P=id=>{const q=pos.get(id);return {x:W-padX-q.x*sx, y:H-40-q.d*step};};
+    let lines="", dots="";
+    pos.forEach((q,id)=>{(kids.get(id)||[]).forEach(c=>{if(!pos.has(c))return;const a=P(id),b=P(c),my=(a.y+b.y)/2;
+      lines+=`<path d="M${a.x.toFixed(1)} ${a.y.toFixed(1)} C${a.x.toFixed(1)} ${my.toFixed(1)} ${b.x.toFixed(1)} ${my.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}" style="--d:${(q.d*0.35).toFixed(2)}s"/>`;});
+      const pt=P(id); dots+=`<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${q.d===0?7:Math.max(2.2,4.2-q.d*0.4)}" style="--d:${(q.d*0.35+0.25).toFixed(2)}s"/>`;});
+    svg.setAttribute("viewBox",`0 0 ${W} ${H}`); svg.setAttribute("preserveAspectRatio","xMidYMax meet");
+    svg.innerHTML=`<g class="h2-lines">${lines}</g><g class="h2-dots">${dots}</g>`;
+    homeState.maxDepth=maxD;
+  }
+  function countUp(el,to){const t0=performance.now(),dur=1100;const tick=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=Math.round(to*e).toLocaleString("ar-SA-u-nu-latn");if(k<1)requestAnimationFrame(tick);};requestAnimationFrame(tick);}
+  function homeFacts(){
+    const ppl=state.people, counts=new Map();
+    ppl.forEach(p=>{const n=nameNorm(firstName(p));if(n)counts.set(n,(counts.get(n)||{n:firstName(p),c:0})),counts.get(n).c++;});
+    const top=[...counts.values()].sort((a,b)=>b.c-a.c).slice(0,6);
+    const byKids=ppl.map(p=>({p,c:familyOf(p.id).children.length})).sort((a,b)=>b.c-a.c)[0];
+    const {roots,count}=treeModelLevels(); const root=getPerson(roots[0]);
+    const newest=[...ppl].filter(p=>p.created_at).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0];
+    return {top,byKids,root,newest,count};
+  }
+  function knowItems(){
+    const items=[], me=state.mode==="account"?getPerson(state.profile?.person_id):null, f=homeFacts();
+    if(me){
+      const mine=ancestorPaths(me.id), myFam=familyOf(me.id), close=new Set([me.id,...myFam.children.map(x=>x.id),...myFam.spouses.map(x=>x.id),myFam.father?.id,myFam.mother?.id].filter(Boolean));
+      const pool=state.people.filter(p=>!close.has(p.id));
+      const day=Math.floor(Date.now()/864e5);
+      for(let k=0;k<Math.min(pool.length,40)&&items.length<4;k++){
+        const o=pool[(day*7+k*13)%pool.length]; const theirs=ancestorPaths(o.id); let best=null;
+        for(const [aid,pa] of mine){if(theirs.has(aid)){const sc=pa.length+theirs.get(aid).length;if(!best||sc<best.sc)best={aid,sc,da:pa.length-1,db:theirs.get(aid).length-1};}}
+        if(!best||best.aid===o.id||best.aid===me.id)continue;
+        const anc=getPerson(best.aid); const same=best.da===best.db;
+        items.push(`تلتقي مع <button class="h2-person" data-pid="${o.id}">${esc(o.full_name_ar)}</button> عند الجد <b>${esc(firstName(anc))}</b>${same?" — وأنتم من نفس الجيل":best.db<best.da?" — وهو من جيل أعلى منك":" — وهو من جيل بعدك"}.`);
+      }
+    }
+    if(f.top[0])items.push(`أكثر اسم تكرر في العائلة: <b>${esc(f.top[0].n)}</b> — ${f.top[0].c} مرات.`);
+    if(f.byKids&&f.byKids.c>1)items.push(`أكبر أسرة مسجلة: <button class="h2-person" data-pid="${f.byKids.p.id}">${esc(f.byKids.p.full_name_ar)}</button> وعنده ${f.byKids.c} من الأبناء والبنات.`);
+    if(f.root)items.push(`أقدم جد مسجل في الشجرة: <button class="h2-person" data-pid="${f.root.id}">${esc(f.root.full_name_ar)}</button>، ومنه تفرعت ${homeState.maxDepth+1||"عدة"} أجيال.`);
+    if(f.newest)items.push(`آخر من انضاف للشجرة: <button class="h2-person" data-pid="${f.newest.id}">${esc(f.newest.full_name_ar)}</button>.`);
+    return items;
+  }
+  function renderKnow(){const items=knowItems(); const box=$("#h2Know"); if(!items.length){box.innerHTML="<p class='muted'>أضف أفراد للشجرة وتطلع لك الاكتشافات هنا.</p>";return;}
+    box.innerHTML=`<p class="h2-know-text">${items[homeState.knowIdx%items.length]}</p>`; box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));}
+  function eventDateText(e){const H=window.ShugaaHijri; if(e.event_date)return H.pick(H.side(null,null,e.event_date).full); if(e.event_year)return H.pick(H.side(e.event_year,null,null)); return "";}
+  function renderHomeNews(){
+    const box=$("#h2News"); const rows=[...state.events].sort((a,b)=>String(b.event_date||b.event_year||"").localeCompare(String(a.event_date||a.event_year||""))||String(b.created_at||"").localeCompare(String(a.created_at||""))).slice(0,4);
+    if(!rows.length){box.innerHTML=`<div class="h2-empty"><b>ما فيه أخبار للحين</b><p>أول زواج أو مولود ينضاف، يطلع هنا ويباركون له الكل.</p>${canAddPeopleDirect()?`<button type="button" class="btn gold" id="h2AddNews">أضف أول خبر</button>`:""}</div>`;
+      $("#h2AddNews")?.addEventListener("click",()=>{setView("admin");setAdminPanel("event");});return;}
+    const acct=state.mode==="account";
+    box.innerHTML=rows.map((e,i)=>{const m=EVT[e.event_type]||EVT.other, p=getPerson(e.person_id), r=homeState.reacts.get(e.id)||{total:0,mine:false};
+      return `<div class="h2-news-item ${m.k}" style="--i:${i}">
+        <div class="h2-news-badge">${esc(m.t)}</div>
+        <div class="h2-news-body"><h4>${esc(e.title||m.t)}</h4>
+          ${p?`<button class="h2-person" data-pid="${p.id}">${esc(p.full_name_ar)}</button>`:""}
+          ${e.description?`<p>${esc(e.description)}</p>`:""}<small>${esc(eventDateText(e))}</small></div>
+        ${acct?`<button type="button" class="h2-react ${r.mine?"on":""}" data-eid="${e.id}"><span>${esc(m.btn)}</span>${r.total?`<b>${r.total}</b>`:""}</button>`:(r.total?`<span class="h2-react-count">${r.total}</span>`:"")}
+      </div>`;}).join("");
+    box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));
+    box.querySelectorAll(".h2-react").forEach(b=>b.onclick=async()=>{b.disabled=true;const {data,error}=await client.rpc("toggle_event_reaction",{p_event_id:b.dataset.eid});b.disabled=false;
+      if(error)return toast("تعذر: "+error.message);homeState.reacts.set(data.event_id,{total:data.total,mine:data.mine});renderHomeNews();if(data.mine)b.classList.add("pop");});
+  }
+  async function loadReactions(){if(state.mode!=="account")return;try{const {data}=await client.rpc("event_reactions_summary");homeState.reacts=new Map((data||[]).map(r=>[r.event_id,{total:r.total,mine:r.mine}]));renderHomeNews();}catch(_){}}
+  function renderHome(){
+    if(!$("#home2"))return;
+    const H=window.ShugaaHijri, now=new Date(), hj=H.gToH(now.getFullYear(),now.getMonth()+1,now.getDate());
+    $("#h2Date").textContent=`${now.toLocaleDateString("ar-SA-u-ca-gregory-nu-latn",{weekday:"long"})} • ${H.fmtHDate(hj)} • ${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()} م`;
+    const me=state.mode==="account"?getPerson(state.profile?.person_id):null;
+    const dn=String(state.profile?.display_name||""); const nm=me?firstName(me):(state.mode==="account"&&!dn.includes("@")?dn.split(/\s+/)[0]:"");
+    const hr=now.getHours(); $("#h2Greeting").textContent=`${hr>=4&&hr<12?"صباح الخير":"مساء الخير"}${nm?` يا ${nm}`:""}`;
+    renderHomeTree();
+    const lin=$("#h2Lineage");
+    if(me){const chain=ancestorsFrom(me.id).map(getPerson).filter(Boolean); $("#h2Sub").innerHTML=`أنت من <b>الجيل ${chain.length}</b> في آل شجاع`;
+      lin.innerHTML=chain.map((p,i)=>`<button class="h2-chip" style="--i:${i}" data-pid="${p.id}">${esc(firstName(p))}</button>`).join('<i>←</i>'); lin.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));}
+    else{$("#h2Sub").textContent="كل اسمٍ له قصة، وكل جيلٍ امتداد.";lin.innerHTML="";}
+    const f=homeFacts(); const gens=(homeState.maxDepth||0)+1;
+    const branches=(()=>{const {kids,roots}=treeModelLevels();let t=roots[0];while(t&&(kids.get(t)||[]).length===1)t=kids.get(t)[0];return t?(kids.get(t)||[]).length:0;})();
+    const stats=[[state.people.length,"فرد في العائلة"],[gens,"جيل"],[branches,"فرع"],[state.marriages.length,"زواج"]];
+    $("#h2Stats").innerHTML=stats.map(([v,l])=>`<div><strong data-to="${v}">0</strong><span>${l}</span></div>`).join("");
+    $$("#h2Stats strong").forEach(el=>countUp(el,+el.dataset.to));
+    const max=f.top[0]?.c||1; $("#h2Names").innerHTML=f.top.map((x,i)=>`<div class="h2-name" style="--w:${Math.round(x.c/max*100)}%;--i:${i}"><span>${esc(x.n)}</span><b>${x.c}</b></div>`).join("")||"<p class='muted'>—</p>";
+    homeState.knowIdx=Math.floor(Date.now()/864e5); renderKnow(); renderHomeNews(); loadReactions();
+  }
+  $("#h2KnowNext").onclick=()=>{homeState.knowIdx++;renderKnow();};
+  $("#h2Search").addEventListener("input",e=>{const q=nameNorm(e.target.value),box=$("#h2Results");if(q.length<2){box.classList.add("hidden");return;}
+    const words=q.split(/\s+/);const hits=state.people.filter(p=>{const t=nameNorm(p.full_name_ar);return words.every(w=>t.includes(w));}).slice(0,7);
+    box.innerHTML=hits.length?hits.map(p=>`<button data-pid="${p.id}"><b>${esc(p.full_name_ar)}</b><small>${esc(yearText(p))}</small></button>`).join(""):"<p>ما لقيت أحد بهالاسم</p>";
+    box.classList.remove("hidden"); box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>{box.classList.add("hidden");e.target.value="";openPerson(b.dataset.pid);});});
+  document.addEventListener("click",e=>{if(!e.target.closest(".h2-search"))$("#h2Results")?.classList.add("hidden");});
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){
@@ -2412,7 +2518,7 @@ window.ShugaaHijri=(()=>{
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=9.2.0").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=10.0.0").catch(console.warn));
 })();
 
 // V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".
