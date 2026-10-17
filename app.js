@@ -2469,7 +2469,7 @@ window.ShugaaHijri=(()=>{
     box.classList.remove("hidden"); placeHomeResults(); box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>{box.classList.add("hidden");e.target.value="";openPerson(b.dataset.pid);});});
   function placeHomeResults(){const box=$("#h2Results"),inp=$("#h2Search");if(!box||box.classList.contains("hidden"))return;const r=inp.getBoundingClientRect();
     Object.assign(box.style,{position:"fixed",left:r.left+"px",width:r.width+"px",right:"auto",top:(r.bottom+6)+"px",maxHeight:Math.max(180,window.innerHeight-r.bottom-20)+"px",overflowY:"auto",zIndex:1000});}
-  window.addEventListener("scroll",placeHomeResults,true); window.addEventListener("resize",placeHomeResults);
+  window.addEventListener("scroll",placeHomeResults,true); window.addEventListener("resize",placeHomeResults); window.visualViewport?.addEventListener("resize",placeHomeResults);
   document.addEventListener("click",e=>{if(!e.target.closest(".h2-search"))$("#h2Results")?.classList.add("hidden");});
 
   // V11 — install as an app
@@ -2678,6 +2678,7 @@ window.ShugaaHijri=(()=>{
         maxHeight: Math.max(160, Math.min(320, up ? above : below)) + "px", zIndex: 1000 });
     };
     window.addEventListener("scroll", placeList, true); window.addEventListener("resize", placeList);
+    window.visualViewport?.addEventListener("resize", placeList); window.visualViewport?.addEventListener("scroll", placeList);
 
     input.addEventListener("focus", () => { input.select(); render(); });
     input.addEventListener("input", () => { active = -1; render(); });
@@ -2691,7 +2692,12 @@ window.ShugaaHijri=(()=>{
     });
     list.addEventListener("mousedown", e => e.preventDefault());
     list.addEventListener("click", e => { const it = e.target.closest(".ps-item"); if (it) choose(results[+it.dataset.i]); });
-    input.addEventListener("blur", () => setTimeout(() => { close(); sync(); }, 120));
+    // keep the list open when the keyboard is dismissed (iPad/iPhone); close only on a tap outside
+    document.addEventListener("pointerdown", e => {
+      if (list.classList.contains("hidden")) return;
+      if (e.target === input || wrap.contains(e.target) || list.contains(e.target)) return;
+      close(); sync();
+    }, true);
     clear.addEventListener("click", () => { choose(null); });
     sel.form?.addEventListener("reset", () => setTimeout(sync, 0));
     sync();
