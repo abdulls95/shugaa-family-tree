@@ -732,9 +732,47 @@ window.ShugaaHijri=(()=>{
     walk(id,[],0); return map;
   }
   function renderLineage(id){
-    id=id||$("#lineagePerson").value; if(!id)return; const chain=ancestorsFrom(id), stage=$("#lineageStage");
-    stage.innerHTML=`<div class="journey-summary">مسار النسب الأبوي من ${esc(getPerson(id)?.full_name_ar||"")}</div><div class="lineage-path">${chain.map((pid,i)=>`<div class="journey-node" style="transition-delay:${i*180}ms"><small>${i===0?"البداية":`الجيل ${i+1}`}</small><br>${esc(getPerson(pid)?.full_name_ar||"؟")}</div>${i<chain.length-1?'<div class="journey-arrow">↑</div>':""}`).join("")}</div>`;
+    id=id||$("#lineagePerson").value; if(!id)return; const chain=ancestorsFrom(id).reverse(), stage=$("#lineageStage");
+    stage.innerHTML=`<div class="journey-summary">مسار النسب الأبوي من ${esc(getPerson(id)?.full_name_ar||"")}</div><div class="lineage-path">${chain.map((pid,i)=>`<div class="journey-node" style="transition-delay:${i*180}ms"><small>${i===0?"الجد الأكبر • الجيل 1":i===chain.length-1?`الجيل ${i+1} • ${esc(firstName(getPerson(pid)))}`:`الجيل ${i+1}`}</small><br>${esc(getPerson(pid)?.full_name_ar||"؟")}</div>${i<chain.length-1?'<div class="journey-arrow">↓</div>':""}`).join("")}</div>`;
     setTimeout(()=>$$('#lineageStage .journey-node').forEach(n=>n.classList.add("show")),30);
+  }
+
+  // V10.1 — Arabic kinship term: what B is to A
+  const HER={"أبوه":"أبوها","أمه":"أمها","جده":"جدها","جدته":"جدتها","ابنه":"ابنها","بنته":"بنتها","أخوه":"أخوها","أخته":"أختها","عمه":"عمها","عمته":"عمتها","خاله":"خالها","خالته":"خالتها","أبيه":"أبيها","أخيه":"أخيها","حفيده":"حفيدها","حفيدته":"حفيدتها","لأبيه":"لأبيها","لأمه":"لأمها","عمومته":"عمومتها","قريبه":"قريبها","قريبته":"قريبتها","ابنه)":"ابنها)","بنته)":"بنتها)"};
+  function kinshipTerm(aId,bId){const t=kinshipTermM(aId,bId);return t&&getPerson(aId)?.gender==="female"?t.split(" ").map(w=>HER[w]||w).join(" "):t;}
+  function kinshipTermM(aId,bId){
+    if(aId===bId)return null;
+    const pa=ancestorPaths(aId), pb=ancestorPaths(bId); let common=null,best=1e9;
+    for(const [id,x] of pa){if(pb.has(id)){const sc=x.length+pb.get(id).length;if(sc<best){best=sc;common=id;}}}
+    if(!common)return null;
+    const A=pa.get(common), B=pb.get(common), da=A.length-1, db=B.length-1;
+    const g=id=>getPerson(id)?.gender, f=g(bId)==="female";
+    const side=id=>g(id)==="female"?"لأمه":"لأبيه";          // which parent of A the path goes through
+    const ofParent=id=>g(id)==="female"?"أمه":"أبيه";
+    const word=(m,fe)=>f?fe:m;
+    const N=["","","","الثالث","الرابع","الخامس","السادس","السابع","الثامن"];
+    // B is A's ancestor
+    if(db===0){ if(da===1)return word("أبوه","أمه"); if(da===2)return `${word("جده","جدته")} ${side(A[1])}`; return `${word("جده","جدته")} ${N[da]?`(الجد ${N[da]})`:`(قبل ${da} أجيال)`}`; }
+    // B is A's descendant
+    if(da===0){ if(db===1)return word("ابنه","بنته"); if(db===2)return `${word("حفيده","حفيدته")} (${g(B[1])==="female"?"من بنته":"من ابنه"})`; return `${word("حفيده","حفيدته")} من الجيل ${db}`; }
+    // siblings
+    if(da===1&&db===1){const fa=familyOf(aId),fb=familyOf(bId);const full=fa.father&&fa.mother&&fa.father.id===fb.father?.id&&fa.mother.id===fb.mother?.id;
+      const known=fa.father&&fa.mother&&fb.father&&fb.mother;
+      return full?word("أخوه الشقيق","أخته الشقيقة"):known?`${word("أخوه","أخته")} ${g(common)==="female"?"لأمه":"لأبيه"}`:word("أخوه","أخته");}
+    const ua=(par,ch)=>g(par)==="female"?(g(ch)==="female"?"خالة":"خال"):(g(ch)==="female"?"عمة":"عم");   // par: A-side person, ch: sibling on B side
+    // B is sibling of an ancestor of A (uncle / great-uncle)
+    if(db===1){ const base=g(A[da-1])==="female"?word("خال","خالة"):word("عم","عمة");
+      if(da===2)return base+"ه"; if(da===3)return `${base} ${ofParent(A[1])}`; if(da===4)return `${base} جده ${side(A[1])}`; return `${base} الجد ${N[da-1]||""}`; }
+    // B descends from A's sibling (nephew / niece)
+    if(da===1){ const sib=g(B[db-1])==="female"?"أخته":"أخيه"; if(db===2)return `${word("ابن","بنت")} ${sib}`; return `${word("حفيد","حفيدة")} ${sib}`; }
+    // first cousins
+    if(da===2&&db===2)return `${word("ابن","بنت")} ${ua(A[1],B[1])}${g(B[1])==="female"?"ته":"ه"}`.replace("خالةته","خالته").replace("عمةته","عمته");
+    // cousin of A's parent
+    if(da===3&&db===2)return `${word("ابن","بنت")} ${ua(A[2],B[1])} ${ofParent(A[1])}`;
+    // child of A's cousin
+    if(da===2&&db===3)return `${word("ابن","بنت")} ${g(B[1])==="female"?"بنت":"ابن"} ${ua(A[1],B[2])}${g(B[2])==="female"?"ته":"ه"}`.replace("خالةته","خالته").replace("عمةته","عمته");
+    if(da===db)return `${word("من أبناء عمومته","من بنات عمومته")} (الدرجة ${da-1})`;
+    return `${word("قريبه","قريبته")}: يلتقيان عند الجد ${getPerson(common)?.first_name_ar||""} — ${da>db?"من جيل أعلى":"من جيل أدنى"}`;
   }
   function renderKinship(){
     const a=$("#kinshipA").value,b=$("#kinshipB").value,stage=$("#kinshipResult"); if(!a||!b)return;
@@ -742,7 +780,8 @@ window.ShugaaHijri=(()=>{
     for(const [id,pathA] of pa){ if(pb.has(id)){const score=pathA.length+pb.get(id).length;if(score<best){best=score;common=id;}}}
     if(!common){stage.innerHTML='<div><h3>لم نجد جدًا مشتركًا ضمن البيانات الحالية</h3></div>';return;}
     const pathA=pa.get(common),pathB=pb.get(common), left=pathA, right=[...pathB].reverse().slice(1);
-    const full=[...left,...right]; stage.innerHTML=`<div class="journey-summary">الجد المشترك الأقرب: <b>${esc(getPerson(common)?.full_name_ar||"")}</b></div><div class="kinship-path">${full.map((id,i)=>`<div class="journey-node ${id===common?"common":""}" style="transition-delay:${i*150}ms">${esc(getPerson(id)?.full_name_ar||"؟")}</div>${i<full.length-1?'<div class="journey-arrow">←</div>':""}`).join("")}</div>`;
+    const full=[...left,...right]; const term=kinshipTerm(a,b), back=kinshipTerm(b,a), A_=getPerson(a), B_=getPerson(b);
+    stage.innerHTML=`${term?`<div class="kin-term"><p><b>${esc(B_?.full_name_ar||"")}</b> ${B_?.gender==="female"?"تكون":"يكون"}</p><h3>${esc(term)}</h3><p>لـ <b>${esc(A_?.full_name_ar||"")}</b></p>${back?`<small>وبالعكس: ${esc(A_?.first_name_ar||"")} ${A_?.gender==="female"?"تكون":"يكون"} ${esc(back)} لـ ${esc(B_?.first_name_ar||"")}</small>`:""}</div>`:""}<div class="journey-summary">الجد المشترك الأقرب: <b>${esc(getPerson(common)?.full_name_ar||"")}</b></div><div class="kinship-path">${full.map((id,i)=>`<div class="journey-node ${id===common?"common":""}" style="transition-delay:${i*150}ms">${esc(getPerson(id)?.full_name_ar||"؟")}</div>${i<full.length-1?'<div class="journey-arrow">←</div>':""}`).join("")}</div>`;
     setTimeout(()=>$$('#kinshipResult .journey-node').forEach(n=>n.classList.add("show")),30);
   }
 
@@ -2424,7 +2463,10 @@ window.ShugaaHijri=(()=>{
   $("#h2Search").addEventListener("input",e=>{const q=nameNorm(e.target.value),box=$("#h2Results");if(q.length<2){box.classList.add("hidden");return;}
     const words=q.split(/\s+/);const hits=state.people.filter(p=>{const t=nameNorm(p.full_name_ar);return words.every(w=>t.includes(w));}).slice(0,7);
     box.innerHTML=hits.length?hits.map(p=>`<button data-pid="${p.id}"><b>${esc(p.full_name_ar)}</b><small>${esc(yearText(p))}</small></button>`).join(""):"<p>ما لقيت أحد بهالاسم</p>";
-    box.classList.remove("hidden"); box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>{box.classList.add("hidden");e.target.value="";openPerson(b.dataset.pid);});});
+    box.classList.remove("hidden"); placeHomeResults(); box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>{box.classList.add("hidden");e.target.value="";openPerson(b.dataset.pid);});});
+  function placeHomeResults(){const box=$("#h2Results"),inp=$("#h2Search");if(!box||box.classList.contains("hidden"))return;const r=inp.getBoundingClientRect();
+    Object.assign(box.style,{position:"fixed",left:r.left+"px",width:r.width+"px",right:"auto",top:(r.bottom+6)+"px",maxHeight:Math.max(180,window.innerHeight-r.bottom-20)+"px",overflowY:"auto",zIndex:1000});}
+  window.addEventListener("scroll",placeHomeResults,true); window.addEventListener("resize",placeHomeResults);
   document.addEventListener("click",e=>{if(!e.target.closest(".h2-search"))$("#h2Results")?.classList.add("hidden");});
 
   // V6.3 — bulk add children + Excel export
@@ -2518,7 +2560,7 @@ window.ShugaaHijri=(()=>{
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=10.0.0").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=10.1.0").catch(console.warn));
 })();
 
 // V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".
@@ -2538,6 +2580,8 @@ window.ShugaaHijri=(()=>{
     wrap.className = "ps-combo";
     wrap.innerHTML = `<div class="ps-field"><input type="search" class="ps-input" autocomplete="off" spellcheck="false" enterkeyhint="search"/><button type="button" class="ps-clear hidden" aria-label="مسح">×</button></div><div class="ps-list hidden" role="listbox"></div>`;
     sel.insertAdjacentElement("afterend", wrap);
+    // the results list lives on <body> so no panel or overlay can cover it
+    setTimeout(() => document.body.appendChild(wrap.querySelector(".ps-list")), 0);
     sel.classList.add("ps-native");
     const input = wrap.querySelector(".ps-input"), list = wrap.querySelector(".ps-list"), clear = wrap.querySelector(".ps-clear");
     if (sel.required) { input.required = true; sel.required = false; }
@@ -2583,8 +2627,17 @@ window.ShugaaHijri=(()=>{
         ? shown.map((o, i) => `<div class="ps-item${i === active ? " active" : ""}${o.selected ? " selected" : ""}" data-i="${i}" role="option">${escHtml(o.textContent)}</div>`).join("")
           + (results.length > MAX_RESULTS ? `<div class="ps-more">+${results.length - MAX_RESULTS} نتيجة أخرى — اكتب أكثر لتضييق البحث</div>` : "")
         : `<div class="ps-empty">لا توجد نتائج</div>`;
-      list.classList.remove("hidden");
+      list.classList.remove("hidden"); placeList();
     };
+    const placeList = () => {
+      if (list.classList.contains("hidden")) return;
+      const r = input.getBoundingClientRect(), below = window.innerHeight - r.bottom - 12, above = r.top - 12;
+      const up = below < 220 && above > below;
+      Object.assign(list.style, { position: "fixed", left: r.left + "px", width: r.width + "px", right: "auto",
+        top: up ? "auto" : (r.bottom + 6) + "px", bottom: up ? (window.innerHeight - r.top + 6) + "px" : "auto",
+        maxHeight: Math.max(160, Math.min(320, up ? above : below)) + "px", zIndex: 1000 });
+    };
+    window.addEventListener("scroll", placeList, true); window.addEventListener("resize", placeList);
 
     input.addEventListener("focus", () => { input.select(); render(); });
     input.addEventListener("input", () => { active = -1; render(); });

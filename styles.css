@@ -1742,3 +1742,9 @@ button.hub-tile:hover:not(:disabled),.hub-split button:hover:not(:disabled){bord
   .h2-news-item{grid-template-columns:1fr auto}.h2-news-badge{grid-column:1/-1;justify-self:start;min-width:0;padding:4px 12px}
 }
 @media (prefers-reduced-motion:reduce){.h2-lines path{stroke-dashoffset:0;animation:none}.h2-dots circle,.h2-chip,.h2-news-item{opacity:1;animation:none}.h2-name::before{width:var(--w);animation:none}}
+/* V10.1 */
+.kin-term{text-align:center;background:#FFFBF0;border:1px solid #E8D6A4;border-radius:18px;padding:18px 16px;margin:0 auto 16px;max-width:560px;color:#4A5853}
+.kin-term h3{font-family:var(--v7-display);font-size:36px;color:#0C3530;margin:2px 0}
+.kin-term p{margin:0}.kin-term b{color:#0C3530}
+.kin-term small{display:block;margin-top:10px;color:#7A5C1F}
+#lineageStage .journey-arrow{transform:none!important;rotate:none!important}
