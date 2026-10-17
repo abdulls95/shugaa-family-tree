@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=9.0.0" />
+  <link rel="stylesheet" href="./styles.css?v=9.2.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -122,7 +122,7 @@
         <button data-view="kinship" class="nav-btn">صلة القرابة</button>
         <button data-view="lineage" class="nav-btn">مسار النسب</button>
         <button data-view="library" class="nav-btn account-only hidden">محتوى العائلة</button>
-        <button data-view="history" class="nav-btn account-only hidden">أخبار وتاريخ</button>
+        <button data-view="history" class="nav-btn">أخبار وتاريخ</button>
         <button data-view="contribute" class="nav-btn contribution-only hidden">الطلبات</button>
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">أسرتي</button>
         <button data-view="admin" class="nav-btn staff-only hidden">إعدادات العائلة</button>
@@ -384,7 +384,7 @@
             </form>
             <div class="panel">
               <h3>الأكواد الحالية</h3>
-              <div class="archive-notice access-code-note">🔐 لأمان العائلة لا يُحفظ نص الكود الكامل بعد إنشائه؛ نعرض آخر 4 خانات فقط. إذا ضاع الكود استخدم «إصدار كود بديل» وسيُلغى القديم تلقائيًا.</div>
+              <div class="archive-notice access-code-note">🔐 الأكواد محفوظة مشفّرة، والمدير بس يقدر يعرضها وينسخها بزر «نسخ الكود». الأكواد القديمة (قبل هالميزة) ما تنعرض؛ استخدم «إصدار كود بديل» مرة وحدة وبعدها تقدر تنسخه متى ما بغيت.</div>
               <div id="accessCodeList" class="account-list"></div>
             </div>
           </div>
@@ -485,11 +485,22 @@
     <nav class="mobile-nav">
       <button data-view="home" class="nav-btn active">⌂<span>الرئيسية</span></button>
       <button data-view="tree" class="nav-btn">🌳<span>الشجرة</span></button>
-      <button data-view="people" class="nav-btn">👥<span>الأفراد</span></button>
-      <button data-view="kinship" class="nav-btn">🧬<span>القرابة</span></button>
-      <button data-view="contribute" class="nav-btn contribution-only hidden">✍️<span>ساهم</span></button>
-      <button data-view="admin" class="nav-btn staff-only hidden">⚙️<span>الإدارة</span></button>
+      <button data-view="history" class="nav-btn">📰<span>الأخبار</span></button>
+      <button data-view="library" class="nav-btn account-only hidden">📚<span>المحتوى</span></button>
+      <button type="button" id="moreNavBtn" class="nav-btn more-btn">☰<span>المزيد</span></button>
     </nav>
+    <div id="moreSheet" class="more-sheet hidden" role="dialog" aria-label="المزيد">
+      <div class="more-backdrop" data-close-more></div>
+      <div class="more-panel">
+        <i class="more-grip"></i>
+        <button data-view="people" class="nav-btn">👥<span>قائمة الأفراد</span></button>
+        <button data-view="kinship" class="nav-btn">🧬<span>صلة القرابة</span></button>
+        <button data-view="lineage" class="nav-btn">↟<span>مسار النسب</span></button>
+        <button data-view="myfamily" class="nav-btn linked-account-only hidden">♡<span>أسرتي</span></button>
+        <button data-view="contribute" class="nav-btn contribution-only hidden">✍️<span>الطلبات</span></button>
+        <button data-view="admin" class="nav-btn staff-only hidden">⚙️<span>إعدادات العائلة</span></button>
+      </div>
+    </div>
   </div>
 
   <!-- PERSON MODAL — V4 FAMILY HUB -->
@@ -960,7 +971,7 @@
       <div class="batch-footer"><button type="button" id="corrSave" class="btn primary wide">إرسال التصحيح للإدارة</button><p id="corrMsg" class="form-msg"></p></div>
     </article>
   </div>
-  <script src="./config.js?v=9.0.0"></script>
-  <script src="./app.js?v=9.0.0"></script>
+  <script src="./config.js?v=9.2.0"></script>
+  <script src="./app.js?v=9.2.0"></script>
 </body>
 </html>

@@ -153,7 +153,7 @@ window.ShugaaHijri=(()=>{
     state.accessCode=code; state.accessPersonId=data?.person_id || null;
     state.people=(data?.people||[]).filter(p=>p);
     state.relations=data?.relations||[]; state.marriages=data?.marriages||[];
-    state.events=[]; state.places=[]; state.library=[]; state.libraryPeople=[]; state.branches=[];
+    state.events=(data?.events||[]).filter(Boolean); state.places=[]; state.library=[]; state.libraryPeople=[]; state.branches=[];
     sessionStorage.setItem("shugaa_access_mode",state.mode); sessionStorage.setItem("shugaa_access_code",code);
     document.body.classList.add("guest-mode",`mode-${state.mode}`);
     applyModeUI(); showApp(); renderAllPublic();
@@ -901,7 +901,7 @@ window.ShugaaHijri=(()=>{
     const link=location.origin+location.pathname;
     const first=String(personName||"").trim().split(/\s+/)[0]||"";
     const text=`السلام عليكم${first?" "+first:""} 🌳\nهذا رمز دخولك لموقع شجرة آل شجاع:\n${code}\n\nافتح الرابط واكتب الرمز:\n${link}\n\nالرمز خاص فيك، لا تشاركه مع أحد.`;
-    box.innerHTML=`<b>⚠️ ${esc(title)}${personName?` لـ ${esc(personName)}`:""} — يظهر كاملًا الآن فقط، انسخه أو أرسله</b><code>${esc(code)}</code><div class="code-share-actions"><button id="copyNewCode" type="button" class="btn gold">نسخ الكود</button><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text)}">إرسال بالواتساب</a></div>`;
+    box.innerHTML=`<b>⚠️ ${esc(title)}${personName?` لـ ${esc(personName)}`:""} — انسخه أو أرسله</b><code>${esc(code)}</code><div class="code-share-actions"><button id="copyNewCode" type="button" class="btn gold">نسخ الكود</button><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text)}">إرسال بالواتساب</a></div>`;
     $("#copyNewCode").onclick=()=>navigator.clipboard?.writeText(code).then(()=>toast("تم نسخ الكود ✅"));
     box.scrollIntoView({behavior:"smooth",block:"center"});
   }
@@ -917,11 +917,19 @@ window.ShugaaHijri=(()=>{
           <small>${esc(({personal:"شخصي",general:"عام",invite:"دعوة"})[c.code_type]||c.code_type)}${c.code_type==="personal"?` (${esc(roleLabel(c.grant_role))})`:""} • ${esc(statusText)} • ينتهي: ${c.expires_at?new Date(c.expires_at).toLocaleDateString("ar"):"بدون انتهاء"} • استخدام ${c.use_count||0}${p?` • ${esc(p.full_name_ar)}`:""} • آخر 4: ${esc(c.code_hint||"")}</small>
         </div>
         <div class="account-actions">
-          ${c.status==="active"?`<button class="btn gold reissue-code" data-id="${c.id}">إصدار كود بديل</button><button class="btn light revoke-code" data-id="${c.id}">إلغاء</button>`:`<span class="meta-pill">${esc(statusText)}</span>`}
+          ${c.status==="active"?`${c.can_reveal?`<button class="btn primary copy-code" data-id="${c.id}">نسخ الكود</button>`:""}<button class="btn gold reissue-code" data-id="${c.id}">إصدار كود بديل</button><button class="btn light revoke-code" data-id="${c.id}">إلغاء</button>`:`<span class="meta-pill">${esc(statusText)}</span>`}
         </div>
       </div>`;
     }).join("")||"<p>لا توجد أكواد.</p>";
 
+    $$(".copy-code").forEach(b=>b.onclick=async()=>{
+      const {data:code,error}=await client.rpc("admin_reveal_access_code",{p_code_id:b.dataset.id});
+      if(error)return toast("تعذر عرض الكود: "+error.message,5000);
+      const c=state.accessCodes.find(x=>x.id===b.dataset.id);
+      showGeneratedAccessCode(code,"الكود الحالي",getPerson(c?.person_id)?.full_name_ar);
+      try{await navigator.clipboard.writeText(code);toast("تم نسخ الكود ✅");}catch(_){}
+      $("#newCodeResult")?.scrollIntoView({behavior:"smooth",block:"center"});
+    });
     $$(".revoke-code").forEach(b=>b.onclick=async()=>{
       if(!confirm("إلغاء هذا الكود؟ لن يعمل بعد الإلغاء."))return;
       const {error}=await client.rpc("admin_revoke_access_code",{p_code_id:b.dataset.id});
@@ -1754,7 +1762,7 @@ window.ShugaaHijri=(()=>{
   }
 
   function setView(name){
-    const allowed = name==="library"||name==="history" ? state.mode==="account" : name==="contribute" ? ["personal","account"].includes(state.mode) : name==="myfamily" ? state.mode==="account"&&!!state.profile?.person_id : name==="admin" ? state.mode==="account"&&["admin","editor"].includes(state.role) : true;
+    const allowed = name==="library" ? state.mode==="account" : name==="contribute" ? ["personal","account"].includes(state.mode) : name==="myfamily" ? state.mode==="account"&&!!state.profile?.person_id : name==="admin" ? state.mode==="account"&&["admin","editor"].includes(state.role) : true;
     if(!allowed)return toast("هذه الصفحة غير متاحة بنوع الدخول الحالي.");
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===`view-${name}`));$$(".nav-btn[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
     if(name==="tree"&&state.cy)setTimeout(()=>{state.cy.resize();state.cy.fit(undefined,40);},50);
@@ -2307,6 +2315,12 @@ window.ShugaaHijri=(()=>{
   $("#smartContribFix").onclick=()=>{const id=$("#smartContribPerson").value;if(!id)return toast("اختر الشخص أولًا.");openCorrection(id);};
   YEAR_FIELDS.push("#corrBirth","#corrDeath"); enhanceYearField($("#corrBirth")); enhanceYearField($("#corrDeath"));
 
+  // V9.1 — "more" sheet on phones
+  const moreSheet=$("#moreSheet");
+  $("#moreNavBtn").onclick=e=>{e.stopPropagation();moreSheet.classList.toggle("hidden");};
+  $$("[data-close-more]").forEach(b=>b.onclick=()=>moreSheet.classList.add("hidden"));
+  $$("#moreSheet .nav-btn[data-view]").forEach(b=>b.addEventListener("click",()=>{moreSheet.classList.add("hidden");setView(b.dataset.view);}));
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){
@@ -2398,7 +2412,7 @@ window.ShugaaHijri=(()=>{
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=9.0.0").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=9.2.0").catch(console.warn));
 })();
 
 // V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".

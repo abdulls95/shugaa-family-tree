@@ -1,4 +1,4 @@
-const CACHE="shugaa-family-tree-v9.0.0-tree";
+const CACHE="shugaa-family-tree-v9.2.0-copy";
 const LOCAL=["./","./index.html","./styles.css","./config.js","./app.js","./manifest.webmanifest","./icons/icon-192.png","./icons/icon-512.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(LOCAL)));self.skipWaiting();});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});
