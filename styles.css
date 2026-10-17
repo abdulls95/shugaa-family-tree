@@ -1748,3 +1748,27 @@ button.hub-tile:hover:not(:disabled),.hub-split button:hover:not(:disabled){bord
 .kin-term p{margin:0}.kin-term b{color:#0C3530}
 .kin-term small{display:block;margin-top:10px;color:#7A5C1F}
 #lineageStage .journey-arrow{transform:none!important;rotate:none!important}
+
+/* =================== V11 — web app =================== */
+.install-card{max-width:440px;text-align:center}
+.install-icon{border-radius:20px;box-shadow:0 10px 26px rgba(7,38,33,.25);margin:4px auto 10px;display:block}
+.install-card h2{font-family:var(--v7-display);font-size:26px;color:var(--v7-ink);margin:0 0 6px;padding:0 40px}
+.install-steps{text-align:right;background:#FBF8F1;border:1px solid var(--v7-line);border-radius:16px;padding:14px 16px;margin:14px 0}
+.install-steps ol{margin:0;padding-inline-start:20px;display:grid;gap:10px;line-height:1.8}
+.ios-share{display:inline-block;width:18px;height:18px;vertical-align:-3px;background:var(--v7-ink);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M8 7l4-4 4 4'/%3E%3Cpath d='M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M8 7l4-4 4 4'/%3E%3Cpath d='M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1'/%3E%3C/svg%3E") center/contain no-repeat}
+.install-banner{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #E8D6A4;border-radius:18px;padding:12px 14px;box-shadow:0 8px 24px rgba(7,38,33,.08)}
+.install-banner.hidden{display:none}
+.install-banner img{border-radius:12px}
+.install-banner div{flex:1;display:grid}
+.install-banner b{font-family:var(--v7-display);font-size:19px;color:var(--v7-ink)}
+.install-banner small{color:var(--v7-muted)}
+.install-x{border:0;background:transparent;font-size:22px;color:var(--v7-muted);cursor:pointer;padding:4px 6px}
+.update-bar{position:fixed;z-index:1200;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;background:#0C3530;color:#F6EBCF;border:1px solid rgba(217,182,106,.5);border-radius:999px;padding:8px 8px 8px 18px;box-shadow:0 14px 34px rgba(0,0,0,.3);white-space:nowrap}
+.update-bar.hidden{display:none}
+.update-bar button{border:0;background:#D9B66A;color:#072621;font-weight:700;border-radius:999px;padding:8px 16px;font-family:inherit;cursor:pointer}
+@media (min-width:861px){.update-bar{bottom:24px}}
+/* installed app: room for the status bar / notch */
+html.is-app .shugaa-v7 .topbar{padding-top:max(12px,env(safe-area-inset-top))}
+html.is-app .shugaa-v7 .gate-screen{padding-top:calc(48px + env(safe-area-inset-top))}
+@media (max-width:860px){html.is-app .shugaa-v7 .topbar{padding-top:calc(8px + env(safe-area-inset-top))}}
+html.is-app body{overscroll-behavior-y:none}

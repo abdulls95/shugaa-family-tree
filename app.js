@@ -158,7 +158,7 @@ window.ShugaaHijri=(()=>{
     document.body.classList.add("guest-mode",`mode-${state.mode}`);
     applyModeUI(); showApp(); renderAllPublic();
     if(state.mode==="personal") await loadPersonalRequests();
-    setView("home"); msg.textContent="";
+    goStartView(); msg.textContent="";
   }
 
   const CODE_LOGIN_ERRORS={
@@ -200,6 +200,9 @@ window.ShugaaHijri=(()=>{
     await Promise.all(codes.map(async c=>{ const {data}=await client.rpc("has_permission",{p_permission:c}); state.permissions[c]=!!data; }));
   }
 
+  let startViewApplied=false;
+  function goStartView(){const sv=window.__shugaaStartView;window.__shugaaStartView=null;
+    if(sv){startViewApplied=true;try{history.replaceState(null,"",location.pathname);}catch(_){} setTimeout(()=>setView(sv),0);} else if(!startViewApplied) setView("home");}
   async function enterAccount(session){
     state.mode="account"; state.session=session;
     try{ state.profile=await getMyProfile(); }catch(e){ $("#authMsg").textContent="تعذر قراءة الحساب."; return; }
@@ -209,7 +212,7 @@ window.ShugaaHijri=(()=>{
     await maybeClaimPendingCode();
     applyModeUI(); showApp();
     try{ await loadAccountData(); }catch(e){ console.error(e); toast("تعذر تحميل بعض البيانات: "+e.message,4500); }
-    setView("home");
+    goStartView();
   }
 
   async function maybeClaimPendingCode(){
@@ -2469,6 +2472,31 @@ window.ShugaaHijri=(()=>{
   window.addEventListener("scroll",placeHomeResults,true); window.addEventListener("resize",placeHomeResults);
   document.addEventListener("click",e=>{if(!e.target.closest(".h2-search"))$("#h2Results")?.classList.add("hidden");});
 
+  // V11 — install as an app
+  const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  let deferredInstall=null;
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;syncInstallUI();});
+  window.addEventListener("appinstalled",()=>{deferredInstall=null;try{localStorage.setItem("shugaa_installed","1");}catch(_){}syncInstallUI();toast("تم تثبيت التطبيق ✅");});
+  function syncInstallUI(){
+    const can=!isStandalone()&&(isIOS||!!deferredInstall||/android/i.test(navigator.userAgent));
+    let dismissed=false;try{dismissed=localStorage.getItem("shugaa_install_dismissed")==="1"||localStorage.getItem("shugaa_installed")==="1";}catch(_){}
+    $$(".install-entry").forEach(b=>b.classList.toggle("hidden",!can));
+    $("#installBanner")?.classList.toggle("hidden",!can||dismissed);
+  }
+  function openInstall(){
+    if(deferredInstall){deferredInstall.prompt();deferredInstall.userChoice.finally(()=>{deferredInstall=null;syncInstallUI();});return;}
+    $("#installIOS").classList.toggle("hidden",!isIOS); $("#installOther").classList.toggle("hidden",isIOS);
+    $("#installSheet").classList.remove("hidden");
+  }
+  $$("[data-install]").forEach(b=>b.addEventListener("click",()=>{$("#moreSheet")?.classList.add("hidden");openInstall();}));
+  $$("[data-close-install]").forEach(b=>b.onclick=()=>$("#installSheet").classList.add("hidden"));
+  $("#installBannerX")?.addEventListener("click",()=>{try{localStorage.setItem("shugaa_install_dismissed","1");}catch(_){}syncInstallUI();});
+  if(isStandalone())document.documentElement.classList.add("is-app");
+  syncInstallUI();
+  // app shortcuts: ./?view=tree
+  window.__shugaaStartView=new URLSearchParams(location.search).get("view");
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){
@@ -2560,7 +2588,19 @@ window.ShugaaHijri=(()=>{
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=10.1.0").catch(console.warn));
+  // V11 — web app: service worker with "update now" bar
+  if("serviceWorker"in navigator)window.addEventListener("load",async()=>{
+    try{
+      const hadCtl0=!!navigator.serviceWorker.controller;
+      const reg=await navigator.serviceWorker.register("./sw.js");
+      const offer=w=>{if(!w)return;$("#updateBar").classList.remove("hidden");$("#updateNowBtn").onclick=()=>{$("#updateNowBtn").disabled=true;w.postMessage("skip-waiting");};};
+      if(reg.waiting&&navigator.serviceWorker.controller)offer(reg.waiting);
+      reg.addEventListener("updatefound",()=>{const w=reg.installing;w?.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)offer(w);});});
+      const hadController=!!navigator.serviceWorker.controller; let reloaded=false;
+      navigator.serviceWorker.addEventListener("controllerchange",()=>{if(hadController&&!reloaded){reloaded=true;location.reload();}});
+      document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reg.update().catch(()=>{});});
+    }catch(e){console.warn(e);}
+  });
 })();
 
 // V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".

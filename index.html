@@ -3,16 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#082f29" />
+  <meta name="theme-color" content="#0C3530" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="آل شجاع" />
+  <meta name="application-name" content="آل شجاع" />
   <meta name="description" content="شجرة آل شجاع — متحف رقمي وشجرة نسب ورحلة تاريخية" />
   <title>شجرة آل شجاع</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=5.0.8" />
-  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="manifest" href="./manifest.webmanifest?v=11" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=10.1.0" />
+  <link rel="stylesheet" href="./styles.css?v=11.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -150,6 +156,7 @@
               </div>
             </div>
           </section>
+          <div id="installBanner" class="install-banner hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>خلّ آل شجاع على شاشتك</b><small>ثبّته كتطبيق ويفتح معك بضغطة</small></div><button type="button" class="btn gold" data-install>ثبّت</button><button type="button" class="install-x" id="installBannerX" aria-label="إخفاء">×</button></div>
           <section id="h2Stats" class="h2-stats"></section>
           <section class="h2-grid">
             <article class="h2-card h2-news">
@@ -531,6 +538,7 @@
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">♡<span>أسرتي</span></button>
         <button data-view="contribute" class="nav-btn contribution-only hidden">✍️<span>الطلبات</span></button>
         <button data-view="admin" class="nav-btn staff-only hidden">⚙️<span>إعدادات العائلة</span></button>
+        <button type="button" class="nav-btn install-entry hidden" data-install>📲<span>ثبّت التطبيق</span></button>
       </div>
     </div>
   </div>
@@ -1003,7 +1011,31 @@
       <div class="batch-footer"><button type="button" id="corrSave" class="btn primary wide">إرسال التصحيح للإدارة</button><p id="corrMsg" class="form-msg"></p></div>
     </article>
   </div>
-  <script src="./config.js?v=10.1.0"></script>
-  <script src="./app.js?v=10.1.0"></script>
+
+  <!-- V11 — install as app + update bar -->
+  <div id="installSheet" class="modal hidden">
+    <div class="modal-backdrop" data-close-install></div>
+    <article class="modal-card install-card">
+      <button class="modal-close" type="button" data-close-install aria-label="إغلاق">×</button>
+      <img src="./icons/icon-192.png" alt="" class="install-icon" width="84" height="84" />
+      <h2>ثبّت «آل شجاع» على جوالك</h2>
+      <p class="muted">يصير له أيقونة في شاشتك الرئيسية، ويفتح بشاشة كاملة مثل أي تطبيق، بدون متجر.</p>
+      <div id="installIOS" class="install-steps hidden">
+        <ol>
+          <li>اضغط زر <b>المشاركة</b> <span class="ios-share" aria-hidden="true"></span> في متصفح Safari</li>
+          <li>انزل واختر <b>«إضافة إلى الشاشة الرئيسية»</b></li>
+          <li>اضغط <b>«إضافة»</b> فوق، وخلاص 🎉</li>
+        </ol>
+        <p class="micro-copy">لازم تكون فاتح الموقع من Safari، مو من داخل الواتساب أو تطبيق ثاني.</p>
+      </div>
+      <div id="installOther" class="install-steps hidden">
+        <p>من قائمة المتصفح <b>⋮</b> اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.</p>
+      </div>
+      <button type="button" id="installNowBtn" class="btn gold wide hidden">ثبّت الآن</button>
+    </article>
+  </div>
+  <div id="updateBar" class="update-bar hidden" role="status"><span>فيه تحديث جديد للموقع ✨</span><button type="button" id="updateNowBtn">حدّث الآن</button></div>
+  <script src="./config.js?v=11.0.0"></script>
+  <script src="./app.js?v=11.0.0"></script>
 </body>
 </html>
