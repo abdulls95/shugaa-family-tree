@@ -87,6 +87,8 @@ window.ShugaaHijri=(()=>{
     return ({
       add_person:"إضافة شخص",
       add_family:"إضافة أسرة",
+      add_relatives:"إضافة أقارب",
+      correction:"تصحيح بيانات",
       correct_name:"تصحيح اسم",
       add_parent:"إضافة أب",
       change_parent:"تصحيح الأب",
@@ -135,11 +137,17 @@ window.ShugaaHijri=(()=>{
     else { $("#statusIcon").textContent="⌛"; $("#statusTitle").textContent="طلبك بانتظار الموافقة"; $("#statusText").textContent="سيتم فتح الحساب بعد موافقة الإدارة."; }
   }
 
-  async function enterCodeMode(code, expectedMode){
+  async function fetchGuestTree(code){
+    const res=await fetch(`${cfg.supabaseUrl}/functions/v1/code-login`,{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.supabasePublishableKey},body:JSON.stringify({code})});
+    const out=await res.json().catch(()=>({}));
+    if(out.mode==="general"&&out.tree)return {data:out.tree};
+    return {error:{message:CODE_LOGIN_ERRORS[out.error]||"الرمز غير صحيح أو منتهي."}};
+  }
+  async function enterCodeMode(code, expectedMode, preData=null){
     const msg = $("#codeLoginMsg");
     msg.textContent="جاري التحقق...";
-    const {data,error}=await client.rpc("guest_tree_by_code",{p_code:code});
-    if(error){ msg.textContent="تعذر الدخول: "+error.message; return; }
+    const {data,error}=preData?{data:preData}:await fetchGuestTree(code);
+    if(error){ msg.textContent=error.message; return; }
     if(expectedMode==="personal" && data?.mode!=="personal"){ msg.textContent="هذا ليس كودًا شخصيًا."; return; }
     state.mode = data?.mode==="personal" ? "personal" : "general";
     state.accessCode=code; state.accessPersonId=data?.person_id || null;
@@ -170,7 +178,7 @@ window.ShugaaHijri=(()=>{
       res=await fetch(`${cfg.supabaseUrl}/functions/v1/code-login`,{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.supabasePublishableKey},body:JSON.stringify({code})});
       out=await res.json().catch(()=>({}));
     }catch(e){ msg.textContent="تعذر الاتصال. تأكد من الإنترنت وحاول مرة ثانية."; return; }
-    if(out.error==="general_code") return enterCodeMode(code,"general");
+    if(out.mode==="general") return enterCodeMode(code,"general",out.tree);
     if(!res.ok || !out.token_hash){ msg.textContent=CODE_LOGIN_ERRORS[out.error]||"تعذر الدخول. حاول مرة ثانية."; return; }
     const {data,error}=await client.auth.verifyOtp({token_hash:out.token_hash,type:"email"});
     if(error||!data?.session){ msg.textContent="تعذر فتح الجلسة: "+(error?.message||""); return; }
@@ -334,8 +342,9 @@ window.ShugaaHijri=(()=>{
     $("#profileMergeBtn").classList.toggle("hidden",!canMergePeople());
     $("#profileArchiveBtn").classList.toggle("hidden",!canArchivePeople());
     const canBuild=canAddPeopleDirect();
-    $("#profileAddRelativeBtn")?.classList.toggle("hidden",!canBuild);
-    $("#profileBuildFamilyBtn")?.classList.toggle("hidden",!canBuild);
+    const addBtn=$("#profileAddRelativeBtn"); addBtn?.classList.toggle("hidden",state.mode!=="account");
+    if(addBtn) addBtn.textContent=canBuild?"＋ إضافة":"＋ اقتراح إضافة";
+    $("#profileBuildFamilyBtn")?.classList.add("hidden");
     $("#profileBulkChildrenBtn")?.classList.toggle("hidden",!canBuild);
     $$("[data-quick-relative]").forEach(b=>b.classList.toggle("hidden",!canBuild));
     $("#profileEditBtn")?.classList.toggle("hidden",!canDirectBasicEdit());
@@ -345,7 +354,7 @@ window.ShugaaHijri=(()=>{
   function closePerson(){ $("#personModal").classList.add("hidden"); }
 
   function fillPersonSelects(){
-    const selectors=["#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
+    const selectors=["#smartContribPerson","#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
     selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if((sel==="#pFather"||sel==="#bulkFather")&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
   }
 
@@ -762,6 +771,7 @@ window.ShugaaHijri=(()=>{
   }
   function requestPayloadHtml(r){
     const p=r.payload||{};
+    if(p.smart) return smartRequestHtml(r);
     if(r.request_type==="add_family"){
       const fam=p.family||{};
       const kids=Array.isArray(fam.children)?fam.children:[];
@@ -791,9 +801,9 @@ window.ShugaaHijri=(()=>{
         ${r.target_person_name?`<p>مرتبط بـ: <b>${esc(r.target_person_name)}</b></p>`:""}
         ${r.requester_name&&staff?`<p>المرسل: <b>${esc(r.requester_name)}</b> ${r.requester_contact?`• ${esc(r.requester_contact)}`:""}${r.requester_country?` • ${esc(r.requester_country)}`:""}</p>`:""}
         ${r.admin_note?`<p><b>ملاحظة الإدارة:</b> ${esc(r.admin_note)}</p>`:""}
-        ${staff?requestPayloadHtml(r):""}
+        ${(staff||r.payload?.smart)?requestPayloadHtml(r):""}
         ${applied?`<div class="apply-result">✅ تم تنفيذ البيانات داخل الشجرة${r.applied_at?` — ${new Date(r.applied_at).toLocaleString("ar")}`:""}</div>`:""}
-        ${actionable?`<div class="request-actions"><button type="button" class="btn light review-request" data-id="${esc(r.id)}" data-status="in_review">قيد المراجعة</button><button type="button" class="btn gold review-request" data-id="${esc(r.id)}" data-status="needs_info">طلب توضيح</button>${r.request_type==="add_family"?`<button type="button" class="btn primary apply-request" data-id="${esc(r.id)}">اعتماد وتنفيذ</button>`:`<button type="button" class="btn primary review-request" data-id="${esc(r.id)}" data-status="approved">اعتماد</button>`}<button type="button" class="btn light review-request" data-id="${esc(r.id)}" data-status="rejected">رفض</button></div>`:""}
+        ${actionable?`<div class="request-actions"><button type="button" class="btn light review-request" data-id="${esc(r.id)}" data-status="in_review">قيد المراجعة</button><button type="button" class="btn gold review-request" data-id="${esc(r.id)}" data-status="needs_info">طلب توضيح</button>${["add_family","add_relatives","correction"].includes(r.request_type)?`<button type="button" class="btn primary apply-request" data-id="${esc(r.id)}" data-type="${esc(r.request_type)}">اعتماد وتنفيذ</button>`:`<button type="button" class="btn primary review-request" data-id="${esc(r.id)}" data-status="approved">اعتماد</button>`}<button type="button" class="btn light review-request" data-id="${esc(r.id)}" data-status="rejected">رفض</button></div>`:""}
         ${oldApprovedNeedsApply?`<div class="request-actions"><button type="button" class="btn primary apply-request" data-id="${esc(r.id)}">تنفيذ البيانات الآن</button></div>`:""}
       </article>`;
     }catch(err){
@@ -815,13 +825,14 @@ window.ShugaaHijri=(()=>{
     box.innerHTML=rows.map(r=>requestCardHtml(r,staff)).join("");
     if(staff){
       box.querySelectorAll(".review-request").forEach(b=>b.addEventListener("click",()=>reviewRequest(b.dataset.id,b.dataset.status)));
-      box.querySelectorAll(".apply-request").forEach(b=>b.addEventListener("click",()=>applyRequest(b.dataset.id)));
+      box.querySelectorAll(".apply-request").forEach(b=>b.addEventListener("click",()=>applyRequest(b.dataset.id,b.dataset.type)));
     }
   }
 
-  async function applyRequest(id){
+  async function applyRequest(id,type){
     if(!confirm("اعتماد الطلب وتنفيذ بياناته داخل الشجرة؟"))return;
-    const {data,error}=await client.rpc("staff_apply_change_request",{p_request_id:id,p_admin_note:null});
+    const smart=["add_relatives","correction"].includes(type);
+    const {data,error}=await client.rpc(smart?"staff_apply_smart_request":"staff_apply_change_request",{p_request_id:id,p_admin_note:null});
     if(error)return toast("تعذر تنفيذ الطلب: "+error.message,6000);
     toast("تم اعتماد الطلب وتنفيذ البيانات في الشجرة ✅",4500);
     state.changeFilter="approved";
@@ -1781,7 +1792,7 @@ window.ShugaaHijri=(()=>{
   $("#findKinshipBtn").onclick=renderKinship;$("#startLineageBtn").onclick=()=>renderLineage();
   $("#profileLineageBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("lineage");$("#lineagePerson").value=id;renderLineage(id);};
   $("#profileKinshipBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("kinship");$("#kinshipA").value=id;};
-  $("#profileContributeBtn").onclick=()=>{const id=state.activePersonId;closePerson();setView("contribute");$("#contribTarget").value=id;};
+  $("#profileContributeBtn").onclick=()=>{const id=state.activePersonId;closePerson();if(state.mode==="account"&&(state.role==="admin"||state.permissions?.edit_basic_person))openEditPerson(id);else if(state.mode==="account")openCorrection(id);else{setView("contribute");$("#contribTarget").value=id;}};
   $("#profileEditBtn").onclick=()=>{const id=state.activePersonId;closePerson();openEditPerson(id);};
   $$(".v4-profile-tab").forEach(b=>b.onclick=()=>setProfileTab(b.dataset.profileTab));
   $("#profileAddRelativeBtn").onclick=()=>{const id=state.activePersonId;closePerson();openAddHub(id);};
@@ -2126,8 +2137,9 @@ window.ShugaaHijri=(()=>{
   const HUB_ERR={"Add people permission required":"لا تملك صلاحية إضافة أفراد.","Add a father or mother to the anchor person first":"سجّل أب أو أم لهذا الشخص أولًا، عشان نربط الإخوة صح.","No valid names":"اكتب اسم واحد على الأقل."};
   const hubErr=m=>HUB_ERR[m]||m;
   let hubAnchor=null, batchState={anchor:null,rel:null};
+  const hubRequestMode=()=>!canAddPeopleDirect();
   function openAddHub(anchorId){
-    if(!canAddPeopleDirect())return toast("لا تملك صلاحية إضافة أفراد مباشرة.");
+    if(state.mode!=="account")return toast("سجّل دخولك برمزك عشان تقدر تضيف.");
     hubAnchor=anchorId||null;
     $("#hubPicker").classList.toggle("hidden",!!hubAnchor);
     if(!hubAnchor) $("#hubPerson").value="";
@@ -2154,7 +2166,7 @@ window.ShugaaHijri=(()=>{
   $$("[data-hub-rel]").forEach(b=>b.onclick=()=>{
     const id=hubAnchor, rel=b.dataset.hubRel; if(!id||b.disabled)return;
     closeAddHub();
-    if(rel==="child"||rel==="sibling") openBatch(id,rel); else openRelativeBuilder(id,rel);
+    if(rel==="child"||rel==="sibling"||hubRequestMode()) openBatch(id,rel); else openRelativeBuilder(id,rel);
   });
   $("#addStartBtn").onclick=()=>{const id=$("#addStartPerson").value;if(!id)return toast("اختر الشخص أولًا.");openAddHub(id);};
 
@@ -2175,19 +2187,27 @@ window.ShugaaHijri=(()=>{
     numberBatch(); return row;
   }
   function numberBatch(){const rows=$$("#batchRows .batch-row");rows.forEach((r,i)=>{r.querySelector(".batch-num").textContent=`الفرد ${i+1}`;r.querySelector(".batch-remove").classList.toggle("hidden",rows.length===1);});}
+  const BATCH_TITLE={child:"إضافة أبناء إلى",sibling:"إضافة إخوة إلى",father:"إضافة أب لـ",mother:"إضافة أم لـ",spouse:"إضافة زوج / زوجة لـ"};
   function openBatch(anchorId,rel){
-    if(!canAddPeopleDirect())return toast("لا تملك صلاحية إضافة أفراد مباشرة.");
     const a=getPerson(anchorId); if(!a)return; const f=familyOf(a.id);
-    batchState={anchor:a.id,rel};
-    $("#batchTitle").textContent=rel==="child"?`إضافة أبناء إلى ${a.full_name_ar}`:`إضافة إخوة إلى ${a.full_name_ar}`;
-    const existing=rel==="child"?f.children:[...new Set(state.relations.filter(r=>(f.father&&r.parent_id===f.father.id)||(f.mother&&r.parent_id===f.mother.id)).map(r=>r.child_id))].filter(id=>id!==a.id).map(getPerson).filter(Boolean);
+    const req=hubRequestMode(), single=!["child","sibling"].includes(rel);
+    batchState={anchor:a.id,rel,req,single};
+    $("#batchTitle").textContent=`${BATCH_TITLE[rel]} ${a.full_name_ar}`;
+    $("#batchCard")?.classList.toggle("single",single);
+    $("#batchAddRow").classList.toggle("hidden",single);
+    $("#batchReqNote").classList.toggle("hidden",!req); $("#batchReqNoteInput").value="";
+    $("#batchSave").textContent=req?"إرسال للإدارة":"إضافة الأفراد";
+    const existing=rel==="spouse"?f.spouses:["father","mother"].includes(rel)?[]:rel==="child"?f.children:[...new Set(state.relations.filter(r=>(f.father&&r.parent_id===f.father.id)||(f.mother&&r.parent_id===f.mother.id)).map(r=>r.child_id))].filter(id=>id!==a.id).map(getPerson).filter(Boolean);
     const box=$("#batchExisting");
-    if(existing.length){box.innerHTML=`<b>${rel==="child"?"الأبناء المسجلين":"الإخوة المسجلين"} (${existing.length}):</b> `+existing.map(c=>`<span class="meta-pill">${esc(c.first_name_ar||c.full_name_ar.split(" ")[0])}</span>`).join(" ");box.classList.remove("hidden");}else box.classList.add("hidden");
+    if(existing.length){box.innerHTML=`<b>${({child:"الأبناء المسجلين",sibling:"الإخوة المسجلين",spouse:"الأزواج المسجلين"})[rel]} (${existing.length}):</b> `+existing.map(c=>`<span class="meta-pill">${esc(c.first_name_ar||c.full_name_ar.split(" ")[0])}</span>`).join(" ");box.classList.remove("hidden");}else box.classList.add("hidden");
     const op=$("#batchOtherParent"); op.innerHTML='<option value="">غير محدد</option>';
     const showOther=rel==="child"&&a.gender!=="unknown"&&a.gender;
     if(showOther){$("#batchOtherParentLabel").textContent=a.gender==="male"?"الأم":"الأب";f.spouses.forEach(sp=>op.add(new Option(sp.full_name_ar,sp.id)));if(f.spouses.length===1)op.value=f.spouses[0].id;}
     $("#batchOtherParentWrap").classList.toggle("hidden",!showOther);
-    $("#batchRows").innerHTML=""; batchRow(); $("#batchMsg").textContent="";
+    $("#batchRows").innerHTML=""; const first=batchRow(); $("#batchMsg").textContent="";
+    if(single){const g=rel==="father"?"male":rel==="mother"?"female":(a.gender==="male"?"female":a.gender==="female"?"male":null);
+      const seg=first.querySelector(".seg");if(g){first.querySelector(`input[value="${g}"]`).checked=true;seg.classList.add("hidden");}
+      first.querySelector(".batch-num").textContent="";}
     $("#batchModal").classList.remove("hidden"); setTimeout(()=>$(".batch-name")?.focus(),60);
   }
   function closeBatch(){$("#batchModal").classList.add("hidden");}
@@ -2207,7 +2227,14 @@ window.ShugaaHijri=(()=>{
     const existing=new Set(($("#batchExisting").textContent||"").split(/\s+/).map(BULK_NORM));
     const dups=people.filter(p=>existing.has(BULK_NORM(p.first_name_ar))).map(p=>p.first_name_ar);
     if(dups.length&&!confirm(`مسجلين أصلًا بنفس الاسم: ${dups.join("، ")}\nتبي تضيفهم مرة ثانية؟`))return;
-    msg.textContent="جاري الحفظ..."; $("#batchSave").disabled=true;
+    msg.textContent=batchState.req?"جاري الإرسال...":"جاري الحفظ..."; $("#batchSave").disabled=true;
+    if(batchState.req){
+      const payload={relation:rel,people,other_parent_id:$("#batchOtherParent").value||null,other_parent_name:$("#batchOtherParent").selectedOptions[0]?.value?$("#batchOtherParent").selectedOptions[0].textContent:null};
+      const {data:code,error:e2}=await client.rpc("submit_smart_request",{p_kind:"add_relatives",p_target_person_id:anchor,p_payload:payload,p_note:$("#batchReqNoteInput").value});
+      $("#batchSave").disabled=false;
+      if(e2){msg.textContent="تعذر الإرسال: "+e2.message;return;}
+      closeBatch(); toast(`وصل طلبك للإدارة ✅ رقمه ${code}`,5000); try{await loadAccountRequests();}catch(_){} return;
+    }
     const {data,error}=await client.rpc("staff_add_people_batch",{p_anchor_id:anchor,p_relation:rel,p_people:people,p_other_parent_id:$("#batchOtherParent").value||null});
     $("#batchSave").disabled=false;
     if(error){msg.textContent="تعذر الحفظ: "+hubErr(error.message)+" (لم يُحفظ أي اسم)";return;}
@@ -2215,6 +2242,54 @@ window.ShugaaHijri=(()=>{
     try{await loadAccountData();}catch(e){console.error(e);}
     openPerson(anchor); setProfileTab("family");
   };
+
+  // V8.1 — smart requests: readable summary for the reviewer, and a correction form for members.
+  const REL_AR={child:"أبناء",sibling:"إخوة",father:"أب",mother:"أم",spouse:"زوج / زوجة"};
+  const FIELD_AR={first_name_ar:"الاسم الأول",gender:"الجنس",is_living:"الحالة",birth_year:"سنة الميلاد م",birth_year_hijri:"سنة الميلاد هـ",death_year:"سنة الوفاة م",death_year_hijri:"سنة الوفاة هـ",bio:"نبذة"};
+  const fmtVal=(k,v)=>v===null||v===undefined||v===""?"—":k==="gender"?(v==="male"?"ذكر":v==="female"?"أنثى":v):k==="is_living"?(String(v)==="true"?"حي":String(v)==="false"?"متوفى":"غير معروف"):String(v);
+  function smartRequestHtml(r){
+    const p=r.payload||{}, t=getPerson(r.target_person_id), who=esc(r.requester_name||"عضو"), tn=esc(t?.full_name_ar||"شخص");
+    if(r.request_type==="add_relatives"){
+      const ppl=(p.people||[]).map(x=>`<li><b>${esc(x.first_name_ar)}</b> <small>${fmtVal("gender",x.gender)} • ${fmtVal("is_living",x.is_living)}${x.birth_year_hijri?` • ${esc(x.birth_year_hijri)} هـ`:x.birth_year?` • ${esc(x.birth_year)} م`:""}</small></li>`).join("");
+      return `<div class="smart-req"><p>📝 <b>${who}</b> يطلب إضافة <b>${REL_AR[p.relation]||""}</b> لـ <b>${tn}</b>${p.other_parent_name?` (${p.relation==="child"?"من":"مع"} ${esc(p.other_parent_name)})`:""}:</p><ul>${ppl}</ul>${r.requester_relation_note?`<p class="muted">ملاحظة: ${esc(r.requester_relation_note)}</p>`:""}</div>`;
+    }
+    const ch=p.changes||{};
+    const rows=Object.keys(ch).map(k=>`<li><span>${FIELD_AR[k]||esc(k)}:</span> <del>${esc(fmtVal(k,ch[k].from))}</del> ← <b>${esc(fmtVal(k,ch[k].to))}</b></li>`).join("");
+    return `<div class="smart-req"><p>✏️ <b>${who}</b> يطلب تصحيح بيانات <b>${tn}</b>:</p><ul>${rows}</ul>${r.requester_relation_note?`<p class="muted">ملاحظة: ${esc(r.requester_relation_note)}</p>`:""}</div>`;
+  }
+  let corrTarget=null;
+  function openCorrection(id){
+    const p=getPerson(id); if(!p)return; corrTarget=p;
+    $("#corrTitle").textContent=`تصحيح بيانات ${p.full_name_ar}`;
+    $("#corrFirst").value=p.first_name_ar||"";
+    $$('#corrModal input[name="corrG"]').forEach(i=>i.checked=i.value===(p.gender||""));
+    const life=p.is_living===true?"true":p.is_living===false?"false":"";
+    $$('#corrModal input[name="corrL"]').forEach(i=>i.checked=i.value===life);
+    setYearField("#corrBirth",p.birth_year,p.birth_year_hijri); setYearField("#corrDeath",p.death_year,p.death_year_hijri);
+    $("#corrBio").value=p.bio||""; $("#corrNote").value=""; $("#corrMsg").textContent="";
+    $("#corrModal").classList.remove("hidden");
+  }
+  $$("[data-close-corr]").forEach(b=>b.onclick=()=>$("#corrModal").classList.add("hidden"));
+  $("#corrSave").onclick=async()=>{
+    const p=corrTarget; if(!p)return; const ch={};
+    const put=(k,from,to)=>{const f=from??"", t=to??""; if(String(f)!==String(t))ch[k]={from:from??null,to:to===""?null:to};};
+    put("first_name_ar",p.first_name_ar,$("#corrFirst").value.trim());
+    const g=$('#corrModal input[name="corrG"]:checked')?.value; if(g)put("gender",p.gender,g);
+    const l=$('#corrModal input[name="corrL"]:checked')?.value; if(l!==undefined)put("is_living",p.is_living,l===""?null:l==="true");
+    const by=hijriYearOf("#corrBirth"), bg=toInt($("#corrBirth").value), dy=hijriYearOf("#corrDeath"), dg=toInt($("#corrDeath").value);
+    if(by){put("birth_year_hijri",p.birth_year_hijri,by);put("birth_year",p.birth_year,bg);}else put("birth_year",p.birth_year,bg);
+    if(dy){put("death_year_hijri",p.death_year_hijri,dy);put("death_year",p.death_year,dg);}else put("death_year",p.death_year,dg);
+    put("bio",p.bio,$("#corrBio").value.trim());
+    if(!Object.keys(ch).length){$("#corrMsg").textContent="ما غيّرت أي شي.";return;}
+    $("#corrSave").disabled=true; $("#corrMsg").textContent="جاري الإرسال...";
+    const {data:code,error}=await client.rpc("submit_smart_request",{p_kind:"correction",p_target_person_id:p.id,p_payload:{changes:ch},p_note:$("#corrNote").value});
+    $("#corrSave").disabled=false;
+    if(error){$("#corrMsg").textContent="تعذر الإرسال: "+error.message;return;}
+    $("#corrModal").classList.add("hidden"); toast(`وصل طلب التصحيح للإدارة ✅ رقمه ${code}`,5000);
+  };
+  $("#smartContribAdd").onclick=()=>{const id=$("#smartContribPerson").value;if(!id)return toast("اختر الشخص أولًا.");openAddHub(id);};
+  $("#smartContribFix").onclick=()=>{const id=$("#smartContribPerson").value;if(!id)return toast("اختر الشخص أولًا.");openCorrection(id);};
+  YEAR_FIELDS.push("#corrBirth","#corrDeath"); enhanceYearField($("#corrBirth")); enhanceYearField($("#corrDeath"));
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
@@ -2307,7 +2382,7 @@ window.ShugaaHijri=(()=>{
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=8.0.0").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=8.1.1").catch(console.warn));
 })();
 
 // V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".
@@ -2393,6 +2468,9 @@ window.ShugaaHijri=(()=>{
     sync();
   }
 
+  // Fixed lists written in the page (request types, roles, ...) stay normal dropdowns;
+  // only lists filled with people at runtime become searchable.
+  document.querySelectorAll("select").forEach(sel => { if (sel.options.length > 1) sel.classList.add("no-search"); });
   let queued = false;
   const scan = () => {
     queued = false;

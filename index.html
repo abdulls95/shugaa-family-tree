@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=8.0.0" />
+  <link rel="stylesheet" href="./styles.css?v=8.1.1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -247,14 +247,20 @@
       <section id="view-contribute" class="view contribution-only hidden">
         <div class="page-head"><div><span class="section-kicker">ساهم في التوثيق</span><h2>طلبات الإضافة والتصحيح</h2><p>كل طلب يذهب للإدارة للمراجعة قبل أن يغير الشجرة.</p></div></div>
         <div class="contribution-grid">
-          <form id="contributionForm" class="panel stack">
+          <div id="smartContribCard" class="panel stack account-only hidden">
+            <h3>أضف أو صحّح بسهولة</h3>
+            <p class="muted">اختر الشخص، وبعدها اختر: تضيف له أقارب (أبناء، إخوة، زوجة، أب، أم)، أو تصحح بياناته. طلبك يوصل للإدارة جاهز وتعتمده بضغطة.</p>
+            <select id="smartContribPerson"><option value="">— اختر الشخص —</option></select>
+            <div class="add-start-row"><button type="button" id="smartContribAdd" class="btn primary">＋ اقتراح إضافة</button><button type="button" id="smartContribFix" class="btn light">✏️ تصحيح بيانات</button></div>
+          </div>
+          <form id="contributionForm" class="panel stack personal-mode-only">
             <h3>إرسال طلب جديد</h3>
             <div id="personalContactFields" class="stack">
               <label>اسمك<input id="contribName" placeholder="اسم مقدم الطلب" /></label>
               <div class="two-cols"><label>وسيلة التواصل<input id="contribContact" placeholder="جوال / واتساب / بريد" /></label><label>الدولة<input id="contribCountry" placeholder="الدولة" /></label></div>
               <label>صلتك بالشخص أو الأسرة<input id="contribRelation" placeholder="مثال: ابنه، حفيده، من نفس الفرع..." /></label>
             </div>
-            <label>نوع الطلب<select id="contribType">
+            <label>نوع الطلب<select id="contribType" class="no-search">
               <option value="add_family">إضافة أسرتي / عائلة</option>
               <option value="add_person">إضافة شخص مفقود</option>
               <option value="correct_name">تصحيح اسم</option>
@@ -497,7 +503,7 @@
         </div>
       </div>
 
-      <div class="v4-primary-actions staff-only hidden">
+      <div class="v4-primary-actions account-only hidden">
         <button id="profileAddRelativeBtn" class="btn primary v4-big-action">＋ إضافة</button>
         <button id="profileBuildFamilyBtn" class="btn gold v4-big-action hidden">إضافة أسرة</button>
       </div>
@@ -910,20 +916,43 @@
   <!-- V8 — add several children / siblings -->
   <div id="batchModal" class="modal hidden">
     <div class="modal-backdrop" data-close-batch></div>
-    <article class="modal-card batch-card">
+    <article id="batchCard" class="modal-card batch-card">
       <button class="modal-close" type="button" data-close-batch aria-label="إغلاق">×</button>
       <h2 id="batchTitle">إضافة أبناء</h2>
       <div id="batchExisting" class="bulk-existing hidden"></div>
       <label id="batchOtherParentWrap" class="hidden"><span id="batchOtherParentLabel">الأم</span><select id="batchOtherParent" class="no-search"><option value="">غير محددة</option></select><small class="micro-copy">إذا الأم مو موجودة، أضفها أولًا كزوجة من «مكان جديد في العائلة».</small></label>
       <div id="batchRows" class="batch-rows"></div>
       <button type="button" id="batchAddRow" class="btn light">＋ إضافة فرد آخر</button>
+      <label id="batchReqNote" class="batch-note hidden">ملاحظة للإدارة (اختياري)<textarea id="batchReqNoteInput" rows="2" placeholder="مثال: من أبناء خالد من زوجته الثانية"></textarea></label>
       <div class="batch-footer">
         <button type="button" id="batchSave" class="btn primary wide">إضافة الأفراد</button>
         <p id="batchMsg" class="form-msg"></p>
       </div>
     </article>
   </div>
-  <script src="./config.js?v=8.0.0"></script>
-  <script src="./app.js?v=8.0.0"></script>
+
+  <!-- V8.1 — correction request -->
+  <div id="corrModal" class="modal hidden">
+    <div class="modal-backdrop" data-close-corr></div>
+    <article class="modal-card batch-card">
+      <button class="modal-close" type="button" data-close-corr aria-label="إغلاق">×</button>
+      <h2 id="corrTitle">تصحيح بيانات</h2>
+      <p class="muted">عدّل اللي تشوفه غلط، والإدارة تراجع التعديل وتعتمده.</p>
+      <div class="batch-row">
+        <label>الاسم الأول<input id="corrFirst" autocomplete="off"/></label>
+        <div class="batch-grid">
+          <fieldset class="seg"><legend>الجنس</legend><label><input type="radio" name="corrG" value="male"><span>ذكر</span></label><label><input type="radio" name="corrG" value="female"><span>أنثى</span></label></fieldset>
+          <fieldset class="seg"><legend>الحالة</legend><label><input type="radio" name="corrL" value="true"><span>حي</span></label><label><input type="radio" name="corrL" value="false"><span>متوفى</span></label><label><input type="radio" name="corrL" value=""><span>غير معروف</span></label></fieldset>
+        </div>
+        <label>سنة الميلاد<input id="corrBirth" type="number" inputmode="numeric" min="1" max="3000"/></label>
+        <label>سنة الوفاة<input id="corrDeath" type="number" inputmode="numeric" min="1" max="3000"/></label>
+        <label>نبذة<textarea id="corrBio" rows="3"></textarea></label>
+      </div>
+      <label class="batch-note">وش مصدر المعلومة؟ (اختياري)<textarea id="corrNote" rows="2" placeholder="مثال: من الوالد، أو من صك / وثيقة"></textarea></label>
+      <div class="batch-footer"><button type="button" id="corrSave" class="btn primary wide">إرسال التصحيح للإدارة</button><p id="corrMsg" class="form-msg"></p></div>
+    </article>
+  </div>
+  <script src="./config.js?v=8.1.1"></script>
+  <script src="./app.js?v=8.1.1"></script>
 </body>
 </html>
