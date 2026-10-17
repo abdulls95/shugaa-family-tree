@@ -1768,7 +1768,12 @@ button.hub-tile:hover:not(:disabled),.hub-split button:hover:not(:disabled){bord
 .update-bar button{border:0;background:#D9B66A;color:#072621;font-weight:700;border-radius:999px;padding:8px 16px;font-family:inherit;cursor:pointer}
 @media (min-width:861px){.update-bar{bottom:24px}}
 /* installed app: room for the status bar / notch */
-html.is-app .shugaa-v7 .topbar{padding-top:max(12px,env(safe-area-inset-top))}
-html.is-app .shugaa-v7 .gate-screen{padding-top:calc(48px + env(safe-area-inset-top))}
-@media (max-width:860px){html.is-app .shugaa-v7 .topbar{padding-top:calc(8px + env(safe-area-inset-top))}}
+/* safe area (iPhone notch / Dynamic Island). env() is 0 in a normal browser tab, so this is safe everywhere */
+.shugaa-v7 .gate-screen{padding-top:calc(48px + env(safe-area-inset-top))}
+@media (min-width:861px){.shugaa-v7.awraq-inspired-shell .topbar{padding-top:calc(22px + env(safe-area-inset-top))}}
+@media (max-width:860px){
+  .shugaa-v7.awraq-inspired-shell .topbar{height:calc(64px + env(safe-area-inset-top))!important;padding-top:env(safe-area-inset-top)!important;box-sizing:border-box;top:0}
+}
+/* nothing may show through behind the status bar */
+html.is-app body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:#0C3530;z-index:95;pointer-events:none}
 html.is-app body{overscroll-behavior-y:none}
