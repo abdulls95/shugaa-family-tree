@@ -288,7 +288,7 @@ window.ShugaaHijri=(()=>{
 
   function getPerson(id){ return state.people.find(p=>p.id===id); }
   function getPlace(id){ return state.places.find(p=>p.id===id); }
-  function personLabel(p){ if(!p)return "—"; const extras=[]; if(p.father_name_text)extras.push(`ابن ${p.father_name_text}`); if(p.lineage_code)extras.push(`كود ${p.lineage_code}`); return extras.length ? `${p.full_name_ar} — ${extras.join(" • ")}` : p.full_name_ar; }
+  function personLabel(p){ if(!p)return "—"; const extras=[]; if(p.father_name_text)extras.push(`ابن ${p.father_name_text}`); if(p.record_code)extras.push(`رقم ${p.record_code}`); return extras.length ? `${p.full_name_ar} — ${extras.join(" • ")}` : p.full_name_ar; }
 
   function familyOf(id){
     const fr=state.relations.find(r=>r.child_id===id&&r.parent_role==="father"), mr=state.relations.find(r=>r.child_id===id&&r.parent_role==="mother");
@@ -1142,7 +1142,7 @@ window.ShugaaHijri=(()=>{
     const dup=$("#mergeDuplicatePerson"), keep=$("#mergeKeepPerson");
     const options=state.people
       .filter(p=>p.record_status==="active" || !p.record_status)
-      .map(p=>`<option value="${p.id}">${esc(personLabel(p))}${p.record_code?` • ${esc(p.record_code)}`:""}</option>`)
+      .map(p=>`<option value="${p.id}">${esc(personLabel(p))}</option>`)
       .join("");
     dup.innerHTML=options;
     keep.innerHTML='<option value="">— اختر السجل الصحيح الذي سيبقى —</option>'+options;
