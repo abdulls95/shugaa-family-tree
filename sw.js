@@ -1,5 +1,5 @@
 // Shugaa Family Tree — service worker (app shell + offline)
-const VERSION = "v11.0.4-app";
+const VERSION = "v12.0.0";
 const SHELL = "shugaa-shell-" + VERSION;
 const RUNTIME = "shugaa-runtime";
 const LOCAL = ["./", "./index.html", "./styles.css", "./config.js", "./app.js", "./manifest.webmanifest",
@@ -28,4 +28,19 @@ self.addEventListener("fetch", e => {
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => { if (r.ok || r.type === "opaque") { const copy = r.clone(); caches.open(RUNTIME).then(c => c.put(req, copy)); } return r; })));
   }
   // everything else (Supabase data, login) always goes to the network
+});
+
+// push notifications
+self.addEventListener("push", e => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { title: "آل شجاع", body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || "شجرة آل شجاع", {
+    body: d.body || "", icon: "./icons/icon-192.png", badge: "./icons/favicon-32.png", dir: "rtl", lang: "ar", data: { url: d.url || "./" } }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url || "./", self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) { if (c.url.startsWith(self.registration.scope)) { c.navigate(url); return c.focus(); } }
+    return self.clients.openWindow(url);
+  }));
 });

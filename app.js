@@ -273,7 +273,7 @@ window.ShugaaHijri=(()=>{
     renderAdminAll();
   }
 
-  function renderAllPublic(){ renderStats(); renderPeople(); fillPersonSelects(); renderTree(); renderHealth(); syncAddStart(); try{renderHome();}catch(e){console.error("home",e);} }
+  function renderAllPublic(){ renderStats(); renderPeople(); fillPersonSelects(); renderTree(); renderHealth(); syncAddStart(); try{renderHome();}catch(e){console.error("home",e);} try{syncV12();}catch(e){console.error("v12",e);} }
   function syncAddStart(){const empty=!state.people.length;$("#addStartCard")?.classList.toggle("hidden",empty);$("#rootStartNote")?.classList.toggle("hidden",!empty);$("#rootPersonFormWrap")?.classList.toggle("hidden",!empty);}
   function renderStats(){
     $("#statPeople").textContent=state.people.length;
@@ -357,7 +357,7 @@ window.ShugaaHijri=(()=>{
   function closePerson(){ $("#personModal").classList.add("hidden"); }
 
   function fillPersonSelects(){
-    const selectors=["#smartContribPerson","#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
+    const selectors=["#joinPerson","#smartContribPerson","#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
     selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if((sel==="#pFather"||sel==="#bulkFather")&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
   }
 
@@ -604,7 +604,7 @@ window.ShugaaHijri=(()=>{
 
   // V9 — interactive tree: branch colours, lineage glow, node action bar, collapse, direction.
   const BRANCH_COLORS=["#0C3530","#9A7733","#9E5A63","#2F6F73","#5E6B2E","#4A4F7C","#8A5A2B","#3D6B53"];
-  const treeUI={dir:(()=>{try{return localStorage.getItem("shugaa_tree_dir")||"TB";}catch(e){return "TB";}})(),collapsed:new Set(),selected:null};
+  const treeUI={dir:(()=>{try{return localStorage.getItem("shugaa_tree_dir")||(window.innerWidth<700?"RL":"TB");}catch(e){return "TB";}})(),collapsed:new Set(),selected:null,didAuto:false};
   function shortYears(p){
     const H=window.ShugaaHijri, mode=H.getMode(), useG=mode==="gregorian";
     const b=H.side(p.birth_year,p.birth_year_hijri,p.birth_date), d=H.side(p.death_year,p.death_year_hijri,p.death_date);
@@ -637,6 +637,9 @@ window.ShugaaHijri=(()=>{
         years:yrs,deceased:p?.is_living===false,kids:(kids.get(id)||[]).length,
         text:e.data.label+(yrs?`\n${yrs}`:""),h:yrs?56:44});
     });
+    if(!treeUI.didAuto){treeUI.didAuto=true; const nodes=els.filter(e=>!e.data.source);
+      if(nodes.length>60){const depth=id=>{let d=0,x=id;while(parentOf.has(x)&&d<60){x=parentOf.get(x);d++;}return d;};
+        nodes.forEach(e=>{if(depth(e.data.id)===2&&(kids.get(e.data.id)||[]).length)treeUI.collapsed.add(e.data.id);});}}
     const RL=treeUI.dir==="RL";
     state.cy=cytoscape({
       container:c, elements:els, wheelSensitivity:.16, minZoom:.12, maxZoom:2.8, boxSelectionEnabled:false, autoungrabify:true,
@@ -2160,7 +2163,7 @@ window.ShugaaHijri=(()=>{
   $("#savePermissionsBtn").onclick=async()=>{const uid=$("#permissionUser").value;if(!uid)return toast("اختر المستخدم.");const rows=$$("#permissionMatrix input[data-code]").map(x=>({user_id:uid,permission_code:x.dataset.code,allowed:x.checked,updated_by:state.session.user.id,updated_at:new Date().toISOString()}));const {error}=await client.from("profile_permissions").upsert(rows,{onConflict:"user_id,permission_code"});if(error)toast(error.message,4500);else{toast("تم حفظ الصلاحيات ✅");await loadStaffData();}};
 
   // Event and library
-  $("#addEventForm").onsubmit=async e=>{e.preventDefault();try{const place=await ensurePlace($("#eventPlace").value);const {error}=await client.from("life_events").insert({person_id:$("#eventPerson").value,event_type:$("#eventType").value,event_year:toInt($("#eventYear").value),place_id:place,title:$("#eventTitle").value.trim()||null,description:$("#eventDescription").value.trim()||null,confidence:$("#eventConfidence").value});if(error)throw error;$("#eventMsg").textContent="تم حفظ الحدث ✅";e.target.reset();await loadAccountData();}catch(err){$("#eventMsg").textContent=err.message;}};
+  $("#addEventForm").onsubmit=async e=>{e.preventDefault();try{const place=await ensurePlace($("#eventPlace").value);const evType=$("#eventType").value;const {data:evRow,error}=await client.from("life_events").insert({person_id:$("#eventPerson").value,event_type:evType,event_year:toInt($("#eventYear").value),place_id:place,title:$("#eventTitle").value.trim()||null,description:$("#eventDescription").value.trim()||null,confidence:$("#eventConfidence").value}).select("id").single();if(error)throw error;$("#eventMsg").textContent="تم حفظ الحدث ✅";e.target.reset();await loadAccountData();if(evRow?.id&&["marriage","engagement","birth","graduation","achievement","death"].includes(evType))sendEventPush(evRow.id);}catch(err){$("#eventMsg").textContent=err.message;}};
   $("#addLibraryForm").onsubmit=async e=>{e.preventDefault();try{const row={title:$("#libTitle").value.trim(),item_type:$("#libType").value,record_year:toInt($("#libYear").value),summary:$("#libSummary").value.trim()||null,confidence:"family_tradition",access_level:$("#libAccess").value,external_url:$("#libExternalUrl").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id,status:"published"};const {data:item,error}=await client.from("library_items").insert(row).select().single();if(error)throw error;if($("#libPerson").value)await client.from("library_item_people").insert({item_id:item.id,person_id:$("#libPerson").value});const file=$("#libFile").files[0];if(file){const path=`${item.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,file,{contentType:file.type||undefined});if(ue)throw ue;await client.from("library_items").update({file_path:path,mime_type:file.type||null}).eq("id",item.id);}$("#libraryAdminMsg").textContent="تمت الإضافة ✅";e.target.reset();await loadAccountData();}catch(err){$("#libraryAdminMsg").textContent=err.message;}};
 
   // V7.1 — dual-calendar year inputs. Existing code keeps reading .value as a Gregorian year;
@@ -2393,7 +2396,7 @@ window.ShugaaHijri=(()=>{
   }
   function countUp(el,to){const t0=performance.now(),dur=1100;const tick=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=Math.round(to*e).toLocaleString("ar-SA-u-nu-latn");if(k<1)requestAnimationFrame(tick);};requestAnimationFrame(tick);}
   function homeFacts(){
-    const ppl=state.people, counts=new Map();
+    const ppl=buildTreeModel().people, counts=new Map();
     ppl.forEach(p=>{const n=nameNorm(firstName(p));if(n)counts.set(n,(counts.get(n)||{n:firstName(p),c:0})),counts.get(n).c++;});
     const top=[...counts.values()].sort((a,b)=>b.c-a.c).slice(0,6);
     const byKids=ppl.map(p=>({p,c:familyOf(p.id).children.length})).sort((a,b)=>b.c-a.c)[0];
@@ -2456,7 +2459,8 @@ window.ShugaaHijri=(()=>{
     else{$("#h2Sub").textContent="كل اسمٍ له قصة، وكل جيلٍ امتداد.";lin.innerHTML="";}
     const f=homeFacts(); const gens=(homeState.maxDepth||0)+1;
     const branches=(()=>{const {kids,roots}=treeModelLevels();let t=roots[0];while(t&&(kids.get(t)||[]).length===1)t=kids.get(t)[0];return t?(kids.get(t)||[]).length:0;})();
-    const stats=[[state.people.length,"فرد في العائلة"],[gens,"جيل"],[branches,"فرع"],[state.marriages.length,"زواج"]];
+    const clan=buildTreeModel().people, living=clan.filter(p=>p.is_living!==false).length;
+    const stats=[[clan.length,"فرد من آل شجاع"],[living,"على قيد الحياة"],[gens,"جيل"],[branches,"فرع"],[state.marriages.length,"زواج"]];
     $("#h2Stats").innerHTML=stats.map(([v,l])=>`<div><strong data-to="${v}">0</strong><span>${l}</span></div>`).join("");
     $$("#h2Stats strong").forEach(el=>countUp(el,+el.dataset.to));
     const max=f.top[0]?.c||1; $("#h2Names").innerHTML=f.top.map((x,i)=>`<div class="h2-name" style="--w:${Math.round(x.c/max*100)}%;--i:${i}"><span>${esc(x.n)}</span><b>${x.c}</b></div>`).join("")||"<p class='muted'>—</p>";
@@ -2496,6 +2500,216 @@ window.ShugaaHijri=(()=>{
   syncInstallUI();
   // app shortcuts: ./?view=tree
   window.__shugaaStartView=new URLSearchParams(location.search).get("view");
+
+  // =================== V12 ===================
+  const fnUrl=name=>`${cfg.supabaseUrl}/functions/v1/${name}`;
+  const NEWS_TYPES=["marriage","engagement","birth","graduation","achievement","death"];
+  function syncV12(){
+    $$(".general-only").forEach(e=>e.classList.toggle("hidden",state.mode!=="general"));
+    syncPushEntry(); if(state.mode==="account"&&state.role==="admin")loadJoinRequests(); renderToday();
+  }
+  // ---------- media helpers ----------
+  const urlCache=new Map();
+  async function mediaUrl(path){ if(!path)return null; const c=urlCache.get(path); if(c&&c.exp>Date.now())return c.url;
+    const {data,error}=await client.storage.from("family-media").createSignedUrl(path,3600); if(error)return null; urlCache.set(path,{url:data.signedUrl,exp:Date.now()+3300e3}); return data.signedUrl; }
+  function shrinkImage(file,max=1400,q=.85){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const k=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(new Error("صورة غير صالحة")),"image/jpeg",q);URL.revokeObjectURL(img.src);};img.onerror=()=>rej(new Error("تعذر قراءة الصورة"));img.src=URL.createObjectURL(file);});}
+  async function uploadMedia(path,blob,type){const {error}=await client.storage.from("family-media").upload(path,blob,{contentType:type||blob.type,upsert:false});if(error)throw error;return path;}
+
+  // ---------- person photo, certificate, share, stories (profile hooks) ----------
+  const _openPerson=openPerson;
+  openPerson=function(id){ _openPerson(id); try{afterOpenPerson(id);}catch(e){console.error(e);} };
+  async function afterOpenPerson(id){
+    const p=getPerson(id), av=$("#profileAvatar"); av.style.backgroundImage=""; av.classList.remove("has-photo");
+    $("#profilePhotoBtn")?.classList.toggle("hidden",!(state.mode==="account"&&["admin","editor"].includes(state.role)));
+    $("#storyAddBtn")?.classList.toggle("hidden",!(state.mode==="account"&&["admin","editor"].includes(state.role)));
+    if(state.mode==="account"&&p?.photo_path){const u=await mediaUrl(p.photo_path);if(u&&state.activePersonId===id){av.style.backgroundImage=`url("${u}")`;av.classList.add("has-photo");}}
+    if(state.mode==="account")loadStories(id); else $("#storiesList").innerHTML="";
+  }
+  $("#profilePhotoInput").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const id=state.activePersonId;
+    try{toast("جاري رفع الصورة...");const blob=await shrinkImage(f,900);const path=await uploadMedia(`people/${id}/${Date.now()}.jpg`,blob,"image/jpeg");
+      const {error}=await client.from("people").update({photo_path:path}).eq("id",id);if(error)throw error;const p=getPerson(id);if(p)p.photo_path=path;afterOpenPerson(id);toast("تم حفظ الصورة ✅");}
+    catch(err){toast("تعذر رفع الصورة: "+err.message,5000);}});
+
+  function nasabText(id){const chain=ancestorsFrom(id).map(getPerson).filter(Boolean);if(!chain.length)return "";const me=chain[0];
+    return [firstName(me),...chain.slice(1).map((x,i)=>`${i===0&&me.gender==="female"?"بنت":"بن"} ${firstName(x)}`)].join(" ");}
+  function sealSvg(size=120,stroke="#B08A3E",fill="#0C3530"){return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100"><g fill="none" stroke="${stroke}" stroke-width="2"><rect x="21" y="21" width="58" height="58"/><rect x="21" y="21" width="58" height="58" transform="rotate(45 50 50)"/><rect x="27" y="27" width="46" height="46" stroke-width="1"/></g><text x="50" y="62" text-anchor="middle" font-family="Amiri,serif" font-weight="700" font-size="34" fill="${fill}">ش</text></svg>`;}
+  function printHtml(inner,landscape=false){
+    let area=$("#printArea"); if(!area){area=document.createElement("div");area.id="printArea";document.body.appendChild(area);}
+    area.innerHTML=`<style>@page{size:${landscape?"A4 landscape":"A4 portrait"};margin:10mm}</style>${inner}`;
+    document.body.classList.add("printing");
+    const done=()=>{document.body.classList.remove("printing");window.removeEventListener("afterprint",done);};
+    window.addEventListener("afterprint",done);
+    const imgs=[...area.querySelectorAll("img")].map(i=>i.complete?Promise.resolve():new Promise(r=>{i.onload=i.onerror=r;}));
+    Promise.all([document.fonts?.ready,...imgs]).then(()=>setTimeout(()=>{window.print();setTimeout(done,1500);},150));
+  }
+  $("#profileCertBtn").onclick=()=>{const id=state.activePersonId,p=getPerson(id);if(!p)return;
+    const chain=ancestorsFrom(id).reverse().map(getPerson).filter(Boolean), H=window.ShugaaHijri, now=new Date(), hj=H.gToH(now.getFullYear(),now.getMonth()+1,now.getDate());
+    printHtml(`<div class="cert"><div class="cert-frame">
+      <div class="cert-seal">${sealSvg(110)}</div>
+      <p class="cert-kicker">بسم الله الرحمن الرحيم</p><h1>وثيقة نسب</h1><p class="cert-family">شجرة آل شجاع</p>
+      <p class="cert-lead">تشهد شجرة آل شجاع بأن</p><h2>${esc(p.full_name_ar)}</h2>
+      <p class="cert-nasab">${esc(nasabText(id))}</p>
+      <p class="cert-lead">ينتسب إلى آل شجاع وفق السلسلة التالية:</p>
+      <ol class="cert-chain">${chain.map((x,i)=>`<li><span>الجيل ${i+1}</span><b>${esc(x.full_name_ar)}</b></li>`).join("")}</ol>
+      <div class="cert-meta"><span>رقم السجل: ${esc(p.record_code||"—")}</span><span>كود النسب: ${esc(p.lineage_code||"—")}</span><span>صدرت في ${esc(H.fmtHDate(hj))} الموافق ${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()} م</span></div>
+      <p class="cert-foot">${esc(location.origin+location.pathname)}</p></div></div>`);};
+
+  async function shareCard(id){
+    const p=getPerson(id); if(!p)return; toast("جاري تجهيز البطاقة...");
+    try{await Promise.all([document.fonts.load('700 80px "Amiri"'),document.fonts.load('500 40px "IBM Plex Sans Arabic"')]);}catch(_){}
+    const W=1080,Hh=1350,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d");
+    const g=x.createRadialGradient(W/2,300,50,W/2,500,1100);g.addColorStop(0,"#175349");g.addColorStop(.6,"#0C3530");g.addColorStop(1,"#072621");x.fillStyle=g;x.fillRect(0,0,W,Hh);
+    x.strokeStyle="rgba(217,182,106,.45)";x.lineWidth=3;x.strokeRect(40,40,W-80,Hh-80);x.lineWidth=1.2;x.strokeRect(58,58,W-116,Hh-116);
+    const seal=(cx,cy,s)=>{x.save();x.strokeStyle="#D9B66A";x.lineWidth=5;x.translate(cx,cy);x.strokeRect(-s/2,-s/2,s,s);x.rotate(Math.PI/4);x.strokeRect(-s/2,-s/2,s,s);x.restore();};
+    seal(W/2,250,150);x.fillStyle="#E9CF8E";x.textAlign="center";x.direction="rtl";x.font='700 92px "Amiri", serif';x.fillText("ش",W/2,285);
+    x.font='500 40px "IBM Plex Sans Arabic", sans-serif';x.fillStyle="#D9B66A";x.fillText("شجرة آل شجاع",W/2,430);
+    x.font='700 92px "Amiri", serif';x.fillStyle="#F6EBCF";
+    const wrap=(t,maxW,lh,y,font,color)=>{x.font=font;x.fillStyle=color;const words=t.split(" ");let line="",yy=y;for(const w of words){const test=line?line+" "+w:w;if(x.measureText(test).width>maxW&&line){x.fillText(line,W/2,yy);line=w;yy+=lh;}else line=test;}if(line)x.fillText(line,W/2,yy);return yy;};
+    let y=wrap(p.full_name_ar,W-200,110,590,'700 92px "Amiri", serif',"#F6EBCF");
+    const gen=ancestorsFrom(id).length;
+    y=wrap(`الجيل ${gen} في آل شجاع`,W-200,60,y+90,'500 44px "IBM Plex Sans Arabic", sans-serif',"#D9B66A");
+    y=wrap(nasabText(id),W-220,64,y+100,'400 42px "IBM Plex Sans Arabic", sans-serif',"#C7D6D0");
+    x.font='500 30px "IBM Plex Sans Arabic", sans-serif';x.fillStyle="rgba(217,182,106,.8)";x.fillText("كل اسمٍ له قصة.. وكل جيلٍ امتداد",W/2,Hh-170);
+    x.font='400 28px "IBM Plex Sans Arabic", sans-serif';x.fillStyle="rgba(199,214,208,.8)";x.fillText(location.host+location.pathname.replace(/index\.html$/,"").replace(/\/$/,""),W/2,Hh-115);
+    const blob=await new Promise(r=>c.toBlob(r,"image/png"));const file=new File([blob],`${firstName(p)}-آل-شجاع.png`,{type:"image/png"});
+    if(navigator.canShare?.({files:[file]})){try{await navigator.share({files:[file],title:p.full_name_ar,text:`${p.full_name_ar} — شجرة آل شجاع`});return;}catch(e){if(e.name==="AbortError")return;}}
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=file.name;document.body.appendChild(a);a.click();a.remove();toast("تم تنزيل البطاقة ✅");
+  }
+  $("#profileShareBtn").onclick=()=>shareCard(state.activePersonId);
+
+  // ---------- voice stories ----------
+  async function loadStories(id){const box=$("#storiesList");box.innerHTML="<p class='muted'>جاري التحميل...</p>";
+    const {data,error}=await client.from("person_stories").select("*").eq("person_id",id).order("created_at");if(state.activePersonId!==id)return;
+    if(error||!data?.length){box.innerHTML="<p class='muted'>ما فيه تسجيلات للحين. صوت الكبار وحكاياتهم كنز، سجّلوها هنا 🤍</p>";return;}
+    box.innerHTML=data.map(st=>`<div class="story"><div><b>${esc(st.title)}</b>${st.narrator?`<small>بصوت ${esc(st.narrator)}</small>`:""}</div><audio controls preload="none" data-path="${esc(st.file_path)}"></audio>${["admin","editor"].includes(state.role)?`<button type="button" class="story-del" data-id="${st.id}" data-path="${esc(st.file_path)}" aria-label="حذف">×</button>`:""}</div>`).join("");
+    for(const a of box.querySelectorAll("audio")){const u=await mediaUrl(a.dataset.path);if(u)a.src=u;}
+    box.querySelectorAll(".story-del").forEach(b=>b.onclick=async()=>{if(!confirm("حذف التسجيل؟"))return;await client.from("person_stories").delete().eq("id",b.dataset.id);await client.storage.from("family-media").remove([b.dataset.path]);loadStories(id);});}
+  let rec=null,recChunks=[],recBlob=null,recTimer=null,recStart=0;
+  $("#storyAddBtn").onclick=()=>{recBlob=null;$("#storyTitle").value="";$("#storyNarrator").value="";$("#storyMsg").textContent="";$("#storyPreview").classList.add("hidden");$("#recTime").textContent="";$("#recBtn").textContent="⏺ ابدأ التسجيل";$("#storyModal").classList.remove("hidden");};
+  $$("[data-close-story]").forEach(b=>b.onclick=()=>{if(rec&&rec.state==="recording")rec.stop();$("#storyModal").classList.add("hidden");});
+  $("#recBtn").onclick=async()=>{
+    if(rec&&rec.state==="recording"){rec.stop();return;}
+    try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const type=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(t=>window.MediaRecorder?.isTypeSupported?.(t))||"";
+      rec=new MediaRecorder(stream,type?{mimeType:type}:undefined);recChunks=[];rec.ondataavailable=e=>e.data.size&&recChunks.push(e.data);
+      rec.onstop=()=>{stream.getTracks().forEach(t=>t.stop());clearInterval(recTimer);recBlob=new Blob(recChunks,{type:rec.mimeType||type||"audio/mp4"});const pv=$("#storyPreview");pv.src=URL.createObjectURL(recBlob);pv.classList.remove("hidden");$("#recBtn").textContent="⏺ سجّل من جديد";};
+      rec.start();recStart=Date.now();$("#recBtn").textContent="⏹ إيقاف";recTimer=setInterval(()=>{const s=Math.floor((Date.now()-recStart)/1000);$("#recTime").textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;if(s>=900)rec.stop();},500);
+    }catch(e){toast("ما قدرنا نوصل للمايك. اسمح للموقع باستخدامه، أو ارفع ملف صوت.",5000);}
+  };
+  $("#storyFile").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(!f)return;if(f.size>15*1024*1024)return toast("الملف أكبر من 15 ميجا");recBlob=f;const pv=$("#storyPreview");pv.src=URL.createObjectURL(f);pv.classList.remove("hidden");});
+  $("#storySave").onclick=async()=>{const id=state.activePersonId,title=$("#storyTitle").value.trim(),msg=$("#storyMsg");
+    if(!title)return msg.textContent="اكتب عنوان للتسجيل.";if(!recBlob)return msg.textContent="سجّل أو ارفع ملف صوت أولًا.";
+    msg.textContent="جاري الرفع...";$("#storySave").disabled=true;
+    try{const ext=(recBlob.type.includes("webm")?"webm":recBlob.type.includes("mpeg")?"mp3":recBlob.type.includes("wav")?"wav":"m4a");
+      const path=await uploadMedia(`stories/${id}/${Date.now()}.${ext}`,recBlob,recBlob.type||"audio/mp4");
+      const {error}=await client.from("person_stories").insert({person_id:id,title,narrator:$("#storyNarrator").value.trim()||null,file_path:path,mime_type:recBlob.type||null,duration_sec:recStart?Math.round((Date.now()-recStart)/1000):null});
+      if(error)throw error;$("#storyModal").classList.add("hidden");toast("تم حفظ التسجيل ✅");loadStories(id);}
+    catch(e){msg.textContent="تعذر الحفظ: "+e.message;}finally{$("#storySave").disabled=false;}};
+
+  // ---------- albums ----------
+  let albumsCache=[],currentAlbum=null,lbList=[],lbIdx=0;
+  async function renderAlbums(){$("#albumView").classList.add("hidden");$("#albumsGrid").classList.remove("hidden");const grid=$("#albumsGrid");
+    const {data,error}=await client.from("albums").select("*").order("album_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false});
+    albumsCache=data||[];if(error||!albumsCache.length){grid.innerHTML=`<div class="h2-empty"><b>ما فيه ألبومات للحين</b><p>أول ألبوم ينضاف يطلع هنا.</p></div>`;return;}
+    grid.innerHTML=albumsCache.map(a=>`<button type="button" class="album-card" data-id="${a.id}"><div class="album-cover" data-path="${esc(a.cover_path||"")}"></div><b>${esc(a.title)}</b><small>${a.album_date?esc(window.ShugaaHijri.pick(window.ShugaaHijri.side(null,null,a.album_date).full)):""}</small></button>`).join("");
+    grid.querySelectorAll(".album-card").forEach(b=>b.onclick=()=>openAlbum(b.dataset.id));
+    for(const d of grid.querySelectorAll(".album-cover[data-path]")){if(!d.dataset.path)continue;const u=await mediaUrl(d.dataset.path);if(u)d.style.backgroundImage=`url("${u}")`;}}
+  async function openAlbum(id){currentAlbum=albumsCache.find(a=>a.id===id);if(!currentAlbum)return;$("#albumsGrid").classList.add("hidden");$("#albumView").classList.remove("hidden");
+    $("#albumTitle").textContent=currentAlbum.title;$("#albumDesc").textContent=currentAlbum.description||"";$("#albumUploadLbl").classList.toggle("hidden",!["admin","editor"].includes(state.role));
+    const {data}=await client.from("album_photos").select("*").eq("album_id",id).order("created_at");lbList=data||[];const box=$("#albumPhotos");
+    box.innerHTML=lbList.length?lbList.map((ph,i)=>`<button type="button" class="album-photo" data-i="${i}" data-path="${esc(ph.file_path)}"></button>`).join(""):"<p class='muted'>الألبوم فاضي.</p>";
+    box.querySelectorAll(".album-photo").forEach(b=>b.onclick=()=>openLightbox(+b.dataset.i));
+    for(const b of box.querySelectorAll(".album-photo")){const u=await mediaUrl(b.dataset.path);if(u)b.style.backgroundImage=`url("${u}")`;}}
+  $("#albumBack").onclick=renderAlbums;
+  $("#newAlbumBtn").onclick=()=>{$("#albumNewTitle").value="";$("#albumNewDate").value="";$("#albumNewDesc").value="";$("#albumMsg").textContent="";$("#albumModal").classList.remove("hidden");};
+  $$("[data-close-album]").forEach(b=>b.onclick=()=>$("#albumModal").classList.add("hidden"));
+  $("#albumCreate").onclick=async()=>{const t=$("#albumNewTitle").value.trim();if(!t)return $("#albumMsg").textContent="اكتب عنوان الألبوم.";
+    const {data,error}=await client.from("albums").insert({title:t,album_date:$("#albumNewDate").value||null,description:$("#albumNewDesc").value.trim()||null}).select("*").single();
+    if(error)return $("#albumMsg").textContent=error.message;$("#albumModal").classList.add("hidden");albumsCache.unshift(data);openAlbum(data.id);toast("انشأ الألبوم، أضف الصور الحين 📸");};
+  $("#albumUpload").addEventListener("change",async e=>{const files=[...e.target.files];e.target.value="";if(!files.length||!currentAlbum)return;let n=0;
+    for(const f of files){try{toast(`جاري رفع ${++n} من ${files.length}...`);const blob=await shrinkImage(f,1600);const path=await uploadMedia(`albums/${currentAlbum.id}/${Date.now()}-${n}.jpg`,blob,"image/jpeg");
+      await client.from("album_photos").insert({album_id:currentAlbum.id,file_path:path});
+      if(!currentAlbum.cover_path){currentAlbum.cover_path=path;await client.from("albums").update({cover_path:path}).eq("id",currentAlbum.id);}}catch(err){toast("تعذر رفع صورة: "+err.message,4000);}}
+    toast("تمت إضافة الصور ✅");openAlbum(currentAlbum.id);});
+  async function openLightbox(i){lbIdx=(i+lbList.length)%lbList.length;const ph=lbList[lbIdx];$("#lbImg").src=await mediaUrl(ph.file_path)||"";$("#lbCap").textContent=ph.caption||"";$("#lightbox").classList.remove("hidden");}
+  $("#lbClose").onclick=()=>$("#lightbox").classList.add("hidden");$("#lbNext").onclick=()=>openLightbox(lbIdx+1);$("#lbPrev").onclick=()=>openLightbox(lbIdx-1);
+
+  // ---------- views: albums + map ----------
+  const _setView=setView;
+  setView=function(name){const r=_setView(name);if(name==="albums"&&state.mode==="account")renderAlbums();if(name==="history")setTimeout(initMap,60);return r;};
+  let leafletMap=null,addPlaceMode=false;
+  function loadLeaflet(){return window.L?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";s.onload=res;s.onerror=()=>rej(new Error("map"));document.head.appendChild(s);});}
+  async function initMap(){
+    try{await loadLeaflet();}catch(e){$("#mapEmpty").classList.remove("hidden");return;}
+    const el=$("#familyMap"); if(!leafletMap){leafletMap=L.map(el,{scrollWheelZoom:false,attributionControl:true}).setView([23.9,45.1],5);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenStreetMap"}).addTo(leafletMap);
+      leafletMap.on("click",async ev=>{if(!addPlaceMode)return;addPlaceMode=false;$("#mapAddPlaceBtn").textContent="＋ أضف مكان";const name=prompt("اسم المكان (مثال: القرية، المدينة):");if(!name)return;
+        const {error}=await client.from("places").insert({name_ar:name.trim(),latitude:+ev.latlng.lat.toFixed(6),longitude:+ev.latlng.lng.toFixed(6)});if(error)return toast(error.message,4000);await loadAccountData();initMap();toast("تمت إضافة المكان ✅");});}
+    leafletMap.invalidateSize(); leafletMap.eachLayer(l=>{if(l instanceof L.Marker)leafletMap.removeLayer(l);});
+    const pts=(state.places||[]).filter(p=>p.latitude!=null&&p.longitude!=null);
+    $("#mapEmpty").classList.toggle("hidden",!!pts.length);
+    const icon=L.divIcon({className:"map-pin",html:"<span></span>",iconSize:[26,26],iconAnchor:[13,26]});
+    pts.forEach(pl=>{const born=state.people.filter(p=>p.birth_place_id===pl.id),evs=state.events.filter(e=>e.place_id===pl.id);
+      const lines=[...born.map(p=>`👶 ${esc(p.full_name_ar)}`),...evs.map(e=>`📍 ${esc((EVT[e.event_type]||EVT.other).t)}: ${esc(getPerson(e.person_id)?.full_name_ar||"")}`)].slice(0,12);
+      L.marker([pl.latitude,pl.longitude],{icon}).addTo(leafletMap).bindPopup(`<div class="map-pop"><b>${esc(pl.name_ar)}</b>${lines.length?`<p>${lines.join("<br>")}</p>`:""}</div>`);});
+    if(pts.length)leafletMap.fitBounds(pts.map(p=>[p.latitude,p.longitude]),{padding:[40,40],maxZoom:9});
+  }
+  $("#mapAddPlaceBtn").onclick=()=>{addPlaceMode=!addPlaceMode;$("#mapAddPlaceBtn").textContent=addPlaceMode?"اضغط على الخريطة…":"＋ أضف مكان";if(addPlaceMode)toast("اضغط على مكانه في الخريطة");};
+
+  // ---------- print the whole tree ----------
+  $("#printTreeBtn").onclick=()=>{if(!state.cy)return;const vis=state.cy.elements().not(".tree-hidden");const bb=vis.boundingBox();const scale=Math.max(.6,Math.min(3,5000/Math.max(bb.w,bb.h)));
+    const png=state.cy.png({full:true,scale,bg:"#FBF9F4"});const H=window.ShugaaHijri,now=new Date();
+    printHtml(`<div class="tree-print"><div class="tp-head">${sealSvg(64)}<div><h1>شجرة آل شجاع</h1><p>${buildTreeModel().people.length} فرد • ${esc(H.fmtHDate(H.gToH(now.getFullYear(),now.getMonth()+1,now.getDate())))}</p></div></div><img src="${png}" alt="شجرة آل شجاع"/></div>`,bb.w>bb.h);};
+
+  // ---------- on this day ----------
+  function renderToday(){const card=$("#h2Today");if(!card)return;const H=window.ShugaaHijri,now=new Date(),gm=now.getMonth()+1,gd=now.getDate(),hj=H.gToH(now.getFullYear(),gm,gd);
+    const hits=[];const same=iso=>{if(!iso)return false;const [y,m,d]=String(iso).slice(0,10).split("-").map(Number);if(y===now.getFullYear())return false;if(m===gm&&d===gd)return y;const h=H.gToH(y,m,d);return h.m===hj.m&&h.d===hj.d?y:false;};
+    state.events.forEach(e=>{const y=same(e.event_date);if(y)hits.push({y,t:`${(EVT[e.event_type]||EVT.other).t}: ${getPerson(e.person_id)?.full_name_ar||e.title||""}`,id:e.person_id});});
+    state.people.forEach(p=>{const b=same(p.birth_date);if(b)hits.push({y:b,t:`ولد ${p.full_name_ar}`,id:p.id});const d=same(p.death_date);if(d)hits.push({y:d,t:`وفاة ${p.full_name_ar} رحمه الله`,id:p.id});});
+    card.classList.toggle("hidden",!hits.length);if(!hits.length)return;
+    $("#h2TodayTitle").textContent=H.fmtHDate(hj);
+    $("#h2TodayList").innerHTML=hits.slice(0,6).map(x=>`<button type="button" class="h2-today-item" data-pid="${x.id}"><span>قبل ${now.getFullYear()-x.y} سنة</span><b>${esc(x.t)}</b></button>`).join("");
+    $$("#h2TodayList [data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));}
+
+  // ---------- join requests ----------
+  $$("[data-join]").forEach(b=>b.addEventListener("click",()=>{$("#moreSheet")?.classList.add("hidden");$("#joinMsg").textContent="";$("#joinModal").classList.remove("hidden");}));
+  $$("[data-close-join]").forEach(b=>b.onclick=()=>$("#joinModal").classList.add("hidden"));
+  $("#joinSend").onclick=async()=>{const msg=$("#joinMsg"),pid=$("#joinPerson").value,name=$("#joinName").value.trim(),phone=$("#joinPhone").value.trim();
+    if(!pid)return msg.textContent="اختر اسمك من الشجرة.";if(!name)return msg.textContent="اكتب اسمك.";if(!phone)return msg.textContent="اكتب رقم الواتساب عشان نرسل لك الكود.";
+    const code=sessionStorage.getItem("shugaa_access_code");$("#joinSend").disabled=true;msg.textContent="جاري الإرسال...";
+    const {data,error}=await client.rpc("submit_join_request",{p_family_code:code,p_person_id:pid,p_name:name,p_phone:phone,p_note:$("#joinNote").value.trim()||null});
+    $("#joinSend").disabled=false;
+    if(error||!data?.ok)return msg.textContent=data?.reason==="rate_limited"?"محاولات كثيرة، جرب بعد شوي.":"تعذر الإرسال، تأكد من البيانات.";
+    $("#joinModal").classList.add("hidden");toast(data.duplicate?"طلبك موجود عند الإدارة، بيوصلك الكود قريب 👍":"وصل طلبك للإدارة ✅ بيوصلك كودك على الواتساب",6000);};
+  async function loadJoinRequests(){const {data}=await client.from("join_requests").select("*").eq("status","pending").order("created_at");const rows=data||[];
+    const cnt=$("#joinCount");if(cnt){cnt.textContent=rows.length;cnt.classList.toggle("hidden",!rows.length);}
+    const box=$("#joinList");if(!box)return;
+    box.innerHTML=rows.length?rows.map(r=>`<div class="join-item"><div><b>${esc(r.requester_name)}</b><small>يقول إنه: <button class="h2-person" data-pid="${r.person_id}">${esc(getPerson(r.person_id)?.full_name_ar||"—")}</button></small><small dir="ltr">${esc(r.phone||"")}</small>${r.note?`<small>“${esc(r.note)}”</small>`:""}</div>
+      <div class="join-actions"><select class="no-search" data-role="${r.id}"><option value="viewer">مشاهد</option><option value="editor">مدخل بيانات</option></select><button class="btn primary" data-approve="${r.id}">اعتماد</button><button class="btn light" data-reject="${r.id}">رفض</button></div></div>`).join(""):"<p class='muted'>ما فيه طلبات جديدة.</p>";
+    box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));
+    box.querySelectorAll("[data-approve]").forEach(b=>b.onclick=()=>decideJoin(b.dataset.approve,true,box.querySelector(`[data-role="${b.dataset.approve}"]`).value));
+    box.querySelectorAll("[data-reject]").forEach(b=>b.onclick=()=>{if(confirm("رفض الطلب؟"))decideJoin(b.dataset.reject,false);});}
+  async function decideJoin(id,ok,role){const {data,error}=await client.rpc("admin_decide_join_request",{p_id:id,p_approve:ok,p_role:role||"viewer"});if(error)return toast(error.message,5000);
+    if(ok&&data?.code){const link=location.origin+location.pathname,first=String(data.name||"").split(/\s+/)[0];
+      const text=`السلام عليكم ${first} 🌳\nهذا كودك الخاص في موقع شجرة آل شجاع:\n${data.code}\n\nافتح الرابط واكتب الكود:\n${link}\n\nالكود خاص فيك، لا تشاركه مع أحد.`;
+      const phone=String(data.phone||"").replace(/[^\d]/g,"").replace(/^00/,"").replace(/^05/,"9665");
+      const box=$("#joinCodeBox");box.classList.remove("hidden");box.innerHTML=`<b>✅ انعتمد طلب ${esc(data.name)} — الكود:</b><code>${esc(data.code)}</code><div class="code-share-actions"><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/${phone}?text=${encodeURIComponent(text)}">إرسال له بالواتساب</a></div>`;}
+    else toast("تم رفض الطلب");loadJoinRequests();}
+
+  // ---------- push notifications ----------
+  const pushSupported=()=>"serviceWorker"in navigator&&"PushManager"in window&&"Notification"in window;
+  async function syncPushEntry(){let show=false;try{if(pushSupported()){const reg=await navigator.serviceWorker.getRegistration();const sub=await reg?.pushManager.getSubscription();show=!sub&&Notification.permission!=="denied";}else show=isIOS&&!isStandalone();}catch(_){}
+    $$(".push-entry").forEach(e=>e.classList.toggle("hidden",!show));}
+  const b64ToU8=b=>{const p="=".repeat((4-b.length%4)%4),r=atob((b+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)));};
+  async function enablePush(){$("#moreSheet")?.classList.add("hidden");
+    if(!pushSupported()){if(isIOS&&!isStandalone()){toast("في الآيفون: ثبّت التطبيق على الشاشة الرئيسية أول، وبعدها فعّل الإشعارات من داخله.",6000);openInstall();}else toast("جهازك أو متصفحك ما يدعم الإشعارات.",5000);return;}
+    try{const perm=await Notification.requestPermission();if(perm!=="granted")return toast("ما انسمح بالإشعارات. تقدر تفعلها من إعدادات الجهاز.",5000);
+      const kres=await fetch(fnUrl("send-push"),{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.supabasePublishableKey},body:JSON.stringify({action:"public-key"})});const {publicKey}=await kres.json();
+      const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(publicKey)});
+      const {error}=await client.rpc("save_push_subscription",{p_sub:sub.toJSON()});if(error)throw error;toast("تم تفعيل الإشعارات 🔔 بيوصلك كل خبر جديد");syncPushEntry();}
+    catch(e){console.error(e);toast("تعذر تفعيل الإشعارات: "+e.message,5000);}}
+  $$("[data-push]").forEach(b=>b.addEventListener("click",enablePush));
+  async function sendEventPush(eventId){try{const {data:{session}}=await client.auth.getSession();const r=await fetch(fnUrl("send-push"),{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.supabasePublishableKey,Authorization:`Bearer ${session?.access_token||""}`},body:JSON.stringify({action:"send",event_id:eventId})});
+    const out=await r.json().catch(()=>({}));if(out.ok)toast(`🔔 وصل إشعار الخبر لـ ${out.sent} جهاز`,4000);}catch(e){console.warn(e);}}
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();

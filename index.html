@@ -18,7 +18,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=11.0.4" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="./styles.css?v=12.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -128,6 +129,7 @@
         <button data-view="kinship" class="nav-btn">صلة القرابة</button>
         <button data-view="lineage" class="nav-btn">مسار النسب</button>
         <button data-view="library" class="nav-btn account-only hidden">محتوى العائلة</button>
+        <button data-view="albums" class="nav-btn account-only hidden">الألبومات</button>
         <button data-view="history" class="nav-btn">أخبار وتاريخ</button>
         <button data-view="contribute" class="nav-btn contribution-only hidden">الطلبات</button>
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">أسرتي</button>
@@ -157,7 +159,9 @@
             </div>
           </section>
           <div id="installBanner" class="install-banner hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>خلّ آل شجاع على شاشتك</b><small>ثبّته كتطبيق ويفتح معك بضغطة</small></div><button type="button" class="btn gold" data-install>ثبّت</button><button type="button" class="install-x" id="installBannerX" aria-label="إخفاء">×</button></div>
+          <div id="joinBanner" class="install-banner general-only hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>تبي حساب باسمك؟</b><small>اختر نفسك من الشجرة وتوصلك الإدارة بكودك الخاص</small></div><button type="button" class="btn gold" data-join>اطلب</button></div>
           <section id="h2Stats" class="h2-stats"></section>
+          <article id="h2Today" class="h2-card h2-today hidden"><header><div><span class="h2-kicker">في مثل هذا اليوم</span><h3 id="h2TodayTitle"></h3></div></header><div id="h2TodayList"></div></article>
           <section class="h2-grid">
             <article class="h2-card h2-news">
               <header><div><span class="h2-kicker">نبض العائلة</span><h3>آخر الأخبار</h3></div><button type="button" class="h2-link" data-go="history">كل الأخبار ←</button></header>
@@ -233,6 +237,7 @@
           <button id="expandAllBtn" class="awraq-command-btn hidden">⤢ فتح الكل</button>
           <button id="fitTreeBtn" class="awraq-command-btn">⊙ ملاءمة</button>
           <button id="relayoutBtn" class="awraq-command-btn">↺ إعادة</button>
+          <button id="printTreeBtn" class="awraq-command-btn">🖨 طباعة</button>
           <button id="shareTreeBtn" class="awraq-command-btn">⌯ مشاركة</button>
         </div>
 
@@ -285,10 +290,17 @@
         <div id="libraryEmpty" class="empty-state hidden"><div>🏛️</div><h3>لا توجد مواد متاحة</h3></div>
       </section>
 
-      <section id="view-history" class="view account-only hidden">
+      <section id="view-history" class="view">
         <div class="page-head"><div><span class="section-kicker">الزمن والمكان</span><h2>رحلة العائلة</h2><p>أحداث الميلاد والسكن والهجرة والزواج والوفاة المسجلة.</p></div></div>
+        <div class="map-card panel"><div class="map-head"><div><span class="section-kicker">خريطة العائلة</span><h3>وين عاشوا وانتقلوا</h3></div><button type="button" id="mapAddPlaceBtn" class="btn light staff-only hidden">＋ أضف مكان</button></div><div id="familyMap" class="family-map"></div><p id="mapEmpty" class="muted hidden">ما فيه أماكن عليها إحداثيات للحين. المدير يقدر يضيف مكان بالضغط على الخريطة.</p></div>
         <div id="historyList" class="history-list"></div>
         <div id="historyEmpty" class="empty-state hidden"><div>⌛</div><h3>لا توجد أحداث بعد</h3></div>
+      </section>
+
+      <section id="view-albums" class="view account-only hidden">
+        <div class="page-head"><div><span class="section-kicker">الذكريات</span><h2>ألبومات العائلة</h2><p>صور المناسبات والزواجات والجمعات.</p></div><button type="button" id="newAlbumBtn" class="btn gold staff-only hidden">＋ ألبوم جديد</button></div>
+        <div id="albumsGrid" class="albums-grid"></div>
+        <div id="albumView" class="album-view hidden"><div class="album-view-head"><button type="button" id="albumBack" class="btn light">→ رجوع</button><div><h3 id="albumTitle"></h3><p id="albumDesc" class="muted"></p></div><label class="btn primary staff-only hidden" id="albumUploadLbl">＋ صور<input id="albumUpload" type="file" accept="image/*" multiple hidden /></label></div><div id="albumPhotos" class="album-photos"></div></div>
       </section>
 
       <section id="view-contribute" class="view contribution-only hidden">
@@ -357,6 +369,7 @@
           <button class="admin-tab admin-only hidden" data-admin-panel="accounts">الأعضاء والضيوف <span id="pendingCount" class="count-badge">0</span></button>
           <button class="admin-tab admin-only hidden" data-admin-panel="permissions">إدارة المستخدمين</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="bulk">إضافة جماعية وتصدير</button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="join">طلبات الانضمام <b id="joinCount" class="count-badge">0</b></button>
           <button class="admin-tab admin-only hidden" data-admin-panel="health">اكتمال البيانات</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="event">أخبار / حدث</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="library">محتوى العائلة</button>
@@ -483,6 +496,7 @@
           </div>
         </div>
 
+        <div id="admin-join" class="admin-panel admin-only hidden"><div class="panel stack"><h3>طلبات الانضمام</h3><p class="muted">ناس دخلوا بكود العائلة وطلبوا حساب باسمهم. اختر صلاحيته واعتمد، والكود يطلع لك جاهز ترسله له بالواتساب.</p><div id="joinList" class="join-list"></div><div id="joinCodeBox" class="new-code-result hidden"></div></div></div>
         <div id="admin-health" class="admin-panel admin-only hidden">
           <div class="health-grid">
             <article class="health-card"><strong id="healthNoFather">0</strong><span>أشخاص بلا أب مربوط</span></article>
@@ -535,6 +549,9 @@
         <button data-view="people" class="nav-btn">👥<span>قائمة الأفراد</span></button>
         <button data-view="kinship" class="nav-btn">🧬<span>صلة القرابة</span></button>
         <button data-view="lineage" class="nav-btn">↟<span>مسار النسب</span></button>
+        <button data-view="albums" class="nav-btn account-only hidden">🖼️<span>الألبومات</span></button>
+        <button type="button" class="nav-btn general-only hidden" data-join>🙋<span>أبي حساب باسمي</span></button>
+        <button type="button" class="nav-btn push-entry hidden" data-push>🔔<span>الإشعارات</span></button>
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">♡<span>أسرتي</span></button>
         <button data-view="contribute" class="nav-btn contribution-only hidden">✍️<span>الطلبات</span></button>
         <button data-view="admin" class="nav-btn staff-only hidden">⚙️<span>إعدادات العائلة</span></button>
@@ -551,6 +568,7 @@
 
       <div class="v4-profile-top">
         <div id="profileAvatar" class="avatar big">ش</div>
+        <label id="profilePhotoBtn" class="photo-btn staff-only hidden" title="صورة الشخص">📷<input id="profilePhotoInput" type="file" accept="image/*" hidden /></label>
         <div class="v4-profile-title">
           <div class="profile-code-row"><span id="profileRecordCode" class="badge gold"></span><span id="profileLineageCode" class="badge"></span></div>
           <h2 id="profileName"></h2>
@@ -565,6 +583,10 @@
       <div class="v4-primary-actions account-only hidden">
         <button id="profileAddRelativeBtn" class="btn primary v4-big-action">＋ إضافة</button>
         <button id="profileBuildFamilyBtn" class="btn gold v4-big-action hidden">إضافة أسرة</button>
+      </div>
+      <div class="profile-share-row">
+        <button type="button" id="profileCertBtn" class="btn light">📜 وثيقة النسب</button>
+        <button type="button" id="profileShareBtn" class="btn light">↗ شارك</button>
       </div>
 
       <div class="v4-profile-tabs" role="tablist">
@@ -605,6 +627,7 @@
       <section id="profileTab-details" class="v4-profile-panel account-only hidden">
         <div class="panel soft"><h3>نبذة</h3><p id="profileBio">—</p></div>
         <div id="profileDetailFacts" class="v4-detail-facts"></div>
+        <div class="panel soft stories-panel"><div class="stories-head"><h3>🎙️ روايات وأصوات</h3><button type="button" id="storyAddBtn" class="btn light staff-only hidden">＋ أضف تسجيل</button></div><div id="storiesList" class="stories-list"></div></div>
       </section>
 
       <details class="v4-admin-more staff-only hidden">
@@ -1035,7 +1058,40 @@
     </article>
   </div>
   <div id="updateBar" class="update-bar hidden" role="status"><span>فيه تحديث جديد للموقع ✨</span><button type="button" id="updateNowBtn">حدّث الآن</button></div>
-  <script src="./config.js?v=11.0.4"></script>
-  <script src="./app.js?v=11.0.4"></script>
+
+  <!-- V12 — join request -->
+  <div id="joinModal" class="modal hidden"><div class="modal-backdrop" data-close-join></div>
+    <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-join aria-label="إغلاق">×</button>
+      <h2>أبي حساب باسمي</h2><p class="muted">اختر نفسك من الشجرة، وتوصلك الإدارة كودك الخاص على الواتساب.</p>
+      <div class="batch-row">
+        <label>أنا في الشجرة<select id="joinPerson"><option value="">— اختر اسمك —</option></select></label>
+        <label>اسمك<input id="joinName" autocomplete="name" /></label>
+        <label>رقم الواتساب<input id="joinPhone" inputmode="tel" dir="ltr" placeholder="9665xxxxxxxx" /></label>
+        <label>ملاحظة (اختياري)<textarea id="joinNote" rows="2" placeholder="مثال: أنا ابن محمد بن علي"></textarea></label>
+      </div>
+      <div class="batch-footer"><button type="button" id="joinSend" class="btn primary wide">أرسل الطلب</button><p id="joinMsg" class="form-msg"></p></div>
+    </article></div>
+  <!-- V12 — voice story -->
+  <div id="storyModal" class="modal hidden"><div class="modal-backdrop" data-close-story></div>
+    <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-story aria-label="إغلاق">×</button>
+      <h2 id="storyTitleH">إضافة تسجيل</h2>
+      <div class="batch-row">
+        <label>عنوان التسجيل<input id="storyTitle" placeholder="مثال: قصة انتقال الجد من القرية" /></label>
+        <label>الراوي<input id="storyNarrator" placeholder="مثال: الجد علي بن محسن" /></label>
+        <div class="rec-box"><button type="button" id="recBtn" class="btn gold">⏺ ابدأ التسجيل</button><span id="recTime" class="rec-time"></span><label class="btn light">📁 أو ارفع ملف صوت<input id="storyFile" type="file" accept="audio/*" hidden /></label></div>
+        <audio id="storyPreview" controls class="hidden"></audio>
+      </div>
+      <div class="batch-footer"><button type="button" id="storySave" class="btn primary wide">حفظ التسجيل</button><p id="storyMsg" class="form-msg"></p></div>
+    </article></div>
+  <!-- V12 — new album -->
+  <div id="albumModal" class="modal hidden"><div class="modal-backdrop" data-close-album></div>
+    <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-album aria-label="إغلاق">×</button>
+      <h2>ألبوم جديد</h2>
+      <div class="batch-row"><label>العنوان<input id="albumNewTitle" placeholder="مثال: زواج محمد علي" /></label><label>التاريخ<input id="albumNewDate" type="date" /></label><label>وصف<textarea id="albumNewDesc" rows="2"></textarea></label></div>
+      <div class="batch-footer"><button type="button" id="albumCreate" class="btn primary wide">إنشاء الألبوم</button><p id="albumMsg" class="form-msg"></p></div>
+    </article></div>
+  <div id="lightbox" class="lightbox hidden"><button type="button" id="lbClose" aria-label="إغلاق">×</button><button type="button" id="lbPrev" aria-label="السابق">›</button><img id="lbImg" alt="" /><button type="button" id="lbNext" aria-label="التالي">‹</button><p id="lbCap"></p></div>
+  <script src="./config.js?v=12.0.0"></script>
+  <script src="./app.js?v=12.0.0"></script>
 </body>
 </html>
