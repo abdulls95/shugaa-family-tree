@@ -1625,3 +1625,18 @@ button.hub-tile:hover:not(:disabled),.hub-split button:hover:not(:disabled){bord
 .smart-req del{color:#9D3F37}
 .smart-req li span{color:var(--v7-muted,#6f7a75)}
 .batch-card.single .batch-remove{display:none}
+
+/* V9 — interactive tree */
+.shugaa-v7 .awraq-tree-stage{position:relative}
+.tree-node-bar{position:absolute;top:0;left:0;z-index:15;background:#fff;border:1px solid var(--v7-line-2,#d8ccb2);border-radius:14px;box-shadow:0 12px 30px rgba(7,38,33,.18);padding:8px;display:grid;gap:6px;max-width:min(360px,calc(100% - 12px));transition:transform .12s ease-out}
+.tree-node-bar b{font-family:var(--v7-display);font-size:17px;color:var(--v7-ink,#0c3530);padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tree-node-bar>div{display:flex;gap:6px;flex-wrap:wrap}
+.tree-node-bar button{border:1px solid var(--v7-line,#e7dfcf);background:#FBF8F1;color:var(--v7-ink,#0c3530);border-radius:10px;padding:8px 11px;font-weight:600;font-size:13px;font-family:inherit;cursor:pointer}
+.tree-node-bar button.primary{background:var(--v7-ink,#0c3530);color:#F6EBCF;border-color:var(--v7-ink,#0c3530)}
+.tree-node-bar button:hover{border-color:var(--v7-gold,#b08a3e)}
+.tree-zoom{position:absolute;left:12px;bottom:48px;z-index:10;display:grid;gap:6px}
+.tree-zoom button{width:42px;height:42px;border-radius:12px;border:1px solid var(--v7-line-2,#d8ccb2);background:#fff;color:var(--v7-ink,#0c3530);font-size:20px;box-shadow:0 4px 12px rgba(7,38,33,.1);cursor:pointer}
+.shugaa-v7 .awraq-tree-commandbar{flex-wrap:wrap;row-gap:6px}
+.shugaa-v7 .awraq-command-btn{white-space:nowrap}
+@media (max-width:860px){.shugaa-v7 .awraq-tree-commandbar{overflow-x:auto;flex-wrap:nowrap}.tree-zoom{bottom:56px}}
+.shugaa-v7 .awraq-add{white-space:nowrap}

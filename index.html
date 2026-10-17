@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=8.1.1" />
+  <link rel="stylesheet" href="./styles.css?v=9.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -189,15 +189,23 @@
 
         <div class="awraq-tree-commandbar">
           <div class="awraq-command-search"><span>⌕</span><input id="treeSearch" class="search-input" placeholder="بحث داخل الشجرة" /></div>
-          <button id="shareTreeBtn" class="awraq-command-btn">⌯ مشاركة</button>
+          <button id="myBranchBtn" class="awraq-command-btn hidden">◉ فرعي</button>
+          <button id="treeDirBtn" class="awraq-command-btn">↔ أفقي</button>
+          <button id="expandAllBtn" class="awraq-command-btn hidden">⤢ فتح الكل</button>
           <button id="fitTreeBtn" class="awraq-command-btn">⊙ ملاءمة</button>
-          <button id="relayoutBtn" class="awraq-command-btn">☷ ترتيب</button>
+          <button id="relayoutBtn" class="awraq-command-btn">↺ إعادة</button>
+          <button id="shareTreeBtn" class="awraq-command-btn">⌯ مشاركة</button>
         </div>
 
         <div id="treeEmpty" class="empty-state hidden"><div>🌱</div><h3>الشجرة فارغة</h3></div>
         <div class="awraq-tree-stage">
           <div id="cy" class="tree-canvas"></div>
-          <div class="awraq-zoom-hint">اضغط على أي شخص لعرض ملفه • استخدم إصبعين للتكبير والتحريك</div>
+          <div id="treeNodeBar" class="tree-node-bar hidden" role="toolbar" aria-label="خيارات الشخص">
+            <b id="treeBarName"></b>
+            <div><button type="button" id="treeBarProfile">الملف</button><button type="button" id="treeBarAdd" class="primary">＋ إضافة</button><button type="button" id="treeBarCollapse">طي الفرع</button><button type="button" id="treeBarFocus">تركيز</button></div>
+          </div>
+          <div class="tree-zoom"><button type="button" id="zoomInBtn" aria-label="تكبير">＋</button><button type="button" id="zoomOutBtn" aria-label="تصغير">－</button></div>
+          <div class="awraq-zoom-hint">اضغط على شخص لخياراته • اضغطه مرة ثانية لفتح ملفه • الخط الذهبي يوصلك للجد الأكبر</div>
         </div>
       </section>
 
@@ -952,7 +960,7 @@
       <div class="batch-footer"><button type="button" id="corrSave" class="btn primary wide">إرسال التصحيح للإدارة</button><p id="corrMsg" class="form-msg"></p></div>
     </article>
   </div>
-  <script src="./config.js?v=8.1.1"></script>
-  <script src="./app.js?v=8.1.1"></script>
+  <script src="./config.js?v=9.0.0"></script>
+  <script src="./app.js?v=9.0.0"></script>
 </body>
 </html>

@@ -599,112 +599,128 @@ window.ShugaaHijri=(()=>{
     return out;
   }
 
+  // V9 — interactive tree: branch colours, lineage glow, node action bar, collapse, direction.
+  const BRANCH_COLORS=["#0C3530","#9A7733","#9E5A63","#2F6F73","#5E6B2E","#4A4F7C","#8A5A2B","#3D6B53"];
+  const treeUI={dir:(()=>{try{return localStorage.getItem("shugaa_tree_dir")||"TB";}catch(e){return "TB";}})(),collapsed:new Set(),selected:null};
+  function shortYears(p){
+    const H=window.ShugaaHijri, mode=H.getMode(), useG=mode==="gregorian";
+    const b=H.side(p.birth_year,p.birth_year_hijri,p.birth_date), d=H.side(p.death_year,p.death_year_hijri,p.death_date);
+    const cut=x=>String(useG?x.g:x.h).replace(/\s*(هـ|م)$/,"").split("/")[0];
+    const bs=(useG?b.g:b.h)?cut(b):"", ds=(useG?d.g:d.h)?cut(d):"";
+    if(!bs&&!ds)return "";
+    return `${bs||"؟"}${p.is_living===false||ds?`–${ds||"؟"}`:""} ${useG?"م":"هـ"}`;
+  }
   function renderTree(){
     const c=$("#cy");
-    if(!state.people.length){
-      c.classList.add("hidden");
-      $("#treeEmpty").classList.remove("hidden");
-      return;
-    }
-
-    c.classList.remove("hidden");
-    $("#treeEmpty").classList.add("hidden");
-
+    if(!state.people.length){ c.classList.add("hidden"); $("#treeEmpty").classList.remove("hidden"); return; }
+    c.classList.remove("hidden"); $("#treeEmpty").classList.add("hidden");
     if(state.cy)state.cy.destroy();
-
-    state.cy=cytoscape({
-      container:c,
-      elements:buildTreeElements(),
-      wheelSensitivity:.16,
-      minZoom:.18,
-      maxZoom:2.8,
-      boxSelectionEnabled:false,
-      autoungrabify:false,
-
-      style:[
-        {
-          selector:"node",
-          style:{
-            "background-color":"#ffffff",
-            "border-width":1.4,
-            "border-color":"#0C3530",
-            "label":"data(label)",
-            "text-wrap":"wrap",
-            "text-max-width":96,
-            "font-family":"IBM Plex Sans Arabic, Segoe UI, sans-serif",
-            "font-size":15,
-            "font-weight":600,
-            "color":"#0C3530",
-            "width":104,
-            "height":44,
-            "shape":"round-rectangle",
-            "text-valign":"center",
-            "text-halign":"center",
-            "overlay-opacity":0,
-            "shadow-blur":8,
-            "shadow-opacity":0.08,
-            "shadow-offset-y":2,
-            "shadow-color":"#000000"
-          }
-        },
-        {
-          selector:'node[gender="female"]',
-          style:{
-            "border-color":"#9E5A63",
-            "color":"#6E3540",
-            "background-color":"#FBF5F4"
-          }
-        },
-        {
-          selector:'edge[kind="parent"]',
-          style:{
-            "width":1.3,
-            "line-color":"#B9A57A",
-            "curve-style":"taxi",
-            "taxi-direction":"downward",
-            "taxi-turn":28,
-            "taxi-turn-min-distance":12,
-            "target-arrow-shape":"none",
-            "source-endpoint":"outside-to-node",
-            "target-endpoint":"outside-to-node",
-            "overlay-opacity":0
-          }
-        },
-        {
-          selector:".search-hit",
-          style:{
-            "background-color":"#F6EBCF",
-            "border-width":2.6,
-            "border-color":"#B08A3E"
-          }
-        },
-        {
-          selector:":selected",
-          style:{
-            "border-width":2.6,
-            "border-color":"#B08A3E",
-            "background-color":"#FFF8E8"
-          }
-        }
-      ],
-
-      layout:{
-        name:"dagre",
-        rankDir:"TB",
-        rankSep:70,
-        nodeSep:18,
-        edgeSep:24,
-        padding:64,
-        acyclicer:"greedy",
-        ranker:"network-simplex",
-        animate:false
-      }
+    const els=buildTreeElements();
+    // branch = child of the root a node descends from
+    const parentOf=new Map(), kids=new Map();
+    els.filter(e=>e.data.source).forEach(e=>{parentOf.set(e.data.target,e.data.source);(kids.get(e.data.source)||kids.set(e.data.source,[]).get(e.data.source)).push(e.data.target);});
+    const branchIdx=new Map(); let next=0;
+    // branches start where the trunk first splits (a single-child line from the root is the trunk)
+    const trunkEnd=new Map();
+    const trunkOf=root=>{if(trunkEnd.has(root))return trunkEnd.get(root);let t=root;while((kids.get(t)||[]).length===1)t=kids.get(t)[0];trunkEnd.set(root,t);return t;};
+    els.filter(e=>!e.data.source).forEach(e=>{
+      const id=e.data.id, p=getPerson(id); let cur=id, chain=[];
+      while(parentOf.has(cur)){chain.push(cur);cur=parentOf.get(cur);}
+      const tEnd=trunkOf(cur); const full=[id,...chain.slice(0,-0||undefined)];
+      let top=null; for(let x=id;parentOf.has(x);x=parentOf.get(x)){if(parentOf.get(x)===tEnd){top=x;break;}}
+      if(top&&!branchIdx.has(top))branchIdx.set(top,next++);
+      const yrs=p?shortYears(p):"";
+      Object.assign(e.data,{color:top?BRANCH_COLORS[branchIdx.get(top)%BRANCH_COLORS.length]:"#B08A3E",root:!top,
+        years:yrs,deceased:p?.is_living===false,kids:(kids.get(id)||[]).length,
+        text:e.data.label+(yrs?`\n${yrs}`:""),h:yrs?56:44});
     });
-
-    state.cy.on("tap","node",e=>openPerson(e.target.id()));
+    const RL=treeUI.dir==="RL";
+    state.cy=cytoscape({
+      container:c, elements:els, wheelSensitivity:.16, minZoom:.12, maxZoom:2.8, boxSelectionEnabled:false, autoungrabify:true,
+      style:[
+        {selector:"node",style:{"background-color":"#ffffff","border-width":1.6,"border-color":"data(color)","label":"data(text)","text-wrap":"wrap","text-max-width":104,
+          "font-family":"IBM Plex Sans Arabic, Segoe UI, sans-serif","font-size":15,"font-weight":600,"color":"#0C3530","line-height":1.35,
+          "width":112,"height":"data(h)","shape":"round-rectangle","text-valign":"center","text-halign":"center","overlay-opacity":0,
+          "shadow-blur":10,"shadow-opacity":0.07,"shadow-offset-y":3,"shadow-color":"#072621","transition-property":"opacity, border-width","transition-duration":"180ms"}},
+        {selector:'node[gender="female"]',style:{"background-color":"#FBF5F4","color":"#6E3540"}},
+        {selector:"node[?deceased]",style:{"background-color":"#F3EFE6","color":"#4A5853"}},
+        {selector:"node[?root]",style:{"border-width":2.4,"border-color":"#B08A3E","background-color":"#0C3530","color":"#F6EBCF","font-family":"Amiri, IBM Plex Sans Arabic, serif","font-size":19,"width":124}},
+        {selector:"node.collapsed",style:{"border-style":"double","border-width":4.5,"label":(n)=>`${n.data("text")}\n\u2066+${n.successors("node").length}\u2069 مطوي`,"height":(n)=>n.data("h")+18}},
+        {selector:"edge",style:{"width":1.4,"line-color":"#C9B88F","curve-style":"taxi","taxi-direction":RL?"leftward":"downward","taxi-turn":24,"taxi-turn-min-distance":10,
+          "target-arrow-shape":"none","source-endpoint":"outside-to-node","target-endpoint":"outside-to-node","overlay-opacity":0,"transition-property":"opacity, line-color, width","transition-duration":"180ms"}},
+        {selector:".tree-hidden",style:{"display":"none"}},
+        {selector:".dim",style:{"opacity":.28}},
+        {selector:"node.lit",style:{"border-color":"#B08A3E","border-width":2.6}},
+        {selector:"edge.lit",style:{"line-color":"#B08A3E","width":3}},
+        {selector:"node.focus",style:{"border-width":3.4,"border-color":"#B08A3E","background-color":"#FFF8E8","color":"#0C3530"}},
+        {selector:".search-hit",style:{"background-color":"#F6EBCF","border-width":2.8,"border-color":"#B08A3E"}}
+      ],
+      layout:{name:"preset"}
+    });
+    applyCollapse(false); runTreeLayout(false);
+    state.cy.on("tap","node",e=>{const id=e.target.id(); if(treeUI.selected===id){openPerson(id);return;} selectTreeNode(id);});
+    state.cy.on("tap",e=>{if(e.target===state.cy)clearTreeSelection();});
+    state.cy.on("pan zoom resize",placeNodeBar);
     if(document.fonts&&!renderTree._fontsHooked){renderTree._fontsHooked=true;document.fonts.ready.then(()=>{if(state.cy)state.cy.style().update();});}
-    setTimeout(()=>state.cy?.fit(undefined,70),110);
+    syncTreeToolbar(); window.__shugaaTree=state.cy;
   }
+  function runTreeLayout(animate=true,fitEles=null){
+    if(!state.cy)return; const RL=treeUI.dir==="RL";
+    const vis=state.cy.elements().not(".tree-hidden");
+    const lay=vis.layout({name:"dagre",rankDir:treeUI.dir,rankSep:RL?90:74,nodeSep:RL?14:20,edgeSep:20,padding:60,acyclicer:"greedy",ranker:"network-simplex",animate,animationDuration:280,
+      fit:false});
+    lay.one("layoutstop",()=>{ if(fitEles&&fitEles.length)state.cy.animate({fit:{eles:fitEles,padding:90},duration:280}); else state.cy.fit(vis,60); placeNodeBar(); });
+    lay.run();
+  }
+  function applyCollapse(relayout=true){
+    if(!state.cy)return;
+    state.cy.elements().removeClass("tree-hidden"); state.cy.nodes().removeClass("collapsed");
+    treeUI.collapsed.forEach(id=>{const n=state.cy.getElementById(id); if(!n.length)return; n.addClass("collapsed"); n.successors().addClass("tree-hidden");});
+    if(relayout)runTreeLayout(true,treeUI.selected?state.cy.getElementById(treeUI.selected).closedNeighborhood():null);
+  }
+  function selectTreeNode(id){
+    const cy=state.cy, n=cy.getElementById(id); if(!n.length)return;
+    treeUI.selected=id;
+    cy.elements().removeClass("lit dim focus");
+    const path=n.predecessors().union(n);
+    cy.elements().not(path).not(n.successors()).addClass("dim");
+    path.addClass("lit"); n.addClass("focus");
+    placeNodeBar();
+  }
+  function clearTreeSelection(){treeUI.selected=null;state.cy?.elements().removeClass("lit dim focus");$("#treeNodeBar").classList.add("hidden");}
+  function placeNodeBar(){
+    const bar=$("#treeNodeBar"); if(!bar)return;
+    const id=treeUI.selected, n=id&&state.cy?state.cy.getElementById(id):null;
+    if(!n||!n.length||n.hasClass("tree-hidden")){bar.classList.add("hidden");return;}
+    const p=getPerson(id), kidsCount=n.outgoers("node").length+(n.hasClass("collapsed")?1:0);
+    $("#treeBarName").textContent=p?.full_name_ar||"";
+    $("#treeBarAdd").classList.toggle("hidden",state.mode!=="account");
+    $("#treeBarAdd").textContent=canAddPeopleDirect()?"＋ إضافة":"＋ اقتراح";
+    const col=$("#treeBarCollapse"); col.classList.toggle("hidden",!kidsCount&&!treeUI.collapsed.has(id));
+    col.textContent=treeUI.collapsed.has(id)?"فتح الفرع":"طي الفرع";
+    bar.classList.remove("hidden");
+    const pos=n.renderedPosition(), h=n.renderedOuterHeight(), stage=$("#cy").getBoundingClientRect(), bw=bar.offsetWidth, bh=bar.offsetHeight;
+    let x=pos.x-bw/2, y=pos.y-h/2-bh-10; if(y<6)y=pos.y+h/2+10;
+    x=Math.max(6,Math.min(x,stage.width-bw-6));
+    bar.style.transform=`translate(${Math.round(x)}px,${Math.round(y)}px)`;
+  }
+  function syncTreeToolbar(){
+    $("#treeDirBtn")&&($("#treeDirBtn").textContent=treeUI.dir==="RL"?"↕ عمودي":"↔ أفقي");
+    $("#myBranchBtn")?.classList.toggle("hidden",!(state.mode==="account"&&state.profile?.person_id));
+    $("#expandAllBtn")?.classList.toggle("hidden",!treeUI.collapsed.size);
+  }
+  $("#treeBarProfile").onclick=()=>treeUI.selected&&openPerson(treeUI.selected);
+  $("#treeBarAdd").onclick=()=>treeUI.selected&&openAddHub(treeUI.selected);
+  $("#treeBarCollapse").onclick=()=>{const id=treeUI.selected;if(!id)return;treeUI.collapsed.has(id)?treeUI.collapsed.delete(id):treeUI.collapsed.add(id);applyCollapse(true);syncTreeToolbar();};
+  $("#treeBarFocus").onclick=()=>{const n=state.cy?.getElementById(treeUI.selected);if(n?.length)state.cy.animate({fit:{eles:n.predecessors().union(n).union(n.successors().not(".tree-hidden")),padding:80},duration:320});};
+  $("#treeDirBtn").onclick=()=>{treeUI.dir=treeUI.dir==="RL"?"TB":"RL";try{localStorage.setItem("shugaa_tree_dir",treeUI.dir);}catch(e){}renderTree();};
+  $("#zoomInBtn").onclick=()=>state.cy&&state.cy.animate({zoom:{level:state.cy.zoom()*1.3,renderedPosition:{x:$("#cy").clientWidth/2,y:$("#cy").clientHeight/2}},duration:180});
+  $("#zoomOutBtn").onclick=()=>state.cy&&state.cy.animate({zoom:{level:state.cy.zoom()/1.3,renderedPosition:{x:$("#cy").clientWidth/2,y:$("#cy").clientHeight/2}},duration:180});
+  $("#expandAllBtn").onclick=()=>{treeUI.collapsed.clear();applyCollapse(true);syncTreeToolbar();};
+  $("#myBranchBtn").onclick=()=>{const id=state.profile?.person_id;if(!id||!state.cy)return;let n=state.cy.getElementById(id);if(!n.length)return toast("ملفك ما يظهر في الشجرة الرئيسية.");
+    treeUI.collapsed.forEach(c=>{if(state.cy.getElementById(c).successors().contains(n))treeUI.collapsed.delete(c);}); applyCollapse(false); selectTreeNode(id);
+    runTreeLayout(true,n.predecessors().union(n).union(n.successors()));};
+
 
   function ancestorsFrom(id){
     const parentMap=new Map(); state.relations.filter(r=>r.parent_role==="father"||r.parent_role==="parent").forEach(r=>{ if(!parentMap.has(r.child_id))parentMap.set(r.child_id,r.parent_id); });
@@ -1768,9 +1784,9 @@ window.ShugaaHijri=(()=>{
 
   // Navigation & common
   $$(".nav-btn[data-view]").forEach(b=>b.onclick=()=>setView(b.dataset.view));$$("[data-go]").forEach(b=>b.onclick=()=>setView(b.dataset.go));$$("[data-close-modal]").forEach(x=>x.onclick=closePerson);
-  $("#peopleSearch").oninput=e=>renderPeople(e.target.value);$("#treeSearch").oninput=e=>{if(!state.cy)return;const q=norm(e.target.value);state.cy.nodes().removeClass("search-hit");if(!q)return;const hits=state.cy.nodes().filter(n=>norm(n.data("label")).includes(q));hits.addClass("search-hit");if(hits.length)state.cy.animate({fit:{eles:hits,padding:120},duration:300});};
-  $("#fitTreeBtn").onclick=()=>state.cy?.fit(undefined,65);
-  $("#relayoutBtn").onclick=()=>renderTree();
+  $("#peopleSearch").oninput=e=>renderPeople(e.target.value);$("#treeSearch").oninput=e=>{if(!state.cy)return;const q=norm(e.target.value);state.cy.nodes().removeClass("search-hit");if(!q)return;const hits=state.cy.nodes().filter(n=>norm(n.data("label")).includes(q));hits.addClass("search-hit");if(hits.length===1)selectTreeNode(hits[0].id());if(hits.length)state.cy.animate({fit:{eles:hits,padding:120},duration:300});};
+  $("#fitTreeBtn").onclick=()=>state.cy?.animate({fit:{eles:state.cy.elements().not(".tree-hidden"),padding:60},duration:280});
+  $("#relayoutBtn").onclick=()=>{treeUI.collapsed.clear();clearTreeSelection();renderTree();};
 
   $("#shareTreeBtn")?.addEventListener("click",async()=>{
     const url=window.location.href.split("?")[0];
@@ -2382,7 +2398,7 @@ window.ShugaaHijri=(()=>{
     if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
-  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=8.1.1").catch(console.warn));
+  if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=9.0.0").catch(console.warn));
 })();
 
 // V6.1 — searchable dropdowns: any long <select> becomes "type a name, pick from results".
