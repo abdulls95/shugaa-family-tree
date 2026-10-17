@@ -627,7 +627,7 @@ window.ShugaaHijri=(()=>{
     const c=$("#cy");
     if(!state.people.length){ c.classList.add("hidden"); $("#treeEmpty").classList.remove("hidden"); return; }
     c.classList.remove("hidden"); $("#treeEmpty").classList.add("hidden");
-    if(state.cy)state.cy.destroy();
+    if(state.cy)state.cy.destroy(); treeUI.removed=null;
     const els=buildTreeElements();
     // branch = child of the root a node descends from
     const parentOf=new Map(), kids=new Map();
@@ -661,7 +661,7 @@ window.ShugaaHijri=(()=>{
         {selector:'node[gender="female"]',style:{"background-color":"#FBF5F4","color":"#6E3540"}},
         {selector:"node[?deceased]",style:{"background-color":"#F3EFE6","color":"#4A5853"}},
         {selector:"node[?root]",style:{"border-width":2.4,"border-color":"#B08A3E","background-color":"#0C3530","color":"#F6EBCF","font-family":"Amiri, IBM Plex Sans Arabic, serif","font-size":19,"width":124}},
-        {selector:"node.collapsed",style:{"border-style":"double","border-width":4.5,"label":(n)=>`${n.data("text")}\n\u2066+${n.successors("node").length}\u2069 مطوي`,"height":(n)=>n.data("h")+18}},
+        {selector:"node.collapsed",style:{"border-style":"double","border-width":4.5,"label":(n)=>`${n.data("text")}\n\u2066+${n.data("hiddenCount")||0}\u2069 مطوي`,"height":(n)=>n.data("h")+18}},
         {selector:"edge",style:{"width":1.4,"line-color":"#C9B88F","curve-style":"taxi","taxi-direction":RL?"leftward":"downward","taxi-turn":24,"taxi-turn-min-distance":10,
           "target-arrow-shape":"none","source-endpoint":"outside-to-node","target-endpoint":"outside-to-node","overlay-opacity":0,"transition-property":"opacity, line-color, width","transition-duration":"180ms"}},
         {selector:".tree-hidden",style:{"display":"none"}},
@@ -682,17 +682,23 @@ window.ShugaaHijri=(()=>{
   }
   function runTreeLayout(animate=true,fitEles=null){
     if(!state.cy)return; const RL=treeUI.dir==="RL";
-    const vis=state.cy.elements().not(".tree-hidden");
+    const vis=state.cy.elements();
     const lay=vis.layout({name:"dagre",rankDir:treeUI.dir,rankSep:RL?90:74,nodeSep:RL?14:20,edgeSep:20,padding:60,acyclicer:"greedy",ranker:"network-simplex",animate,animationDuration:280,
       fit:false});
     lay.one("layoutstop",()=>{ if(fitEles&&fitEles.length)state.cy.animate({fit:{eles:fitEles,padding:90},duration:280}); else state.cy.fit(vis,60); placeNodeBar(); });
     lay.run();
   }
+  // Folded branches are taken out of the graph (not just hidden) so the layout always measures real cards.
   function applyCollapse(relayout=true){
-    if(!state.cy)return;
-    state.cy.elements().removeClass("tree-hidden"); state.cy.nodes().removeClass("collapsed");
-    treeUI.collapsed.forEach(id=>{const n=state.cy.getElementById(id); if(!n.length)return; n.addClass("collapsed"); n.successors().addClass("tree-hidden");});
-    if(relayout)runTreeLayout(true,treeUI.selected?state.cy.getElementById(treeUI.selected).closedNeighborhood():null);
+    if(!state.cy)return; const cy=state.cy;
+    if(treeUI.removed&&treeUI.removed.length){treeUI.removed.restore();} treeUI.removed=cy.collection();
+    cy.elements().removeClass("tree-hidden"); cy.nodes().removeClass("collapsed");
+    let out=cy.collection();
+    treeUI.collapsed.forEach(id=>{const n=cy.getElementById(id); if(!n.length||out.contains(n))return; const sub=n.successors(); n.data("hiddenCount",sub.nodes().length); n.addClass("collapsed"); out=out.union(sub);});
+    if(out.length) treeUI.removed=out.remove();
+    if(treeUI.selected&&!cy.getElementById(treeUI.selected).length) clearTreeSelection();
+    cy.style().update();
+    if(relayout)requestAnimationFrame(()=>runTreeLayout(true,treeUI.selected&&state.cy.getElementById(treeUI.selected).length?state.cy.getElementById(treeUI.selected).closedNeighborhood():null));
   }
   function selectTreeNode(id){
     const cy=state.cy, n=cy.getElementById(id); if(!n.length)return;
@@ -733,8 +739,10 @@ window.ShugaaHijri=(()=>{
   $("#zoomInBtn").onclick=()=>state.cy&&state.cy.animate({zoom:{level:state.cy.zoom()*1.3,renderedPosition:{x:$("#cy").clientWidth/2,y:$("#cy").clientHeight/2}},duration:180});
   $("#zoomOutBtn").onclick=()=>state.cy&&state.cy.animate({zoom:{level:state.cy.zoom()/1.3,renderedPosition:{x:$("#cy").clientWidth/2,y:$("#cy").clientHeight/2}},duration:180});
   $("#expandAllBtn").onclick=()=>{treeUI.collapsed.clear();applyCollapse(true);syncTreeToolbar();};
-  $("#myBranchBtn").onclick=()=>{const id=state.profile?.person_id;if(!id||!state.cy)return;let n=state.cy.getElementById(id);if(!n.length)return toast("ملفك ما يظهر في الشجرة الرئيسية.");
-    treeUI.collapsed.forEach(c=>{if(state.cy.getElementById(c).successors().contains(n))treeUI.collapsed.delete(c);}); applyCollapse(false); selectTreeNode(id);
+  $("#myBranchBtn").onclick=()=>{const id=state.profile?.person_id;if(!id||!state.cy)return;
+    if(!state.cy.getElementById(id).length){treeUI.collapsed.clear();applyCollapse(false);}
+    let n=state.cy.getElementById(id);if(!n.length)return toast("ملفك ما يظهر في الشجرة الرئيسية.");
+    selectTreeNode(id);
     runTreeLayout(true,n.predecessors().union(n).union(n.successors()));};
 
 
@@ -2732,26 +2740,26 @@ window.ShugaaHijri=(()=>{
   $$("[data-join]").forEach(b=>b.addEventListener("click",()=>{$("#moreSheet")?.classList.add("hidden");$("#joinMsg").textContent="";$("#joinModal").classList.remove("hidden");}));
   $$("[data-close-join]").forEach(b=>b.onclick=()=>$("#joinModal").classList.add("hidden"));
   $("#joinSend").onclick=async()=>{const msg=$("#joinMsg"),pid=$("#joinPerson").value,name=$("#joinName").value.trim(),phone=$("#joinPhone").value.trim();
-    if(!pid)return msg.textContent="اختر اسمك من الشجرة.";if(!name)return msg.textContent="اكتب اسمك.";if(!phone)return msg.textContent="اكتب رقم الواتساب عشان نرسل لك الكود.";
-    const code=sessionStorage.getItem("shugaa_access_code");$("#joinSend").disabled=true;msg.textContent="جاري الإرسال...";
+    if(!pid)return msg.textContent="يرجى اختيار اسمك من الشجرة.";if(!name)return msg.textContent="يرجى كتابة اسمك.";if(!phone)return msg.textContent="يرجى كتابة رقم واتساب لنرسل إليك الرمز.";
+    const code=sessionStorage.getItem("shugaa_access_code");$("#joinSend").disabled=true;msg.textContent="جارٍ الإرسال...";
     const {data,error}=await client.rpc("submit_join_request",{p_family_code:code,p_person_id:pid,p_name:name,p_phone:phone,p_note:$("#joinNote").value.trim()||null});
     $("#joinSend").disabled=false;
-    if(error||!data?.ok)return msg.textContent=data?.reason==="rate_limited"?"محاولات كثيرة، جرب بعد شوي.":"تعذر الإرسال، تأكد من البيانات.";
-    $("#joinModal").classList.add("hidden");toast(data.duplicate?"طلبك موجود عند الإدارة، بيوصلك الكود قريب 👍":"وصل طلبك للإدارة ✅ بيوصلك كودك على الواتساب",6000);};
+    if(error||!data?.ok)return msg.textContent=data?.reason==="rate_limited"?"عدد المحاولات كبير، يرجى المحاولة لاحقًا.":"تعذّر إرسال الطلب، يرجى التحقق من البيانات.";
+    $("#joinModal").classList.add("hidden");toast(data.duplicate?"طلبك قيد المراجعة لدى الإدارة، وسيصلك الرمز قريبًا.":"تم إرسال طلبك إلى الإدارة ✅ وسيصلك رمزك عبر واتساب.",6000);};
   async function loadJoinRequests(){const {data}=await client.from("join_requests").select("*").eq("status","pending").order("created_at");const rows=data||[];
     const cnt=$("#joinCount");if(cnt){cnt.textContent=rows.length;cnt.classList.toggle("hidden",!rows.length);}
     const box=$("#joinList");if(!box)return;
-    box.innerHTML=rows.length?rows.map(r=>`<div class="join-item"><div><b>${esc(r.requester_name)}</b><small>يقول إنه: <button class="h2-person" data-pid="${r.person_id}">${esc(getPerson(r.person_id)?.full_name_ar||"—")}</button></small><small dir="ltr">${esc(r.phone||"")}</small>${r.note?`<small>“${esc(r.note)}”</small>`:""}</div>
-      <div class="join-actions"><select class="no-search" data-role="${r.id}"><option value="viewer">مشاهد</option><option value="editor">مدخل بيانات</option></select><button class="btn primary" data-approve="${r.id}">اعتماد</button><button class="btn light" data-reject="${r.id}">رفض</button></div></div>`).join(""):"<p class='muted'>ما فيه طلبات جديدة.</p>";
+    box.innerHTML=rows.length?rows.map(r=>`<div class="join-item"><div><b>${esc(r.requester_name)}</b><small>يذكر أنه: <button class="h2-person" data-pid="${r.person_id}">${esc(getPerson(r.person_id)?.full_name_ar||"—")}</button></small><small dir="ltr">${esc(r.phone||"")}</small>${r.note?`<small>“${esc(r.note)}”</small>`:""}</div>
+      <div class="join-actions"><select class="no-search" data-role="${r.id}"><option value="viewer">مشاهد</option><option value="editor">مدخل بيانات</option></select><button class="btn primary" data-approve="${r.id}">اعتماد</button><button class="btn light" data-reject="${r.id}">رفض</button></div></div>`).join(""):"<p class='muted'>لا توجد طلبات جديدة.</p>";
     box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));
     box.querySelectorAll("[data-approve]").forEach(b=>b.onclick=()=>decideJoin(b.dataset.approve,true,box.querySelector(`[data-role="${b.dataset.approve}"]`).value));
-    box.querySelectorAll("[data-reject]").forEach(b=>b.onclick=()=>{if(confirm("رفض الطلب؟"))decideJoin(b.dataset.reject,false);});}
+    box.querySelectorAll("[data-reject]").forEach(b=>b.onclick=()=>{if(confirm("هل تريد رفض هذا الطلب؟"))decideJoin(b.dataset.reject,false);});}
   async function decideJoin(id,ok,role){const {data,error}=await client.rpc("admin_decide_join_request",{p_id:id,p_approve:ok,p_role:role||"viewer"});if(error)return toast(error.message,5000);
     if(ok&&data?.code){const link=location.origin+location.pathname,first=String(data.name||"").split(/\s+/)[0];
-      const text=`السلام عليكم ${first} 🌳\nهذا كودك الخاص في موقع شجرة آل شجاع:\n${data.code}\n\nافتح الرابط واكتب الكود:\n${link}\n\nالكود خاص فيك، لا تشاركه مع أحد.`;
+      const text=`السلام عليكم ${first} 🌳\nهذا رمز دخولك الخاص إلى موقع شجرة آل شجاع:\n${data.code}\n\nافتح الرابط وأدخل الرمز:\n${link}\n\nالرمز خاص بك، فلا تشاركه مع أحد.`;
       const phone=String(data.phone||"").replace(/[^\d]/g,"").replace(/^00/,"").replace(/^05/,"9665");
-      const box=$("#joinCodeBox");box.classList.remove("hidden");box.innerHTML=`<b>✅ انعتمد طلب ${esc(data.name)} — الكود:</b><code>${esc(data.code)}</code><div class="code-share-actions"><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/${phone}?text=${encodeURIComponent(text)}">إرسال له بالواتساب</a></div>`;}
-    else toast("تم رفض الطلب");loadJoinRequests();}
+      const box=$("#joinCodeBox");box.classList.remove("hidden");box.innerHTML=`<b>✅ تم اعتماد طلب ${esc(data.name)} — الرمز:</b><code>${esc(data.code)}</code><div class="code-share-actions"><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/${phone}?text=${encodeURIComponent(text)}">إرسال الرمز عبر واتساب</a></div>`;}
+    else toast("تم رفض الطلب.");loadJoinRequests();}
 
   // ---------- push notifications ----------
   const pushSupported=()=>"serviceWorker"in navigator&&"PushManager"in window&&"Notification"in window;

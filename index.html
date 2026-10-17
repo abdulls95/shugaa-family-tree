@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=13.0.0" />
+  <link rel="stylesheet" href="./styles.css?v=13.1.1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -159,7 +159,7 @@
             </div>
           </section>
           <div id="installBanner" class="install-banner hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>خلّ آل شجاع على شاشتك</b><small>ثبّته كتطبيق ويفتح معك بضغطة</small></div><button type="button" class="btn gold" data-install>ثبّت</button><button type="button" class="install-x" id="installBannerX" aria-label="إخفاء">×</button></div>
-          <div id="joinBanner" class="install-banner general-only hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>تبي حساب باسمك؟</b><small>اختر نفسك من الشجرة وتوصلك الإدارة بكودك الخاص</small></div><button type="button" class="btn gold" data-join>اطلب</button></div>
+          <div id="joinBanner" class="install-banner general-only hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>هل ترغب في حساب شخصي؟</b><small>اختر اسمك من الشجرة، وسيصلك رمزك الخاص من الإدارة.</small></div><button type="button" class="btn gold" data-join>اطلب الآن</button></div>
           <section id="h2Stats" class="h2-stats"></section>
           <article id="h2Today" class="h2-card h2-today hidden"><header><div><span class="h2-kicker">في مثل هذا اليوم</span><h3 id="h2TodayTitle"></h3></div></header><div id="h2TodayList"></div></article>
           <section class="h2-grid">
@@ -496,7 +496,7 @@
           </div>
         </div>
 
-        <div id="admin-join" class="admin-panel admin-only hidden"><div class="panel stack"><h3>طلبات الانضمام</h3><p class="muted">ناس دخلوا بكود العائلة وطلبوا حساب باسمهم. اختر صلاحيته واعتمد، والكود يطلع لك جاهز ترسله له بالواتساب.</p><div id="joinList" class="join-list"></div><div id="joinCodeBox" class="new-code-result hidden"></div></div></div>
+        <div id="admin-join" class="admin-panel admin-only hidden"><div class="panel stack"><h3>طلبات الانضمام</h3><p class="muted">أفراد دخلوا برمز العائلة وطلبوا حسابًا شخصيًا. حدّد الصلاحية واعتمد الطلب، وسيظهر لك الرمز جاهزًا لإرساله عبر واتساب.</p><div id="joinList" class="join-list"></div><div id="joinCodeBox" class="new-code-result hidden"></div></div></div>
         <div id="admin-health" class="admin-panel admin-only hidden">
           <div class="health-grid">
             <article class="health-card"><strong id="healthNoFather">0</strong><span>أشخاص بلا أب مربوط</span></article>
@@ -550,7 +550,7 @@
         <button data-view="kinship" class="nav-btn">🧬<span>صلة القرابة</span></button>
         <button data-view="lineage" class="nav-btn">↟<span>مسار النسب</span></button>
         <button data-view="albums" class="nav-btn account-only hidden">🖼️<span>الألبومات</span></button>
-        <button type="button" class="nav-btn general-only hidden" data-join>🙋<span>أبي حساب باسمي</span></button>
+        <button type="button" class="nav-btn general-only hidden" data-join>🙋<span>طلب حساب شخصي</span></button>
         <button type="button" class="nav-btn push-entry hidden" data-push>🔔<span>الإشعارات</span></button>
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">♡<span>أسرتي</span></button>
         <button data-view="contribute" class="nav-btn contribution-only hidden">✍️<span>الطلبات</span></button>
@@ -1062,11 +1062,11 @@
   <!-- V12 — join request -->
   <div id="joinModal" class="modal hidden"><div class="modal-backdrop" data-close-join></div>
     <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-join aria-label="إغلاق">×</button>
-      <h2>أبي حساب باسمي</h2><p class="muted">اختر نفسك من الشجرة، وتوصلك الإدارة كودك الخاص على الواتساب.</p>
+      <h2>طلب حساب شخصي</h2><p class="muted">اختر اسمك من الشجرة، وسترسل لك الإدارة رمز الدخول الخاص بك عبر واتساب.</p>
       <div class="batch-row">
-        <label>أنا في الشجرة<select id="joinPerson"><option value="">— اختر اسمك —</option></select></label>
-        <label>اسمك<input id="joinName" autocomplete="name" /></label>
-        <label>رقم الواتساب<input id="joinPhone" inputmode="tel" dir="ltr" placeholder="9665xxxxxxxx" /></label>
+        <label>اسمي في الشجرة<select id="joinPerson"><option value="">— اختر اسمك —</option></select></label>
+        <label>الاسم الكامل<input id="joinName" autocomplete="name" /></label>
+        <label>رقم واتساب<input id="joinPhone" inputmode="tel" dir="ltr" placeholder="9665xxxxxxxx" /></label>
         <label>ملاحظة (اختياري)<textarea id="joinNote" rows="2" placeholder="مثال: أنا ابن محمد بن علي"></textarea></label>
       </div>
       <div class="batch-footer"><button type="button" id="joinSend" class="btn primary wide">أرسل الطلب</button><p id="joinMsg" class="form-msg"></p></div>
@@ -1091,7 +1091,7 @@
       <div class="batch-footer"><button type="button" id="albumCreate" class="btn primary wide">إنشاء الألبوم</button><p id="albumMsg" class="form-msg"></p></div>
     </article></div>
   <div id="lightbox" class="lightbox hidden"><button type="button" id="lbClose" aria-label="إغلاق">×</button><button type="button" id="lbPrev" aria-label="السابق">›</button><img id="lbImg" alt="" /><button type="button" id="lbNext" aria-label="التالي">‹</button><p id="lbCap"></p></div>
-  <script src="./config.js?v=13.0.0"></script>
-  <script src="./app.js?v=13.0.0"></script>
+  <script src="./config.js?v=13.1.1"></script>
+  <script src="./app.js?v=13.1.1"></script>
 </body>
 </html>
