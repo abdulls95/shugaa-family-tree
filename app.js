@@ -2542,17 +2542,49 @@ window.ShugaaHijri=(()=>{
     const imgs=[...area.querySelectorAll("img")].map(i=>i.complete?Promise.resolve():new Promise(r=>{i.onload=i.onerror=r;}));
     Promise.all([document.fonts?.ready,...imgs]).then(()=>setTimeout(()=>{window.print();setTimeout(done,1500);},150));
   }
-  $("#profileCertBtn").onclick=()=>{const id=state.activePersonId,p=getPerson(id);if(!p)return;
-    const chain=ancestorsFrom(id).reverse().map(getPerson).filter(Boolean), H=window.ShugaaHijri, now=new Date(), hj=H.gToH(now.getFullYear(),now.getMonth()+1,now.getDate());
-    printHtml(`<div class="cert"><div class="cert-frame">
-      <div class="cert-seal">${sealSvg(110)}</div>
-      <p class="cert-kicker">بسم الله الرحمن الرحيم</p><h1>وثيقة نسب</h1><p class="cert-family">شجرة آل شجاع</p>
-      <p class="cert-lead">تشهد شجرة آل شجاع بأن</p><h2>${esc(p.full_name_ar)}</h2>
-      <p class="cert-nasab">${esc(nasabText(id))}</p>
-      <p class="cert-lead">ينتسب إلى آل شجاع وفق السلسلة التالية:</p>
-      <ol class="cert-chain">${chain.map((x,i)=>`<li><span>الجيل ${i+1}</span><b>${esc(x.full_name_ar)}</b></li>`).join("")}</ol>
-      <div class="cert-meta"><span>رقم السجل: ${esc(p.record_code||"—")}</span><span>كود النسب: ${esc(p.lineage_code||"—")}</span><span>صدرت في ${esc(H.fmtHDate(hj))} الموافق ${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()} م</span></div>
-      <p class="cert-foot">${esc(location.origin+location.pathname)}</p></div></div>`);};
+  // ---- PDF export: everything is drawn on a canvas first, so it is always exactly one page ----
+  function loadJsPdf(){return window.jspdf?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=res;s.onerror=()=>rej(new Error("pdf"));document.head.appendChild(s);});}
+  async function deliverFile(blob,name,title){
+    const file=new File([blob],name,{type:blob.type});
+    if(navigator.canShare?.({files:[file]})){try{await navigator.share({files:[file],title});return;}catch(e){if(e.name==="AbortError")return;}}
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),30000);toast("تم التنزيل ✅");
+  }
+  async function canvasToPdf(canvas,name,title,fitA4=true){
+    try{await loadJsPdf();const {jsPDF}=window.jspdf;const land=canvas.width>canvas.height;
+      const pdf=fitA4?new jsPDF({orientation:land?"landscape":"portrait",unit:"mm",format:"a4"}):new jsPDF({orientation:land?"landscape":"portrait",unit:"px",format:[canvas.width,canvas.height],hotfixes:["px_scaling"]});
+      const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight(),k=Math.min(pw/canvas.width,ph/canvas.height),w=canvas.width*k,h=canvas.height*k;
+      pdf.addImage(canvas.toDataURL("image/jpeg",.92),"JPEG",(pw-w)/2,(ph-h)/2,w,h);
+      await deliverFile(pdf.output("blob"),name+".pdf",title);
+    }catch(e){console.warn(e);const blob=await new Promise(r=>canvas.toBlob(r,"image/png"));await deliverFile(blob,name+".png",title);}
+  }
+  async function ensureFonts(){try{await Promise.all([document.fonts.load('700 80px "Amiri"'),document.fonts.load('400 40px "Amiri"'),document.fonts.load('500 40px "IBM Plex Sans Arabic"')]);}catch(_){}}
+  function drawSeal(x,cx,cy,s,stroke="#B08A3E",letter="#0C3530"){x.save();x.strokeStyle=stroke;x.lineWidth=s/30;x.translate(cx,cy);x.strokeRect(-s/2,-s/2,s,s);x.rotate(Math.PI/4);x.strokeRect(-s/2,-s/2,s,s);x.restore();
+    x.save();x.fillStyle=letter;x.textAlign="center";x.direction="rtl";x.font=`700 ${Math.round(s*.55)}px "Amiri", serif`;x.fillText("ش",cx,cy+s*.2);x.restore();}
+  function wrapText(x,t,cx,y,maxW,lh){const words=String(t).split(" ");let line="",yy=y;for(const w of words){const test=line?line+" "+w:w;if(x.measureText(test).width>maxW&&line){x.fillText(line,cx,yy);line=w;yy+=lh;}else line=test;}if(line)x.fillText(line,cx,yy);return yy;}
+  $("#profileCertBtn").onclick=async()=>{const id=state.activePersonId,p=getPerson(id);if(!p)return;toast("جاري تجهيز الوثيقة...");await ensureFonts();
+    const chain=ancestorsFrom(id).reverse().map(getPerson).filter(Boolean),H=window.ShugaaHijri,now=new Date(),hj=H.gToH(now.getFullYear(),now.getMonth()+1,now.getDate());
+    const W=1654,Hh=2339,c=document.createElement("canvas");c.width=W;c.height=Hh;const x=c.getContext("2d");x.direction="rtl";
+    x.fillStyle="#FFFDF7";x.fillRect(0,0,W,Hh);x.strokeStyle="#B08A3E";x.lineWidth=6;x.strokeRect(50,50,W-100,Hh-100);x.lineWidth=2;x.strokeRect(74,74,W-148,Hh-148);
+    drawSeal(x,W/2,250,170);x.textAlign="center";
+    x.fillStyle="#7A5C1F";x.font='400 40px "Amiri", serif';x.fillText("بسم الله الرحمن الرحيم",W/2,410);
+    x.fillStyle="#0C3530";x.font='700 112px "Amiri", serif';x.fillText("وثيقة نسب",W/2,545);
+    x.fillStyle="#B08A3E";x.font='500 44px "IBM Plex Sans Arabic", sans-serif';x.fillText("شجرة آل شجاع",W/2,615);
+    x.fillStyle="#33433D";x.font='400 40px "IBM Plex Sans Arabic", sans-serif';x.fillText("تشهد شجرة آل شجاع بأن",W/2,710);
+    x.fillStyle="#0C3530";x.font='700 92px "Amiri", serif';let y=wrapText(x,p.full_name_ar,W/2,820,W-320,104);
+    x.fillStyle="#4A5853";x.font='400 46px "Amiri", serif';y=wrapText(x,nasabText(id),W/2,y+86,W-320,62);
+    x.fillStyle="#33433D";x.font='400 38px "IBM Plex Sans Arabic", sans-serif';x.fillText("ينتسب إلى آل شجاع وفق السلسلة التالية:",W/2,y+90);
+    // generations list sized to always fit the page
+    const top=y+150,bottom=Hh-330,n=chain.length,cols=n>12?2:1,rows=Math.ceil(n/cols),rowH=Math.min(110,(bottom-top)/rows),fs=Math.max(26,Math.min(46,rowH*.55));
+    const colW=(W-320)/cols;
+    chain.forEach((q,i)=>{const col=Math.floor(i/rows),r=i%rows,right=W-160-col*colW,yy=top+r*rowH+rowH*.62;
+      x.textAlign="right";x.fillStyle="#B08A3E";x.font=`500 ${Math.round(fs*.62)}px "IBM Plex Sans Arabic", sans-serif`;x.fillText(`الجيل ${i+1}`,right,yy);
+      x.fillStyle="#0C3530";x.font=`700 ${Math.round(fs)}px "Amiri", serif`;x.fillText(q.full_name_ar,right-fs*2.6,yy,colW-fs*3);
+      x.strokeStyle="#E3D6B8";x.lineWidth=1.5;x.setLineDash([4,6]);x.beginPath();x.moveTo(right,top+(r+1)*rowH);x.lineTo(right-colW+30,top+(r+1)*rowH);x.stroke();x.setLineDash([]);});
+    x.textAlign="center";x.fillStyle="#4A5853";x.font='500 30px "IBM Plex Sans Arabic", sans-serif';
+    x.fillText(`رقم السجل: ${p.record_code||"—"}     •     كود النسب: ${p.lineage_code||"—"}`,W/2,Hh-245);
+    x.fillText(`صدرت في ${H.fmtHDate(hj)} الموافق ${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()} م`,W/2,Hh-195);
+    x.fillStyle="#8A938F";x.font='400 24px "IBM Plex Sans Arabic", sans-serif';x.fillText(location.host+location.pathname.replace(/index\.html$/,""),W/2,Hh-130);
+    await canvasToPdf(c,`وثيقة-نسب-${firstName(p)}`,`وثيقة نسب ${p.full_name_ar}`,true);};
 
   async function shareCard(id){
     const p=getPerson(id); if(!p)return; toast("جاري تجهيز البطاقة...");
@@ -2656,9 +2688,23 @@ window.ShugaaHijri=(()=>{
   $("#mapAddPlaceBtn").onclick=()=>{addPlaceMode=!addPlaceMode;$("#mapAddPlaceBtn").textContent=addPlaceMode?"اضغط على الخريطة…":"＋ أضف مكان";if(addPlaceMode)toast("اضغط على مكانه في الخريطة");};
 
   // ---------- print the whole tree ----------
-  $("#printTreeBtn").onclick=()=>{if(!state.cy)return;const vis=state.cy.elements().not(".tree-hidden");const bb=vis.boundingBox();const scale=Math.max(.6,Math.min(3,5000/Math.max(bb.w,bb.h)));
-    const png=state.cy.png({full:true,scale,bg:"#FBF9F4"});const H=window.ShugaaHijri,now=new Date();
-    printHtml(`<div class="tree-print"><div class="tp-head">${sealSvg(64)}<div><h1>شجرة آل شجاع</h1><p>${buildTreeModel().people.length} فرد • ${esc(H.fmtHDate(H.gToH(now.getFullYear(),now.getMonth()+1,now.getDate())))}</p></div></div><img src="${png}" alt="شجرة آل شجاع"/></div>`,bb.w>bb.h);};
+  function layoutOnce(eles){return new Promise(res=>{const RL=treeUI.dir==="RL";const l=eles.layout({name:"dagre",rankDir:treeUI.dir,rankSep:RL?90:74,nodeSep:RL?14:20,edgeSep:20,padding:60,animate:false,fit:false});l.one("layoutstop",res);l.run();});}
+  $("#printTreeBtn").onclick=async()=>{if(!state.cy)return;toast("جاري تجهيز الشجرة كاملة...");await ensureFonts();
+    // export the complete tree, then put the screen back exactly as it was
+    const saved=new Set(treeUI.collapsed),pan={...state.cy.pan()},zoom=state.cy.zoom();
+    if(saved.size){treeUI.collapsed.clear();applyCollapse(false);await layoutOnce(state.cy.elements());}
+    const vis=state.cy.elements().not(".tree-hidden"),bb=vis.boundingBox();
+    const scale=Math.max(.35,Math.min(3,Math.sqrt(14e6/((bb.w+120)*(bb.h+120))),7800/Math.max(bb.w,bb.h)));
+    const uri=state.cy.png({full:true,scale,bg:"#FBF9F4",maxWidth:8000,maxHeight:8000});
+    if(saved.size){saved.forEach(id=>treeUI.collapsed.add(id));applyCollapse(false);await layoutOnce(state.cy.elements().not(".tree-hidden"));state.cy.viewport({zoom,pan});placeNodeBar();}
+    const img=new Image();await new Promise(r=>{img.onload=r;img.src=uri;});
+    const head=Math.round(Math.min(300,Math.max(140,img.width*.035))),c=document.createElement("canvas");c.width=img.width;c.height=img.height+head;const x=c.getContext("2d");x.direction="rtl";
+    x.fillStyle="#FBF9F4";x.fillRect(0,0,c.width,c.height);x.fillStyle="#0C3530";x.fillRect(0,0,c.width,head);
+    drawSeal(x,c.width-head*.7,head/2,head*.55,"#D9B66A","#E9CF8E");
+    const H=window.ShugaaHijri,now=new Date();x.textAlign="right";x.fillStyle="#F6EBCF";x.font=`700 ${Math.round(head*.36)}px "Amiri", serif`;x.fillText("شجرة آل شجاع",c.width-head*1.3,head*.52);
+    x.fillStyle="#D9B66A";x.font=`500 ${Math.round(head*.17)}px "IBM Plex Sans Arabic", sans-serif`;x.fillText(`${buildTreeModel().people.length} فرد • ${H.fmtHDate(H.gToH(now.getFullYear(),now.getMonth()+1,now.getDate()))}`,c.width-head*1.3,head*.82);
+    x.drawImage(img,0,head);
+    await canvasToPdf(c,"شجرة-آل-شجاع","شجرة آل شجاع",false);};
 
   // ---------- on this day ----------
   function renderToday(){const card=$("#h2Today");if(!card)return;const H=window.ShugaaHijri,now=new Date(),gm=now.getMonth()+1,gd=now.getDate(),hj=H.gToH(now.getFullYear(),gm,gd);

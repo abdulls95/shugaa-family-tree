@@ -1,11 +1,11 @@
 // Shugaa Family Tree — service worker (app shell + offline)
-const VERSION = "v12.0.0";
+const VERSION = "v12.0.1";
 const SHELL = "shugaa-shell-" + VERSION;
 const RUNTIME = "shugaa-runtime";
 const LOCAL = ["./", "./index.html", "./styles.css", "./config.js", "./app.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png", "./icons/favicon-32.png"];
 // pinned libraries and fonts never change at the same URL, so they are safe to keep
-const CDN = /^https:\/\/(cdn\.jsdelivr\.net|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
+const CDN = /^https:\/\/(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(LOCAL)));   // waits until the page says "update now"
