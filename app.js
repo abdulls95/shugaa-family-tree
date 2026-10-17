@@ -2780,6 +2780,84 @@ window.ShugaaHijri=(()=>{
   async function sendEventPush(eventId){try{const {data:{session}}=await client.auth.getSession();const r=await fetch(fnUrl("send-push"),{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.supabasePublishableKey,Authorization:`Bearer ${session?.access_token||""}`},body:JSON.stringify({action:"send",event_id:eventId})});
     const out=await r.json().catch(()=>({}));if(out.ok)toast(`🔔 وصل إشعار الخبر لـ ${out.sent} جهاز`,4000);}catch(e){console.warn(e);}}
 
+  // =================== V14 — tutorials + guided tour ===================
+  const TUT_CAT={basics:"الأساسيات",family:"للعائلة",admin:"للإدارة"};
+  let tutorials=[],tutEditing=null,tutUpload=null;
+  const ytId=u=>{const m=String(u||"").match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);return m?m[1]:null;};
+  async function renderHelp(){
+    const box=$("#helpList"); box.innerHTML="<p class='muted'>جارٍ التحميل...</p>";
+    const {data,error}=await client.from("tutorials").select("*").order("sort").order("created_at");
+    tutorials=error?[]:(data||[]); const staff=state.mode==="account"&&["admin","editor"].includes(state.role);
+    if(!tutorials.length){box.innerHTML=`<div class="h2-empty">${window.ShugaaMarks.svg("mountain",96)}<b>لا توجد شروحات بعد</b></div>`;return;}
+    box.innerHTML=Object.keys(TUT_CAT).map(cat=>{const rows=tutorials.filter(t=>t.category===cat);if(!rows.length)return"";
+      return `<section class="help-group"><h3>${TUT_CAT[cat]}</h3>${rows.map(t=>`<details class="help-item" data-id="${t.id}"><summary><span class="help-ico">${t.video_url||t.video_path?"▶":"☰"}</span><span><b>${esc(t.title)}</b>${t.summary?`<small>${esc(t.summary)}</small>`:""}</span>${staff?`<button type="button" class="help-edit" data-edit="${t.id}">تعديل</button>`:""}</summary><div class="help-body"></div></details>`).join("")}</section>`;}).join("");
+    box.querySelectorAll("details").forEach(d=>d.addEventListener("toggle",()=>{if(d.open&&!d.dataset.ready){d.dataset.ready=1;fillTutorial(d);}}));
+    box.querySelectorAll("[data-edit]").forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();openTutEditor(b.dataset.edit);});
+  }
+  function fillTutorial(d){const t=tutorials.find(x=>x.id===d.dataset.id);if(!t)return;let media="";
+    const y=ytId(t.video_url);
+    if(y)media=`<div class="help-video"><iframe src="https://www.youtube-nocookie.com/embed/${y}" title="${esc(t.title)}" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+    else if(t.video_path)media=`<video class="help-video-file" controls playsinline preload="metadata" src="${client.storage.from("tutorials").getPublicUrl(t.video_path).data.publicUrl}"></video>`;
+    else if(t.video_url)media=`<a class="btn light" href="${esc(t.video_url)}" target="_blank" rel="noopener">▶ مشاهدة الفيديو</a>`;
+    const steps=Array.isArray(t.steps)?t.steps:[];
+    d.querySelector(".help-body").innerHTML=`${media}${steps.length?`<ol class="help-steps">${steps.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:""}`;}
+  function openTutEditor(id){const t=id?tutorials.find(x=>x.id===id):null;tutEditing=t;tutUpload=null;
+    $("#tutModalTitle").textContent=t?"تعديل الشرح":"شرح جديد";$("#tutTitle").value=t?.title||"";$("#tutSummary").value=t?.summary||"";
+    $("#tutCategory").value=t?.category||"basics";$("#tutAudience").value=t?.audience||"all";$("#tutVideoUrl").value=t?.video_url||"";
+    $("#tutVideoInfo").textContent=t?.video_path?"يوجد فيديو مرفوع لهذا الشرح.":"";$("#tutSteps").value=(t?.steps||[]).join("\n");
+    $("#tutDelete").classList.toggle("hidden",!t);$("#tutMsg").textContent="";$("#tutModal").classList.remove("hidden");}
+  $("#newTutorialBtn").onclick=()=>openTutEditor(null);
+  $$("[data-close-tut]").forEach(b=>b.onclick=()=>$("#tutModal").classList.add("hidden"));
+  $("#tutVideoFile").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(!f)return;if(f.size>50*1024*1024){$("#tutVideoInfo").textContent="الفيديو أكبر من 50 ميجا. ارفعه على يوتيوب (غير مدرج) والصق الرابط.";return;}tutUpload=f;$("#tutVideoInfo").textContent=`سيُرفع: ${f.name} (${(f.size/1048576).toFixed(1)} ميجا)`;});
+  $("#tutSave").onclick=async()=>{const msg=$("#tutMsg"),title=$("#tutTitle").value.trim();if(!title)return msg.textContent="يرجى كتابة العنوان.";
+    $("#tutSave").disabled=true;msg.textContent="جارٍ الحفظ...";
+    try{let video_path=tutEditing?.video_path||null;
+      if(tutUpload){const ext=(tutUpload.name.split(".").pop()||"mp4").toLowerCase();video_path=`videos/${Date.now()}.${ext}`;msg.textContent="جارٍ رفع الفيديو...";
+        const {error:ue}=await client.storage.from("tutorials").upload(video_path,tutUpload,{contentType:tutUpload.type||"video/mp4"});if(ue)throw ue;}
+      const row={title,summary:$("#tutSummary").value.trim()||null,category:$("#tutCategory").value,audience:$("#tutAudience").value,video_url:$("#tutVideoUrl").value.trim()||null,video_path,
+        steps:$("#tutSteps").value.split("\n").map(x=>x.trim()).filter(Boolean),updated_at:new Date().toISOString()};
+      const {error}=tutEditing?await client.from("tutorials").update(row).eq("id",tutEditing.id):await client.from("tutorials").insert(row);if(error)throw error;
+      $("#tutModal").classList.add("hidden");toast("تم حفظ الشرح ✅");renderHelp();}
+    catch(e){msg.textContent="تعذّر الحفظ: "+e.message;}finally{$("#tutSave").disabled=false;}};
+  $("#tutDelete").onclick=async()=>{if(!tutEditing||!confirm("هل تريد حذف هذا الشرح؟"))return;const {error}=await client.from("tutorials").delete().eq("id",tutEditing.id);if(error)return toast(error.message,4000);
+    if(tutEditing.video_path)await client.storage.from("tutorials").remove([tutEditing.video_path]);$("#tutModal").classList.add("hidden");renderHelp();};
+
+  // ---- guided tour: highlights the real buttons on screen, one by one ----
+  const TOURS={
+    site:[{view:"home",sel:"#h2Search",text:"من هنا تبحث عن أي شخص في العائلة وتفتح ملفه مباشرة."},
+          {view:"home",sel:"#h2News",text:"«نبض العائلة»: آخر الزواجات والمواليد والأخبار، ويمكنك التهنئة بضغطة."},
+          {sel:'[data-view="tree"]',text:"«الشجرة»: تصفح الأجيال والفروع، واضغط على أي اسم لترى خياراته."},
+          {sel:'[data-view="history"]',text:"«الأخبار»: كل أحداث العائلة وخريطة الأماكن."},
+          {sel:'[data-view="library"]',text:"«المحتوى»: وثائق العائلة وصورها (لأصحاب الحسابات الشخصية)."},
+          {sel:'#moreNavBtn,[data-view="people"]',text:"ومن هنا تصل إلى قائمة الأفراد، وصلة القرابة، ومسار النسب، والطلبات."},
+          {sel:'[data-view="help"]',text:"وهنا الشروحات متى احتجتها. بالتوفيق! 🌳"}],
+    tree:[{view:"tree",sel:"#treeSearch",text:"اكتب اسمًا هنا ليظهر في الشجرة ويضيء نسبه."},
+          {view:"tree",sel:"#cy",text:"اضغط على أي شخص: يضيء خط نسبه بالذهبي وتظهر خياراته (الملف، الإضافة، طي الفرع)."},
+          {view:"tree",sel:"#treeDirBtn",text:"غيّر اتجاه الشجرة بين العمودي والأفقي."},
+          {view:"tree",sel:"#printTreeBtn",text:"صدّر الشجرة كاملة ملف PDF للحفظ أو الطباعة."},
+          {view:"tree",sel:".tree-zoom",text:"أزرار التكبير والتصغير، ويمكنك أيضًا استخدام إصبعين."}]};
+  let tour=null;
+  const visibleOf=sel=>[...document.querySelectorAll(sel)].find(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(e).visibility!=="hidden";});
+  function startTour(name){tour={steps:TOURS[name],i:0};$("#tourLayer").classList.remove("hidden");showTourStep();}
+  function endTour(){tour=null;$("#tourLayer").classList.add("hidden");}
+  function showTourStep(){if(!tour)return;let st=tour.steps[tour.i];
+    if(st.view&&!document.querySelector(`#view-${st.view}.active`))setView(st.view);
+    setTimeout(()=>{let el=visibleOf(st.sel);
+      if(!el){ if(tour.i<tour.steps.length-1){tour.i++;return showTourStep();} return endTour(); }
+      el.scrollIntoView({block:"center",behavior:"smooth"});
+      setTimeout(()=>{const r=el.getBoundingClientRect(),pad=8,sp=$("#tourSpot");
+        Object.assign(sp.style,{left:(r.left-pad)+"px",top:(r.top-pad)+"px",width:(r.width+pad*2)+"px",height:(r.height+pad*2)+"px"});
+        $("#tourText").textContent=st.text;$("#tourCount").textContent=`${tour.i+1} / ${tour.steps.length}`;
+        $("#tourPrev").disabled=tour.i===0;$("#tourNext").textContent=tour.i===tour.steps.length-1?"تم":"التالي";
+        const tip=$("#tourTip"),tw=Math.min(340,innerWidth-24),below=r.bottom+pad+14,th=tip.offsetHeight||150;
+        tip.style.width=tw+"px";tip.style.left=Math.max(12,Math.min(innerWidth-tw-12,r.left+r.width/2-tw/2))+"px";
+        tip.style.top=(below+th<innerHeight-10?below:Math.max(12,r.top-pad-14-th))+"px";},350);},st.view?250:0);}
+  $("#tourNext").onclick=()=>{if(!tour)return;if(tour.i>=tour.steps.length-1)return endTour();tour.i++;showTourStep();};
+  $("#tourPrev").onclick=()=>{if(!tour||tour.i===0)return;tour.i--;showTourStep();};
+  $("#tourEnd").onclick=endTour; window.addEventListener("resize",()=>tour&&showTourStep());
+  $$("[data-tour]").forEach(b=>b.onclick=()=>startTour(b.dataset.tour));
+  const _setView2=setView; setView=function(name){const r=_setView2(name);if(name==="help")renderHelp();return r;};
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){

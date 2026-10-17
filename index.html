@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=13.2.1" />
+  <link rel="stylesheet" href="./styles.css?v=14.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -130,6 +130,7 @@
         <button data-view="lineage" class="nav-btn">مسار النسب</button>
         <button data-view="library" class="nav-btn account-only hidden">محتوى العائلة</button>
         <button data-view="albums" class="nav-btn account-only hidden">الألبومات</button>
+        <button data-view="help" class="nav-btn">الشروحات</button>
         <button data-view="history" class="nav-btn">أخبار وتاريخ</button>
         <button data-view="contribute" class="nav-btn contribution-only hidden">الطلبات</button>
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">أسرتي</button>
@@ -177,6 +178,7 @@
             <button type="button" data-go="kinship"><b>صلة القرابة</b><small>من يلتقي بمن؟</small></button>
             <button type="button" data-go="lineage"><b>مسار النسب</b><small>من الحفيد إلى الجد</small></button>
             <button type="button" data-go="library" class="account-only hidden"><b>محتوى العائلة</b><small>وثائق وصور وروايات</small></button>
+            <button type="button" data-go="help"><b>الشروحات</b><small>تعلّم استخدام الموقع</small></button>
           </section>
         </div>
         <div class="museum-hero">
@@ -295,6 +297,15 @@
         <div class="map-card panel"><div class="map-head"><div><span class="section-kicker">خريطة العائلة</span><h3>وين عاشوا وانتقلوا</h3></div><button type="button" id="mapAddPlaceBtn" class="btn light staff-only hidden">＋ أضف مكان</button></div><div id="familyMap" class="family-map"></div><p id="mapEmpty" class="muted hidden">ما فيه أماكن عليها إحداثيات للحين. المدير يقدر يضيف مكان بالضغط على الخريطة.</p></div>
         <div id="historyList" class="history-list"></div>
         <div id="historyEmpty" class="empty-state hidden"><div>⌛</div><h3>لا توجد أحداث بعد</h3></div>
+      </section>
+
+      <section id="view-help" class="view">
+        <div class="page-head"><div><span class="section-kicker">المساعدة</span><h2>الشروحات</h2><p>تعلّم استخدام الموقع خطوة بخطوة.</p></div><button type="button" id="newTutorialBtn" class="btn gold staff-only hidden">＋ شرح جديد</button></div>
+        <div class="tour-cards">
+          <button type="button" class="tour-card" data-tour="site"><b>▶ جولة تفاعلية في الموقع</b><small>الموقع يأخذك بنفسه على كل قسم ويشرحه</small></button>
+          <button type="button" class="tour-card" data-tour="tree"><b>▶ جولة في الشجرة</b><small>البحث، والضغط على الأسماء، وطي الفروع</small></button>
+        </div>
+        <div id="helpList" class="help-list"></div>
       </section>
 
       <section id="view-albums" class="view account-only hidden">
@@ -550,6 +561,7 @@
         <button data-view="kinship" class="nav-btn">🧬<span>صلة القرابة</span></button>
         <button data-view="lineage" class="nav-btn">↟<span>مسار النسب</span></button>
         <button data-view="albums" class="nav-btn account-only hidden">🖼️<span>الألبومات</span></button>
+        <button data-view="help" class="nav-btn">▶<span>الشروحات</span></button>
         <button type="button" class="nav-btn general-only hidden" data-join>🙋<span>طلب حساب شخصي</span></button>
         <button type="button" class="nav-btn push-entry hidden" data-push>🔔<span>الإشعارات</span></button>
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">♡<span>أسرتي</span></button>
@@ -1091,7 +1103,27 @@
       <div class="batch-footer"><button type="button" id="albumCreate" class="btn primary wide">إنشاء الألبوم</button><p id="albumMsg" class="form-msg"></p></div>
     </article></div>
   <div id="lightbox" class="lightbox hidden"><button type="button" id="lbClose" aria-label="إغلاق">×</button><button type="button" id="lbPrev" aria-label="السابق">›</button><img id="lbImg" alt="" /><button type="button" id="lbNext" aria-label="التالي">‹</button><p id="lbCap"></p></div>
-  <script src="./config.js?v=13.2.1"></script>
-  <script src="./app.js?v=13.2.1"></script>
+
+  <!-- V14 — tutorial editor + guided tour -->
+  <div id="tutModal" class="modal hidden"><div class="modal-backdrop" data-close-tut></div>
+    <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-tut aria-label="إغلاق">×</button>
+      <h2 id="tutModalTitle">شرح جديد</h2>
+      <div class="batch-row">
+        <label>العنوان<input id="tutTitle" /></label>
+        <label>وصف قصير<input id="tutSummary" /></label>
+        <div class="batch-grid">
+          <label>القسم<select id="tutCategory" class="no-search"><option value="basics">أساسيات</option><option value="family">للعائلة</option><option value="admin">للإدارة</option></select></label>
+          <label>يظهر لـ<select id="tutAudience" class="no-search"><option value="all">الجميع</option><option value="members">أصحاب الحسابات</option><option value="admins">الإدارة فقط</option></select></label>
+        </div>
+        <label>رابط فيديو (يوتيوب أو غيره)<input id="tutVideoUrl" dir="ltr" placeholder="https://youtu.be/..." /></label>
+        <label class="btn light">🎬 أو ارفع فيديو من الجوال (حتى 50 ميجا)<input id="tutVideoFile" type="file" accept="video/mp4,video/quicktime,video/webm" hidden /></label>
+        <small id="tutVideoInfo" class="micro-copy"></small>
+        <label>الخطوات (كل خطوة في سطر)<textarea id="tutSteps" rows="6"></textarea></label>
+      </div>
+      <div class="batch-footer"><button type="button" id="tutSave" class="btn primary wide">حفظ الشرح</button><button type="button" id="tutDelete" class="btn light wide hidden">حذف الشرح</button><p id="tutMsg" class="form-msg"></p></div>
+    </article></div>
+  <div id="tourLayer" class="tour-layer hidden" aria-live="polite"><div id="tourSpot" class="tour-spot"></div><div id="tourTip" class="tour-tip"><p id="tourText"></p><div class="tour-actions"><span id="tourCount"></span><button type="button" id="tourPrev">السابق</button><button type="button" id="tourNext" class="primary">التالي</button><button type="button" id="tourEnd" class="tour-skip">إنهاء</button></div></div></div>
+  <script src="./config.js?v=14.0.0"></script>
+  <script src="./app.js?v=14.0.0"></script>
 </body>
 </html>

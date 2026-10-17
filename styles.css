@@ -1881,3 +1881,30 @@ html.is-app body{overscroll-behavior-y:none}
 .shugaa-v7 .nav-btn[data-join]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210%22%20cy%3D%228.5%22%20r%3D%223.2%22/%3E%3Cpath%20d%3D%22M4%2019c.7-3.3%203-5%206-5%201.4%200%202.6.3%203.6%201%22/%3E%3Cpath%20d%3D%22M18%2013v6M15%2016h6%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210%22%20cy%3D%228.5%22%20r%3D%223.2%22/%3E%3Cpath%20d%3D%22M4%2019c.7-3.3%203-5%206-5%201.4%200%202.6.3%203.6%201%22/%3E%3Cpath%20d%3D%22M18%2013v6M15%2016h6%22/%3E%3C/svg%3E")}
 .shugaa-v7 .nav-btn[data-install]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%227%22%20y%3D%222.5%22%20width%3D%2210%22%20height%3D%2219%22%20rx%3D%222%22/%3E%3Cpath%20d%3D%22M12%208v6M9.5%2011.5%2012%2014l2.5-2.5%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%227%22%20y%3D%222.5%22%20width%3D%2210%22%20height%3D%2219%22%20rx%3D%222%22/%3E%3Cpath%20d%3D%22M12%208v6M9.5%2011.5%2012%2014l2.5-2.5%22/%3E%3C/svg%3E")}
 .shugaa-v7 .more-panel .nav-btn::before{background-color:var(--v7-ink,#0c3530)!important}
+
+/* =================== V14 — tutorials =================== */
+.shugaa-v7 .nav-btn[data-view="help"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%228.5%22/%3E%3Cpath%20d%3D%22M10.2%208.8v6.4l5-3.2z%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%228.5%22/%3E%3Cpath%20d%3D%22M10.2%208.8v6.4l5-3.2z%22/%3E%3C/svg%3E")}
+.tour-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:18px}
+.tour-card{display:grid;gap:4px;text-align:right;border:1px solid rgba(217,182,106,.45);border-radius:18px;padding:18px;cursor:pointer;font-family:inherit;background:linear-gradient(160deg,#134A42,#0C3530);color:#F6EBCF}
+.tour-card b{font-family:var(--v7-display);font-size:22px}.tour-card small{color:#C7D6D0}
+.help-group{margin-bottom:18px}.help-group h3{font-family:var(--v7-display);font-size:24px;color:var(--v7-ink);margin:0 0 10px}
+.help-item{background:#fff;border:1px solid var(--v7-line);border-radius:16px;margin-bottom:10px;overflow:hidden}
+.help-item summary{list-style:none;display:flex;gap:12px;align-items:center;padding:14px 16px;cursor:pointer}
+.help-item summary::-webkit-details-marker{display:none}
+.help-item summary>span:nth-child(2){flex:1;display:grid}.help-item summary b{color:var(--v7-ink);font-size:16px}.help-item summary small{color:var(--v7-muted)}
+.help-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#F3EDE0;color:var(--v7-ink);font-size:15px;flex:0 0 38px}
+.help-item[open] .help-ico{background:var(--v7-ink);color:#F6EBCF}
+.help-edit{border:1px solid var(--v7-line);background:#FBF8F1;border-radius:10px;padding:6px 10px;font-family:inherit;color:var(--v7-ink);cursor:pointer}
+.help-body{padding:0 16px 16px}
+.help-video{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;margin-bottom:12px}.help-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.help-video-file{width:100%;max-height:70vh;border-radius:14px;background:#000;margin-bottom:12px}
+.help-steps{margin:0;padding-inline-start:22px;display:grid;gap:8px;line-height:1.9;color:#33433D}
+.help-steps li::marker{color:var(--v7-gold);font-weight:700}
+.tour-layer{position:fixed;inset:0;z-index:2000}.tour-layer.hidden{display:none}
+.tour-spot{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(5,20,17,.68);outline:2px solid #D9B66A;transition:all .3s ease;pointer-events:none}
+.tour-tip{position:fixed;background:#FFFDF7;border:1px solid #E8D6A4;border-radius:16px;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,.35);transition:top .3s,left .3s}
+.tour-tip p{margin:0 0 12px;line-height:1.9;color:#1F2B27;font-size:16px}
+.tour-actions{display:flex;gap:8px;align-items:center}.tour-actions span{flex:1;color:var(--v7-gold);font-weight:700}
+.tour-actions button{border:1px solid var(--v7-line);background:#fff;border-radius:10px;padding:8px 14px;font-family:inherit;font-weight:600;cursor:pointer;color:var(--v7-ink)}
+.tour-actions button.primary{background:var(--v7-ink);color:#F6EBCF;border-color:var(--v7-ink)}.tour-actions .tour-skip{border:0;background:transparent;color:var(--v7-muted)}
+.tour-actions button:disabled{opacity:.4}
