@@ -1777,3 +1777,8 @@ button.hub-tile:hover:not(:disabled),.hub-split button:hover:not(:disabled){bord
 /* nothing may show through behind the status bar */
 html.is-app body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:#0C3530;z-index:95;pointer-events:none}
 html.is-app body{overscroll-behavior-y:none}
+/* every popup (person profile included) starts below the camera / status bar and ends above the home bar */
+.shugaa-v7 .modal .modal-card,.shugaa-v7 .modal .awraq-person-card{
+  margin-top:calc(10px + env(safe-area-inset-top))!important;
+  margin-bottom:calc(10px + env(safe-area-inset-bottom))!important;
+  max-height:calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important}
