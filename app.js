@@ -35,12 +35,13 @@ window.ShugaaHijri=(()=>{
   const setMode=v=>{try{localStorage.setItem("shugaa_calendar",v);}catch(e){}};
   // one side of a life: returns {h,g} strings (either may be "")
   function side(year,hYear,iso){
-    if(iso){const h=isoToH(iso);return{h:`${h.y} هـ`,g:`${String(iso).slice(0,4)} م`,full:{h:fmtHDate(h),g:fmtGDate(iso)}};}
-    if(hYear)return{h:`${hYear} هـ`,g:year?`${year} م`:`${hYearToG(hYear)} م`};
-    if(year)return{h:`${gYearToH(year)} هـ`,g:`${year} م`};
+    if(iso){const h=isoToH(iso);return{h:`${h.y} هـ`,g:`${String(iso).slice(0,4)} م`,full:{h:fmtHDate(h),g:fmtGDate(iso),entered:"g"},entered:"g"};}
+    if(hYear)return{h:`${hYear} هـ`,g:year?`${year} م`:`${hYearToG(hYear)} م`,entered:"h"};
+    if(year)return{h:`${gYearToH(year)} هـ`,g:`${year} م`,entered:"g"};
     return{h:"",g:""};
   }
-  const pick=(o,mode=getMode())=>!o.h&&!o.g?"":mode==="hijri"?o.h:mode==="gregorian"?o.g:`${o.h} (${o.g})`;
+  // "both": the calendar the value was typed in comes first, the converted one in brackets
+  const pick=(o,mode=getMode())=>!o.h&&!o.g?"":mode==="hijri"?o.h:mode==="gregorian"?o.g:o.entered==="h"?`${o.h} (${o.g})`:`${o.g} (${o.h})`;
   return {gToH,hToG,hYearToG,gYearToH,isoToH,fmtHDate,fmtGDate,side,pick,getMode,setMode,MONTHS};
 })();
 
@@ -120,7 +121,8 @@ window.ShugaaHijri=(()=>{
   function yearText(p){
     const H=window.ShugaaHijri, mode=H.getMode();
     const b=H.side(p.birth_year,p.birth_year_hijri,p.birth_date), d=H.side(p.death_year,p.death_year_hijri,p.death_date);
-    const bs=mode==="both"?(b.h||b.g):H.pick(b,mode), ds=mode==="both"?(d.h||d.g):H.pick(d,mode);
+    const own=o=>o.entered==="h"?o.h:o.g;
+    const bs=mode==="both"?own(b):H.pick(b,mode), ds=mode==="both"?own(d):H.pick(d,mode);
     if(bs||ds) return `${bs||"؟"} — ${p.is_living ? "حتى الآن" : (ds||"؟")}`;
     return p.is_living ? "على قيد الحياة" : "التاريخ غير مسجل";
   }
@@ -616,8 +618,9 @@ window.ShugaaHijri=(()=>{
   const BRANCH_COLORS=["#0C3530","#9A7733","#9E5A63","#2F6F73","#5E6B2E","#4A4F7C","#8A5A2B","#3D6B53"];
   const treeUI={dir:(()=>{try{return localStorage.getItem("shugaa_tree_dir")||(window.innerWidth<700?"RL":"TB");}catch(e){return "TB";}})(),collapsed:new Set(),selected:null,didAuto:false};
   function shortYears(p){
-    const H=window.ShugaaHijri, mode=H.getMode(), useG=mode==="gregorian";
+    const H=window.ShugaaHijri, mode=H.getMode();
     const b=H.side(p.birth_year,p.birth_year_hijri,p.birth_date), d=H.side(p.death_year,p.death_year_hijri,p.death_date);
+    const useG=mode==="gregorian"||(mode==="both"&&!(p.birth_year_hijri||p.death_year_hijri));
     const cut=x=>String(useG?x.g:x.h).replace(/\s*(هـ|م)$/,"").split("/")[0];
     const bs=(useG?b.g:b.h)?cut(b):"", ds=(useG?d.g:d.h)?cut(d):"";
     if(!bs&&!ds)return "";
