@@ -2532,7 +2532,7 @@ window.ShugaaHijri=(()=>{
   // ---------- media helpers ----------
   const urlCache=new Map();
   async function mediaUrl(path){ if(!path)return null; const c=urlCache.get(path); if(c&&c.exp>Date.now())return c.url;
-    const {data,error}=await client.storage.from("family-media").createSignedUrl(path,3600); if(error)return null; urlCache.set(path,{url:data.signedUrl,exp:Date.now()+3300e3}); return data.signedUrl; }
+    const {data,error}=await client.storage.from("family-media").createSignedUrl(path,3600); if(error||!data?.signedUrl)return null; urlCache.set(path,{url:data.signedUrl,exp:Date.now()+3300e3}); return data.signedUrl; }
   function shrinkImage(file,max=1400,q=.85){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const k=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(new Error("صورة غير صالحة")),"image/jpeg",q);URL.revokeObjectURL(img.src);};img.onerror=()=>rej(new Error("تعذر قراءة الصورة"));img.src=URL.createObjectURL(file);});}
   async function uploadMedia(path,blob,type){const {error}=await client.storage.from("family-media").upload(path,blob,{contentType:type||blob.type,upsert:false});if(error)throw error;return path;}
 
@@ -2546,10 +2546,45 @@ window.ShugaaHijri=(()=>{
     if(state.mode==="account"&&p?.photo_path){const u=await mediaUrl(p.photo_path);if(u&&state.activePersonId===id){av.style.backgroundImage=`url("${u}")`;av.classList.add("has-photo");}}
     if(state.mode==="account")loadStories(id); else $("#storiesList").innerHTML="";
   }
-  $("#profilePhotoInput").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const id=state.activePersonId;
-    try{toast("جاري رفع الصورة...");const blob=await shrinkImage(f,900);const path=await uploadMedia(`people/${id}/${Date.now()}.jpg`,blob,"image/jpeg");
-      const {error}=await client.from("people").update({photo_path:path}).eq("id",id);if(error)throw error;const p=getPerson(id);if(p)p.photo_path=path;afterOpenPerson(id);toast("تم حفظ الصورة ✅");}
-    catch(err){toast("تعذر رفع الصورة: "+err.message,5000);}});
+  // ---- photo cropper: pan + zoom inside the Yafa'i window frame, then save a square ----
+  const crop={img:null,k0:1,zoom:1,tx:0,ty:0,S:300,pointers:new Map(),pinch:null,personId:null};
+  function cropClamp(){const k=crop.k0*crop.zoom,w=crop.img.naturalWidth*k,h=crop.img.naturalHeight*k;
+    crop.tx=Math.min(0,Math.max(crop.S-w,crop.tx));crop.ty=Math.min(0,Math.max(crop.S-h,crop.ty));
+    const im=$("#cropImg");im.style.width=w+"px";im.style.height=h+"px";im.style.transform=`translate(${crop.tx}px,${crop.ty}px)`;}
+  function cropZoomTo(z,cx=crop.S/2,cy=crop.S/2){const old=crop.k0*crop.zoom;crop.zoom=Math.max(1,Math.min(4,z));const k=crop.k0*crop.zoom;
+    crop.tx=cx-(cx-crop.tx)*k/old;crop.ty=cy-(cy-crop.ty)*k/old;$("#cropZoom").value=crop.zoom;cropClamp();}
+  function openCropper(file){const url=URL.createObjectURL(file),im=$("#cropImg");crop.personId=state.activePersonId;
+    $("#cropRemove").classList.toggle("hidden",!getPerson(crop.personId)?.photo_path);
+    im.onload=()=>{crop.img=im;$("#cropModal").classList.remove("hidden");requestAnimationFrame(()=>{crop.S=$("#cropStage").clientWidth;
+      crop.k0=crop.S/Math.min(im.naturalWidth,im.naturalHeight);crop.zoom=1;$("#cropZoom").value=1;
+      crop.tx=(crop.S-im.naturalWidth*crop.k0)/2;crop.ty=(crop.S-im.naturalHeight*crop.k0)/2;cropClamp();});};
+    im.src=url;}
+  const stage=$("#cropStage");
+  stage.addEventListener("pointerdown",e=>{stage.setPointerCapture(e.pointerId);crop.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(crop.pointers.size===2){const [a,b]=[...crop.pointers.values()];crop.pinch={d:Math.hypot(a.x-b.x,a.y-b.y),z:crop.zoom};}});
+  stage.addEventListener("pointermove",e=>{const prev=crop.pointers.get(e.pointerId);if(!prev||!crop.img)return;e.preventDefault();
+    crop.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(crop.pointers.size===2&&crop.pinch){const [a,b]=[...crop.pointers.values()],r=stage.getBoundingClientRect();
+      cropZoomTo(crop.pinch.z*Math.hypot(a.x-b.x,a.y-b.y)/crop.pinch.d,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top);}
+    else if(crop.pointers.size===1){crop.tx+=e.clientX-prev.x;crop.ty+=e.clientY-prev.y;cropClamp();}});
+  const endPtr=e=>{crop.pointers.delete(e.pointerId);if(crop.pointers.size<2)crop.pinch=null;};
+  stage.addEventListener("pointerup",endPtr);stage.addEventListener("pointercancel",endPtr);
+  stage.addEventListener("wheel",e=>{e.preventDefault();const r=stage.getBoundingClientRect();cropZoomTo(crop.zoom*(e.deltaY<0?1.08:.93),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+  $("#cropZoom").addEventListener("input",e=>cropZoomTo(+e.target.value));
+  $$("[data-close-crop]").forEach(b=>b.onclick=()=>$("#cropModal").classList.add("hidden"));
+  $("#cropSave").onclick=async()=>{const id=crop.personId;if(!crop.img||!id)return;const k=crop.k0*crop.zoom,OUT=800,c=document.createElement("canvas");c.width=c.height=OUT;
+    c.getContext("2d").drawImage(crop.img,-crop.tx/k,-crop.ty/k,crop.S/k,crop.S/k,0,0,OUT,OUT);
+    $("#cropSave").disabled=true;toast("جارٍ حفظ الصورة...");
+    try{const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.88));const old=getPerson(id)?.photo_path;
+      const path=await uploadMedia(`people/${id}/${Date.now()}.jpg`,blob,"image/jpeg");
+      const {error}=await client.from("people").update({photo_path:path}).eq("id",id);if(error)throw error;
+      const p=getPerson(id);if(p)p.photo_path=path;if(old)client.storage.from("family-media").remove([old]);
+      $("#cropModal").classList.add("hidden");afterOpenPerson(id);toast("تم حفظ الصورة ✅");}
+    catch(err){toast("تعذّر حفظ الصورة: "+err.message,5000);}finally{$("#cropSave").disabled=false;}};
+  $("#cropRemove").onclick=async()=>{const id=crop.personId,p=getPerson(id);if(!p?.photo_path||!confirm("هل تريد إزالة الصورة الحالية؟"))return;
+    const {error}=await client.from("people").update({photo_path:null}).eq("id",id);if(error)return toast(error.message,4000);
+    client.storage.from("family-media").remove([p.photo_path]);p.photo_path=null;$("#cropModal").classList.add("hidden");afterOpenPerson(id);toast("تمت إزالة الصورة");};
+  $("#profilePhotoInput").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(f)openCropper(f);});
 
   function nasabText(id){const chain=ancestorsFrom(id).map(getPerson).filter(Boolean);if(!chain.length)return "";const me=chain[0];
     return [firstName(me),...chain.slice(1).map((x,i)=>`${i===0&&me.gender==="female"?"بنت":"بن"} ${firstName(x)}`)].join(" ");}
