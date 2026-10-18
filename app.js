@@ -2979,6 +2979,50 @@ window.ShugaaHijri=(()=>{
   $$("[data-tour]").forEach(b=>b.onclick=()=>startTour(b.dataset.tour));
   const _setView2=setView; setView=function(name){const r=_setView2(name);if(name==="help")renderHelp();return r;};
 
+  // =================== V15 — live presence + last seen (admin only) ===================
+  const VIEW_AR={home:"الرئيسية",tree:"الشجرة",people:"قائمة الأفراد",kinship:"صلة القرابة",lineage:"مسار النسب",library:"المحتوى",albums:"الألبومات",history:"الأخبار",help:"الشروحات",contribute:"الطلبات",admin:"الإعدادات",myfamily:"أسرتي"};
+  const deviceId=(()=>{try{let d=localStorage.getItem("shugaa_device");if(!d){d=crypto.randomUUID();localStorage.setItem("shugaa_device",d);}return d;}catch(_){return "d-"+Math.random().toString(36).slice(2);}})();
+  const live={ch:null,mode:null,view:"home",since:new Date().toISOString(),state:{}};
+  function presencePayload(){const me=state.mode==="account"?getPerson(state.profile?.person_id):null;
+    return {kind:state.mode==="account"?"account":"guest",user_id:state.mode==="account"?state.session?.user?.id:null,
+      name:state.mode==="account"?(me?.full_name_ar||state.profile?.display_name||""):null,view:live.view,since:live.since,app:isStandalone()};}
+  function startPresence(){
+    if(!["account","general"].includes(state.mode))return;
+    if(live.ch&&live.mode===state.mode){live.ch.track(presencePayload());return;}
+    if(live.ch){client.removeChannel(live.ch);live.ch=null;}
+    live.mode=state.mode;
+    const ch=client.channel("shugaa-online",{config:{presence:{key:deviceId}}});
+    ch.on("presence",{event:"sync"},()=>{live.state=ch.presenceState();renderLive();})
+      .subscribe(st=>{if(st==="SUBSCRIBED")ch.track(presencePayload());});
+    live.ch=ch;
+  }
+  function liveRows(){return Object.values(live.state).map(v=>v[v.length-1]).filter(Boolean);}
+  function renderLive(){
+    const admin=state.mode==="account"&&state.role==="admin", badge=$("#liveBadge");
+    if(!admin){badge?.remove();return;}
+    const rows=liveRows(), n=rows.length;
+    let b=badge; if(!b){b=document.createElement("button");b.type="button";b.id="liveBadge";b.className="live-badge";b.onclick=openLive;$(".user-box")?.prepend(b);}
+    b.innerHTML=`<i></i>${n} متصل الآن`;
+    if(!$("#liveModal").classList.contains("hidden"))fillLive();
+  }
+  const ago=t=>{const m=Math.round((Date.now()-new Date(t))/60000);if(m<1)return "الآن";if(m<60)return `قبل ${m} دقيقة`;const h=Math.round(m/60);if(h<24)return `قبل ${h} ساعة`;const d=Math.round(h/24);return d<30?`قبل ${d} يوم`:new Date(t).toLocaleDateString("ar-SA-u-nu-latn");};
+  async function fillLive(){
+    const rows=liveRows(), acc=rows.filter(r=>r.kind==="account"), guests=rows.filter(r=>r.kind==="guest").length;
+    const uniq=new Map(); acc.forEach(r=>{const k=r.user_id||r.name;if(!uniq.has(k))uniq.set(k,{...r,devices:1});else uniq.get(k).devices++;});
+    $("#liveSummary").innerHTML=`<div><b>${rows.length}</b><span>جهاز متصل</span></div><div><b>${uniq.size}</b><span>صاحب حساب</span></div><div><b>${guests}</b><span>ضيف بكود العائلة</span></div>`;
+    $("#liveAccounts").innerHTML=[...uniq.values()].map(r=>`<div class="live-row"><i class="dot"></i><b>${esc(r.name||"—")}</b><small>${esc(VIEW_AR[r.view]||r.view||"")}${r.devices>1?` • ${r.devices} أجهزة`:""}${r.app?" • 📲 التطبيق":""}</small></div>`).join("")||"<p class='muted'>لا يوجد أصحاب حسابات متصلون الآن.</p>";
+    const {data}=await client.from("user_last_seen").select("user_id,last_seen_at").order("last_seen_at",{ascending:false}).limit(30);
+    $("#liveLastSeen").innerHTML=(data||[]).map(r=>{const u=(state.adminUsers||[]).find(x=>x.id===r.user_id);const nm=getPerson(u?.person_id)?.full_name_ar||u?.display_name||"حساب";
+      return `<div class="live-row"><i class="dot ${Date.now()-new Date(r.last_seen_at)<6*60000?"":"off"}"></i><b>${esc(nm)}</b><small>${esc(ago(r.last_seen_at))}</small></div>`;}).join("")||"<p class='muted'>لا توجد بيانات بعد.</p>";
+  }
+  function openLive(){$("#liveModal").classList.remove("hidden");fillLive();}
+  $$("[data-close-live]").forEach(b=>b.onclick=()=>$("#liveModal").classList.add("hidden"));
+  const _setView3=setView; setView=function(name){const r=_setView3(name);live.view=name;if(live.ch)live.ch.track(presencePayload());return r;};
+  // "last seen" heartbeat for signed-in members
+  const touch=()=>{if(state.mode==="account"&&document.visibilityState==="visible")client.rpc("touch_last_seen").then(()=>{},()=>{});};
+  setInterval(touch,4*60000); document.addEventListener("visibilitychange",touch);
+  const _syncV12=syncV12; syncV12=function(){_syncV12();startPresence();touch();renderLive();};
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){
