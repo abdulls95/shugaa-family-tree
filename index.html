@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=14.3.0" />
+  <link rel="stylesheet" href="./styles.css?v=14.4.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -534,9 +534,17 @@
             <h3>إضافة إلى مكتبة العائلة</h3>
             <label>العنوان<input id="libTitle" required /></label>
             <div class="two-cols"><label>القسم<select id="libType"><option value="document">وثيقة</option><option value="record">سجل</option><option value="land_record">سجل أرض / ملكية</option><option value="photo">صورة</option><option value="video">فيديو</option><option value="audio">تسجيل صوتي</option><option value="oral_history">رواية شفهية</option><option value="genealogy">مشجرة / نسب</option><option value="correspondence">مراسلة</option><option value="map">خريطة</option><option value="other">أخرى</option></select></label><label>السنة<input id="libYear" type="number" /></label></div>
-            <label>شخص مرتبط<select id="libPerson"><option value="">— لا يوجد —</option></select></label>
+            <label>الأشخاص المرتبطون<select id="libPerson"><option value="">— اكتب الاسم وأضفه —</option></select></label>
+            <div id="libPeopleChips" class="chip-list"><span class="muted">لم يُربط أحد بعد. يمكنك إضافة أكثر من شخص (مثل الصور الجماعية).</span></div>
             <label>الوصف<textarea id="libSummary" rows="4"></textarea></label>
-            <label>من يستطيع رؤيته<select id="libAccess"><option value="family">الحسابات المعتمدة</option><option value="editors">مدخلو البيانات</option><option value="admins">المدير فقط</option><option value="restricted">أشخاص محددون</option><option value="vault">الخزانة</option></select></label>
+            <label>من يستطيع رؤيته<select id="libAccess" class="no-search"><option value="family">كل أصحاب الحسابات الشخصية</option><option value="editors">المدير ومدخلو البيانات</option><option value="admins">المدير فقط</option><option value="restricted">أشخاص أختارهم</option><option value="vault">الخزانة (وثائق حساسة)</option></select></label>
+            <p id="libAccessHelp" class="access-help"></p>
+            <div id="libRestrictWrap" class="restrict-box hidden">
+              <label class="check-line"><input type="checkbox" id="libRestrictLinked" checked /> المرتبطون بالمحتوى (إن كان لهم حساب)</label>
+              <b>وأيضًا هؤلاء:</b>
+              <input id="libUserFilter" placeholder="ابحث عن حساب..." />
+              <div id="libUsers" class="user-checks"></div>
+            </div>
             <label>ملف<input id="libFile" type="file" /></label><label>رابط خارجي<input id="libExternalUrl" type="url" /></label>
             <button class="btn primary">حفظ</button><p id="libraryAdminMsg" class="form-msg"></p>
           </form>
@@ -1132,7 +1140,7 @@
       <div class="crop-zoom"><span>−</span><input id="cropZoom" type="range" min="1" max="4" step="0.01" value="1" aria-label="تكبير" /><span>＋</span></div>
       <div class="batch-footer"><button type="button" id="cropSave" class="btn primary wide">حفظ الصورة</button><button type="button" id="cropRemove" class="btn light wide hidden">إزالة الصورة الحالية</button></div>
     </article></div>
-  <script src="./config.js?v=14.3.0"></script>
-  <script src="./app.js?v=14.3.0"></script>
+  <script src="./config.js?v=14.4.0"></script>
+  <script src="./app.js?v=14.4.0"></script>
 </body>
 </html>

@@ -824,11 +824,18 @@ window.ShugaaHijri=(()=>{
     rows.forEach(ev=>{const p=getPerson(ev.person_id),pl=getPlace(ev.place_id);const c=document.createElement("article");c.className="history-card";c.innerHTML=`<div class="history-year">${esc(ev.event_year||"—")}</div><div><h3>${esc(ev.title||p?.full_name_ar||"حدث")}</h3><p>${p?esc(p.full_name_ar):""}${pl?` • ${esc(pl.name_ar)}`:""}</p>${ev.description?`<p>${esc(ev.description)}</p>`:""}</div>`;list.appendChild(c);});
   }
 
+  let libLinksCache=null;
+  async function fillLibraryPeople(rows){if(!rows.length||state.mode!=="account")return;
+    if(!libLinksCache){const {data}=await client.from("library_item_people").select("item_id,person_id");libLinksCache=new Map();(data||[]).forEach(r=>{(libLinksCache.get(r.item_id)||libLinksCache.set(r.item_id,[]).get(r.item_id)).push(r.person_id);});}
+    $$("#libraryGrid .library-card").forEach((card,i)=>{const ids=libLinksCache.get(rows[i]?.id)||[];if(!ids.length||card.querySelector(".lib-people"))return;
+      const d=document.createElement("div");d.className="lib-people";d.innerHTML="👥 "+ids.map(id=>`<button type="button" class="h2-person" data-pid="${id}">${esc(firstName(getPerson(id))||"")}</button>`).join("، ");
+      d.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));card.querySelector(".library-card-body")?.insertBefore(d,card.querySelector(".library-actions"));});}
   function renderLibrary(){
     const grid=$("#libraryGrid"); if(!grid)return; const q=norm($("#librarySearch")?.value||""); const f=state.libraryFilter;
     const rows=state.library.filter(x=>{const typeOk=f==="all"||f==="documents"&&["document","correspondence"].includes(x.item_type)||f==="records"&&["record","land_record"].includes(x.item_type)||f==="photos"&&x.item_type==="photo"||f==="media"&&["video","audio","oral_history"].includes(x.item_type)||f==="genealogy"&&x.item_type==="genealogy"||f==="vault"&&x.access_level==="vault"; return typeOk&&(!q||norm([x.title,x.summary,(x.keywords||[]).join(" ")].join(" ")).includes(q));});
     grid.innerHTML=""; $("#libraryEmpty").classList.toggle("hidden",!!rows.length);
     rows.forEach(item=>{const c=document.createElement("article");c.className="library-card";c.innerHTML=`<div class="library-card-top"><span class="library-card-icon">${itemTypeIcon(item.item_type)}</span><span>${esc(item.reference_code||"")}</span></div><div class="library-card-body"><h3>${esc(item.title)}</h3><p>${esc(item.summary||"")}</p><div class="library-meta"><span class="meta-pill">${esc(itemTypeLabel(item.item_type))}</span>${item.record_year?`<span class="meta-pill">${item.record_year}</span>`:""}</div><div class="library-actions">${item.file_path?`<button class="btn light open-file" data-path="${esc(item.file_path)}">فتح المرفق</button>`:""}${item.external_url?`<button class="btn light open-url" data-url="${esc(item.external_url)}">فتح الرابط</button>`:""}</div></div>`;grid.appendChild(c);});
+    fillLibraryPeople(rows);
     $$(".open-file").forEach(b=>b.onclick=async()=>{const {data,error}=await client.storage.from("family-library").createSignedUrl(b.dataset.path,120);if(error)toast(error.message);else window.open(data.signedUrl,"_blank");});
     $$(".open-url").forEach(b=>b.onclick=()=>window.open(b.dataset.url,"_blank"));
   }
@@ -2203,7 +2210,43 @@ window.ShugaaHijri=(()=>{
 
   // Event and library
   $("#addEventForm").onsubmit=async e=>{e.preventDefault();try{const place=await ensurePlace($("#eventPlace").value);const evType=$("#eventType").value;const {data:evRow,error}=await client.from("life_events").insert({person_id:$("#eventPerson").value,event_type:evType,event_year:toInt($("#eventYear").value),place_id:place,title:$("#eventTitle").value.trim()||null,description:$("#eventDescription").value.trim()||null,confidence:$("#eventConfidence").value}).select("id").single();if(error)throw error;$("#eventMsg").textContent="تم حفظ الحدث ✅";e.target.reset();await loadAccountData();if(evRow?.id&&["marriage","engagement","birth","graduation","achievement","death"].includes(evType))sendEventPush(evRow.id);}catch(err){$("#eventMsg").textContent=err.message;}};
-  $("#addLibraryForm").onsubmit=async e=>{e.preventDefault();try{const row={title:$("#libTitle").value.trim(),item_type:$("#libType").value,record_year:toInt($("#libYear").value),summary:$("#libSummary").value.trim()||null,confidence:"family_tradition",access_level:$("#libAccess").value,external_url:$("#libExternalUrl").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id,status:"published"};const {data:item,error}=await client.from("library_items").insert(row).select().single();if(error)throw error;if($("#libPerson").value)await client.from("library_item_people").insert({item_id:item.id,person_id:$("#libPerson").value});const file=$("#libFile").files[0];if(file){const path=`${item.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,file,{contentType:file.type||undefined});if(ue)throw ue;await client.from("library_items").update({file_path:path,mime_type:file.type||null}).eq("id",item.id);}$("#libraryAdminMsg").textContent="تمت الإضافة ✅";e.target.reset();await loadAccountData();}catch(err){$("#libraryAdminMsg").textContent=err.message;}};
+  // ---- library: several linked people + clear visibility, incl. "people I choose" ----
+  const LIB_HELP={family:"يراه كل من دخل برمزه الشخصي. لا يظهر لمن دخل برمز العائلة العام.",editors:"يراه المدير ومدخلو البيانات فقط.",admins:"يراه المدير فقط.",
+    restricted:"يراه المدير والأشخاص الذين تختارهم بالأسفل فقط.",vault:"للوثائق الحساسة: يراه المدير فقط، ويظهر في قسم «الخزانة»."};
+  let libPeople=[];
+  function renderLibChips(){const box=$("#libPeopleChips");
+    box.innerHTML=libPeople.length?libPeople.map(id=>`<span class="chip">${esc(getPerson(id)?.full_name_ar||"")}<button type="button" data-rm="${id}" aria-label="إزالة">×</button></span>`).join(""):'<span class="muted">لم يُربط أحد بعد. يمكنك إضافة أكثر من شخص (مثل الصور الجماعية).</span>';
+    box.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{libPeople=libPeople.filter(x=>x!==b.dataset.rm);renderLibChips();});}
+  $("#libPerson").addEventListener("change",()=>{const v=$("#libPerson").value;if(v&&!libPeople.includes(v))libPeople.push(v);$("#libPerson").value="";renderLibChips();});
+  function renderLibUsers(){const q=norm($("#libUserFilter").value||"");
+    const users=(state.adminUsers||[]).filter(u=>u.status==="active"&&u.role!=="admin").filter(u=>!q||norm(`${u.display_name} ${getPerson(u.person_id)?.full_name_ar||""}`).includes(q));
+    const checked=new Set($$("#libUsers input:checked").map(i=>i.value));
+    $("#libUsers").innerHTML=users.map(u=>`<label class="check-line"><input type="checkbox" value="${u.id}" ${checked.has(u.id)?"checked":""}/> ${esc(getPerson(u.person_id)?.full_name_ar||u.display_name||"")}</label>`).join("")||"<span class='muted'>لا توجد حسابات.</span>";}
+  function syncLibAccess(){const admin=state.role==="admin",sel=$("#libAccess");
+    sel.querySelectorAll('option[value="restricted"],option[value="vault"]').forEach(o=>{o.hidden=!admin;o.disabled=!admin;});
+    if(!admin&&["restricted","vault"].includes(sel.value))sel.value="editors";
+    $("#libAccessHelp").textContent=LIB_HELP[sel.value]||"";
+    const r=sel.value==="restricted";$("#libRestrictWrap").classList.toggle("hidden",!r);if(r)renderLibUsers();}
+  $("#libAccess").addEventListener("change",syncLibAccess);$("#libUserFilter").addEventListener("input",renderLibUsers);
+  document.querySelector('.admin-tab[data-admin-panel="library"]')?.addEventListener("click",()=>setTimeout(syncLibAccess,0));
+  syncLibAccess();
+  $("#addLibraryForm").onsubmit=async e=>{e.preventDefault();const msg=$("#libraryAdminMsg");
+    try{const access=$("#libAccess").value;
+      let viewers=[];
+      if(access==="restricted"){viewers=$$("#libUsers input:checked").map(i=>i.value);
+        if($("#libRestrictLinked").checked)viewers.push(...(state.adminUsers||[]).filter(u=>u.status==="active"&&libPeople.includes(u.person_id)).map(u=>u.id));
+        viewers=[...new Set(viewers)];
+        if(!viewers.length&&!confirm("لم تختر أحدًا، ولن يرى هذا المحتوى إلا المدير. متابعة؟"))return;}
+      msg.textContent="جارٍ الحفظ...";
+      const row={title:$("#libTitle").value.trim(),item_type:$("#libType").value,record_year:toInt($("#libYear").value),summary:$("#libSummary").value.trim()||null,confidence:"family_tradition",access_level:access,external_url:$("#libExternalUrl").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id,status:"published"};
+      const {data:item,error}=await client.from("library_items").insert(row).select().single();if(error)throw error;
+      if(libPeople.length){const {error:pe}=await client.from("library_item_people").insert(libPeople.map(id=>({item_id:item.id,person_id:id})));if(pe)throw pe;}
+      if(viewers.length){const {error:ve}=await client.from("library_item_permissions").insert(viewers.map(u=>({item_id:item.id,user_id:u,can_view:true,granted_by:state.session.user.id})));if(ve)throw ve;}
+      const file=$("#libFile").files[0];
+      if(file){const path=`${item.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,file,{contentType:file.type||undefined});if(ue)throw ue;await client.from("library_items").update({file_path:path,mime_type:file.type||null}).eq("id",item.id);}
+      msg.textContent=`تمت الإضافة ✅${libPeople.length?` — مرتبط بـ ${libPeople.length} ${libPeople.length>1?"أشخاص":"شخص"}`:""}${viewers.length?` — يراه ${viewers.length} ${viewers.length>1?"حسابات":"حساب"} مع المدير`:""}`;
+      e.target.reset();libPeople=[];renderLibChips();syncLibAccess();libLinksCache=null;await loadAccountData();}
+    catch(err){msg.textContent="تعذّر الحفظ: "+err.message;}};
 
   // V7.1 — dual-calendar year inputs. Existing code keeps reading .value as a Gregorian year;
   // when the field is in Hijri mode the typed Hijri year is kept in data-hijri and converted.
