@@ -1944,3 +1944,7 @@ html.is-app body{overscroll-behavior-y:none}
 .check-line input{width:auto}
 .user-checks{max-height:220px;overflow:auto;display:grid;gap:6px;background:#fff;border:1px solid var(--v7-line);border-radius:10px;padding:8px}
 .lib-people{font-size:13px;color:var(--v7-muted);margin:4px 0}
+
+/* V14.5 — library photo thumbnails */
+.library-card-top.has-thumb{background-size:cover!important;background-position:center!important;cursor:zoom-in;min-height:170px}
+.library-card-top.has-thumb .library-card-icon{opacity:0}

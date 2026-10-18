@@ -824,6 +824,26 @@ window.ShugaaHijri=(()=>{
     rows.forEach(ev=>{const p=getPerson(ev.person_id),pl=getPlace(ev.place_id);const c=document.createElement("article");c.className="history-card";c.innerHTML=`<div class="history-year">${esc(ev.event_year||"—")}</div><div><h3>${esc(ev.title||p?.full_name_ar||"حدث")}</h3><p>${p?esc(p.full_name_ar):""}${pl?` • ${esc(pl.name_ar)}`:""}</p>${ev.description?`<p>${esc(ev.description)}</p>`:""}</div>`;list.appendChild(c);});
   }
 
+
+  // library attachments: images open in the viewer; other files open in a tab that is created
+  // during the tap itself (Safari blocks tabs opened after waiting for the link)
+  const IMG_RE=/\.(jpe?g|png|gif|webp|heic|heif)$/i;
+  const libUrlCache=new Map();
+  async function libSignedUrl(path){const c=libUrlCache.get(path);if(c&&c.exp>Date.now())return c.url;
+    const {data,error}=await client.storage.from("family-library").createSignedUrl(path,3600);if(error||!data?.signedUrl)throw error||new Error("تعذّر فتح الملف");
+    libUrlCache.set(path,{url:data.signedUrl,exp:Date.now()+3300e3});return data.signedUrl;}
+  async function openLibraryFile(path,title){
+    if(IMG_RE.test(path)){try{const u=await libSignedUrl(path);lbList=[];$("#lbImg").src=u;$("#lbCap").textContent=title;$("#lbPrev").classList.add("hidden");$("#lbNext").classList.add("hidden");$("#lightbox").classList.remove("hidden");}catch(e){toast(e.message,4000);}return;}
+    const cached=libUrlCache.get(path);if(cached&&cached.exp>Date.now()){window.open(cached.url,"_blank");return;}
+    const w=window.open("about:blank","_blank");
+    try{const u=await libSignedUrl(path);if(w)w.location.href=u;else location.href=u;}catch(e){w?.close();toast(e.message,4000);}
+  }
+  async function fillLibraryThumbs(rows){
+    const cards=$$("#libraryGrid .library-card");
+    for(let i=0;i<rows.length;i++){const it=rows[i],top=cards[i]?.querySelector(".library-card-top");if(!top||!it?.file_path||!IMG_RE.test(it.file_path))continue;
+      try{const u=await libSignedUrl(it.file_path);top.style.backgroundImage=`linear-gradient(rgba(7,38,33,.15),rgba(7,38,33,.55)),url("${u}")`;top.classList.add("has-thumb");
+        top.onclick=()=>openLibraryFile(it.file_path,it.title);}catch(_){}}
+  }
   let libLinksCache=null;
   async function fillLibraryPeople(rows){if(!rows.length||state.mode!=="account")return;
     if(!libLinksCache){const {data}=await client.from("library_item_people").select("item_id,person_id");libLinksCache=new Map();(data||[]).forEach(r=>{(libLinksCache.get(r.item_id)||libLinksCache.set(r.item_id,[]).get(r.item_id)).push(r.person_id);});}
@@ -836,7 +856,8 @@ window.ShugaaHijri=(()=>{
     grid.innerHTML=""; $("#libraryEmpty").classList.toggle("hidden",!!rows.length);
     rows.forEach(item=>{const c=document.createElement("article");c.className="library-card";c.innerHTML=`<div class="library-card-top"><span class="library-card-icon">${itemTypeIcon(item.item_type)}</span><span>${esc(item.reference_code||"")}</span></div><div class="library-card-body"><h3>${esc(item.title)}</h3><p>${esc(item.summary||"")}</p><div class="library-meta"><span class="meta-pill">${esc(itemTypeLabel(item.item_type))}</span>${item.record_year?`<span class="meta-pill">${item.record_year}</span>`:""}</div><div class="library-actions">${item.file_path?`<button class="btn light open-file" data-path="${esc(item.file_path)}">فتح المرفق</button>`:""}${item.external_url?`<button class="btn light open-url" data-url="${esc(item.external_url)}">فتح الرابط</button>`:""}</div></div>`;grid.appendChild(c);});
     fillLibraryPeople(rows);
-    $$(".open-file").forEach(b=>b.onclick=async()=>{const {data,error}=await client.storage.from("family-library").createSignedUrl(b.dataset.path,120);if(error)toast(error.message);else window.open(data.signedUrl,"_blank");});
+    $$(".open-file").forEach(b=>b.onclick=()=>openLibraryFile(b.dataset.path,b.closest(".library-card")?.querySelector("h3")?.textContent||""));
+    fillLibraryThumbs(rows);
     $$(".open-url").forEach(b=>b.onclick=()=>window.open(b.dataset.url,"_blank"));
   }
 
