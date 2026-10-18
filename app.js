@@ -955,8 +955,19 @@ window.ShugaaHijri=(()=>{
     $$(".reject-account").forEach(b=>b.onclick=()=>updateProfile(b.dataset.id,{status:"rejected"}));
   }
   function renderUsers(){
-    const box=$("#userManagement"); box.innerHTML=state.adminUsers.filter(u=>u.status!=="pending").map(u=>`<div class="account-row"><div><strong>${esc(u.display_name||"")}</strong><small>${esc(/@members\.shugaa-family\.app$/.test(u.email||"")?"🔑 دخول بالرمز":(u.email||""))} • ${esc(getPerson(u.person_id)?.full_name_ar||(u.person_id?"ملف غير متاح":"غير مربوط بملف"))}</small></div><div class="account-actions"><select class="role-select user-role" data-id="${u.id}"><option value="viewer" ${u.role==="viewer"?"selected":""}>مشاهد</option><option value="editor" ${u.role==="editor"?"selected":""}>مدخل بيانات</option><option value="admin" ${u.role==="admin"?"selected":""}>مدير</option></select>${u.id!==state.session.user.id?`<button class="btn light toggle-user" data-id="${u.id}" data-status="${u.status}">${u.status==="suspended"?"تفعيل":"إيقاف"}</button>`:""}</div></div>`).join("");
-    $$(".user-role").forEach(s=>s.onchange=()=>updateProfile(s.dataset.id,{role:s.value,status:"active"})); $$(".toggle-user").forEach(b=>b.onclick=()=>updateProfile(b.dataset.id,{status:b.dataset.status==="suspended"?"active":"suspended"}));
+    const box=$("#userManagement"), me=state.session.user.id;
+    const row=u=>`<div class="account-row ${u.status==="suspended"?"is-stopped":""}"><div><strong>${esc(u.display_name||"")}</strong><small>${esc(/@members\.shugaa-family\.app$/.test(u.email||"")?"🔑 دخول بالرمز":(u.email||""))} • ${esc(getPerson(u.person_id)?.full_name_ar||(u.person_id?"ملف غير متاح":"غير مربوط بملف"))}</small></div>
+      <div class="account-actions">${u.status!=="suspended"?`<select class="role-select user-role no-search" data-id="${u.id}"><option value="viewer" ${u.role==="viewer"?"selected":""}>مشاهد</option><option value="editor" ${u.role==="editor"?"selected":""}>مدخل بيانات</option><option value="admin" ${u.role==="admin"?"selected":""}>مدير</option></select>`:`<span class="meta-pill">${esc(roleLabel(u.role))}</span>`}
+      ${u.id!==me?`<button class="btn light toggle-user" data-id="${u.id}" data-status="${u.status}">${u.status==="suspended"?"تفعيل":"إيقاف"}</button><button class="btn light danger delete-user" data-id="${u.id}" data-name="${esc(u.display_name||u.email||"")}">حذف الحساب</button>`:"<span class='meta-pill'>حسابك</span>"}</div></div>`;
+    const list=state.adminUsers.filter(u=>u.status!=="pending"), active=list.filter(u=>u.status!=="suspended"), stopped=list.filter(u=>u.status==="suspended");
+    box.innerHTML=`<h4 class="list-head">الحسابات الفعّالة <b>${active.length}</b></h4>${active.map(row).join("")||"<p class='muted'>لا توجد حسابات فعّالة.</p>"}
+      ${stopped.length?`<details class="stopped-box"><summary>الحسابات الموقوفة <b>${stopped.length}</b></summary>${stopped.map(row).join("")}</details>`:""}`;
+    $$(".user-role").forEach(s=>s.onchange=()=>updateProfile(s.dataset.id,{role:s.value,status:"active"}));
+    $$(".toggle-user").forEach(b=>b.onclick=()=>updateProfile(b.dataset.id,{status:b.dataset.status==="suspended"?"active":"suspended"}));
+    $$(".delete-user").forEach(b=>b.onclick=async()=>{
+      if(!confirm(`حذف حساب «${b.dataset.name}» نهائيًا؟\n\nسيُحذف حساب الدخول فقط، ويبقى الشخص في الشجرة وقائمة الأفراد كما هو.\nإذا كان له رمز شخصي فعّال، يستطيع الدخول به مرة أخرى وسيُنشأ له حساب جديد مرتبط بملفه.`))return;
+      const {error}=await client.rpc("admin_delete_user",{p_user_id:b.dataset.id});if(error)return toast("تعذّر الحذف: "+error.message,5000);
+      toast("تم حذف الحساب ✅");await loadStaffData();});
     const sel=$("#permissionUser"); sel.innerHTML='<option value="">— اختر —</option>'+state.adminUsers.filter(u=>u.status==="active").map(u=>`<option value="${u.id}">${esc(u.display_name||u.email)} — ${esc(roleLabel(u.role))}</option>`).join("");
   }
   async function updateProfile(id,patch){const {error}=await client.from("profiles").update(patch).eq("id",id);if(error)toast(error.message,4500);else{toast("تم تحديث الحساب ✅");await loadStaffData();}}
@@ -974,19 +985,23 @@ window.ShugaaHijri=(()=>{
 
   function renderAccessCodes(){
     const box=$("#accessCodeList");
-    box.innerHTML=state.accessCodes.map(c=>{
+    const isLive=c=>c.status==="active"&&!(c.expires_at&&new Date(c.expires_at)<new Date());
+    const codeRow=c=>{
       const p=getPerson(c.person_id);
-      const statusText=c.status==="active"?"فعّال":c.status==="revoked"?"ملغي":"منتهي";
+      const statusText=!isLive(c)&&c.status==="active"?"منتهي":c.status==="active"?"فعّال":c.status==="revoked"?"ملغي":"منتهي";
       return `<div class="access-code-row">
         <div>
           <b>${esc(c.label||c.code_type)}</b>
           <small>${esc(({personal:"شخصي",general:"عام",invite:"دعوة"})[c.code_type]||c.code_type)}${c.code_type==="personal"?` (${esc(roleLabel(c.grant_role))})`:""} • ${esc(statusText)} • ينتهي: ${c.expires_at?new Date(c.expires_at).toLocaleDateString("ar"):"بدون انتهاء"} • استخدام ${c.use_count||0}${p?` • ${esc(p.full_name_ar)}`:""} • آخر 4: ${esc(c.code_hint||"")}</small>
         </div>
         <div class="account-actions">
-          ${c.status==="active"?`${c.can_reveal?`<button class="btn primary copy-code" data-id="${c.id}">نسخ الكود</button>`:""}<button class="btn gold reissue-code" data-id="${c.id}">إصدار كود بديل</button><button class="btn light revoke-code" data-id="${c.id}">إلغاء</button>`:`<span class="meta-pill">${esc(statusText)}</span>`}
+          ${isLive(c)?`${c.can_reveal?`<button class="btn primary copy-code" data-id="${c.id}">نسخ الكود</button>`:""}<button class="btn gold reissue-code" data-id="${c.id}">إصدار كود بديل</button><button class="btn light revoke-code" data-id="${c.id}">إلغاء</button>`:`<span class="meta-pill">${esc(statusText)}</span>`}
         </div>
       </div>`;
-    }).join("")||"<p>لا توجد أكواد.</p>";
+    };
+    const live=state.accessCodes.filter(isLive), dead=state.accessCodes.filter(c=>!isLive(c));
+    box.innerHTML=`<h4 class="list-head">الأكواد الفعّالة <b>${live.length}</b></h4>${live.map(codeRow).join("")||"<p class='muted'>لا توجد أكواد فعّالة.</p>"}
+      ${dead.length?`<details class="stopped-box"><summary>الأكواد الملغاة والمنتهية <b>${dead.length}</b></summary>${dead.map(codeRow).join("")}</details>`:""}`;
 
     $$(".copy-code").forEach(b=>b.onclick=async()=>{
       const {data:code,error}=await client.rpc("admin_reveal_access_code",{p_code_id:b.dataset.id});
@@ -2178,7 +2193,10 @@ window.ShugaaHijri=(()=>{
   // Access code admin
   $("#accessCodeType").onchange=()=>{const personal=$("#accessCodeType").value==="personal";$("#accessPersonWrap").classList.toggle("hidden",!personal);$("#accessRoleWrap").classList.toggle("hidden",!personal);$("#accessMaxUsesWrap").classList.toggle("hidden",personal);};
   $("#accessCodeType").onchange();
-  $("#accessCodeForm").onsubmit=async e=>{e.preventDefault();const type=$("#accessCodeType").value,person=$("#accessPerson").value||null;if(type==="personal"&&!person)return toast("اختر الشخص للكود الشخصي.");const exp=$("#accessExpires").value?new Date($("#accessExpires").value).toISOString():null;const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:type,p_person_id:person,p_label:$("#accessLabel").value.trim()||null,p_expires_at:exp,p_max_uses:type==="personal"?null:toInt($("#accessMaxUses").value),p_grant_role:type==="personal"?$("#accessGrantRole").value:"viewer"});if(error)return toast(error.message,4500);const code=data?.[0]?.access_code||"";if(code)showGeneratedAccessCode(code,"تم إنشاء الكود",getPerson(person)?.full_name_ar);await loadStaffData();};
+  $("#accessCodeForm").onsubmit=async e=>{e.preventDefault();const type=$("#accessCodeType").value,person=$("#accessPerson").value||null;if(type==="personal"&&!person)return toast("اختر الشخص للكود الشخصي.");
+    if(type==="personal"){const existing=state.accessCodes.find(c=>c.code_type==="personal"&&c.person_id===person&&c.status==="active"&&!(c.expires_at&&new Date(c.expires_at)<new Date()));
+      if(existing){if(existing.can_reveal&&confirm("لهذا الشخص رمز شخصي فعّال بالفعل.\nهل تريد عرض الرمز الحالي بدل إنشاء رمز جديد؟")){const {data:code,error}=await client.rpc("admin_reveal_access_code",{p_code_id:existing.id});if(!error){showGeneratedAccessCode(code,"الرمز الحالي",getPerson(person)?.full_name_ar);return;}}
+        else if(!existing.can_reveal&&!confirm("لهذا الشخص رمز شخصي فعّال (قديم لا يمكن عرضه).\nإنشاء رمز جديد سيُبقي الرمزين فعّالين. هل تريد المتابعة؟"))return;}}const exp=$("#accessExpires").value?new Date($("#accessExpires").value).toISOString():null;const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:type,p_person_id:person,p_label:$("#accessLabel").value.trim()||null,p_expires_at:exp,p_max_uses:type==="personal"?null:toInt($("#accessMaxUses").value),p_grant_role:type==="personal"?$("#accessGrantRole").value:"viewer"});if(error)return toast(error.message,4500);const code=data?.[0]?.access_code||"";if(code)showGeneratedAccessCode(code,"تم إنشاء الكود",getPerson(person)?.full_name_ar);await loadStaffData();};
 
   // Permission save
   $("#savePermissionsBtn").onclick=async()=>{const uid=$("#permissionUser").value;if(!uid)return toast("اختر المستخدم.");const rows=$$("#permissionMatrix input[data-code]").map(x=>({user_id:uid,permission_code:x.dataset.code,allowed:x.checked,updated_by:state.session.user.id,updated_at:new Date().toISOString()}));const {error}=await client.from("profile_permissions").upsert(rows,{onConflict:"user_id,permission_code"});if(error)toast(error.message,4500);else{toast("تم حفظ الصلاحيات ✅");await loadStaffData();}};
@@ -2799,7 +2817,7 @@ window.ShugaaHijri=(()=>{
     if(ok&&data?.code){const link=location.origin+location.pathname,first=String(data.name||"").split(/\s+/)[0];
       const text=`السلام عليكم ${first} 🌳\nهذا رمز دخولك الخاص إلى موقع شجرة آل شجاع:\n${data.code}\n\nافتح الرابط وأدخل الرمز:\n${link}\n\nالرمز خاص بك، فلا تشاركه مع أحد.`;
       const phone=String(data.phone||"").replace(/[^\d]/g,"").replace(/^00/,"").replace(/^05/,"9665");
-      const box=$("#joinCodeBox");box.classList.remove("hidden");box.innerHTML=`<b>✅ تم اعتماد طلب ${esc(data.name)} — الرمز:</b><code>${esc(data.code)}</code><div class="code-share-actions"><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/${phone}?text=${encodeURIComponent(text)}">إرسال الرمز عبر واتساب</a></div>`;}
+      const box=$("#joinCodeBox");box.classList.remove("hidden");box.innerHTML=`<b>✅ تم اعتماد طلب ${esc(data.name)} — ${data.reused?"له رمز مسبق، وهذا رمزه الحالي:":"الرمز:"}</b><code>${esc(data.code)}</code><div class="code-share-actions"><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/${phone}?text=${encodeURIComponent(text)}">إرسال الرمز عبر واتساب</a></div>`;}
     else toast("تم رفض الطلب.");loadJoinRequests();}
 
   // ---------- push notifications ----------

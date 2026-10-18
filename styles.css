@@ -1923,3 +1923,12 @@ html.is-app body{overscroll-behavior-y:none}
 .shugaa-v7 .avatar.has-photo{background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;cursor:zoom-in}
 .lightbox button.hidden{display:none}
 #lightbox{cursor:zoom-out}
+
+/* V14.3 — admin lists: active first, stopped/cancelled tucked away */
+.list-head{display:flex;align-items:center;gap:8px;margin:4px 0 10px;color:var(--v7-ink);font-size:16px}
+.list-head b,.stopped-box summary b{background:#F3EDE0;color:#7A5C1F;border-radius:999px;padding:0 10px;font-size:13px}
+.stopped-box{margin-top:16px;border:1px dashed var(--v7-line-2);border-radius:14px;padding:6px 12px;background:#FBF8F1}
+.stopped-box summary{cursor:pointer;padding:8px 0;font-weight:600;color:#6F7A75;display:flex;gap:8px;align-items:center}
+.stopped-box .account-row,.stopped-box .access-code-row{opacity:.75}
+.btn.danger{color:#9D3F37;border-color:#E7C9C4}
+.btn.danger:hover{background:#F6E9E7}
