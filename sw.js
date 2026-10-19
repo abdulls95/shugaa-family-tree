@@ -1,5 +1,5 @@
 // Shugaa Family Tree — service worker (app shell + offline)
-const VERSION = "v15.0.0";
+const VERSION = "v15.2.0";
 const SHELL = "shugaa-shell-" + VERSION;
 const RUNTIME = "shugaa-runtime";
 const LOCAL = ["./", "./index.html", "./styles.css", "./config.js", "./app.js", "./manifest.webmanifest",

@@ -2231,7 +2231,9 @@ window.ShugaaHijri=(()=>{
   $("#savePermissionsBtn").onclick=async()=>{const uid=$("#permissionUser").value;if(!uid)return toast("اختر المستخدم.");const rows=$$("#permissionMatrix input[data-code]").map(x=>({user_id:uid,permission_code:x.dataset.code,allowed:x.checked,updated_by:state.session.user.id,updated_at:new Date().toISOString()}));const {error}=await client.from("profile_permissions").upsert(rows,{onConflict:"user_id,permission_code"});if(error)toast(error.message,4500);else{toast("تم حفظ الصلاحيات ✅");await loadStaffData();}};
 
   // Event and library
-  $("#addEventForm").onsubmit=async e=>{e.preventDefault();try{const place=await ensurePlace($("#eventPlace").value);const evType=$("#eventType").value;const {data:evRow,error}=await client.from("life_events").insert({person_id:$("#eventPerson").value,event_type:evType,event_year:toInt($("#eventYear").value),place_id:place,title:$("#eventTitle").value.trim()||null,description:$("#eventDescription").value.trim()||null,confidence:$("#eventConfidence").value}).select("id").single();if(error)throw error;$("#eventMsg").textContent="تم حفظ الحدث ✅";e.target.reset();await loadAccountData();if(evRow?.id&&["marriage","engagement","birth","graduation","achievement","death"].includes(evType))sendEventPush(evRow.id);}catch(err){$("#eventMsg").textContent=err.message;}};
+  $("#addEventForm").onsubmit=async e=>{e.preventDefault();try{const place=await ensurePlace($("#eventPlace").value);const evType=$("#eventType").value,pulse=$("#eventPulse").value,evDate=$("#eventDate").value||null;
+    if(pulse==="until"&&!evDate){$("#eventMsg").textContent="اختر تاريخ المناسبة، أو غيّر مدة الظهور.";return;}
+    const showUntil=pulse==="forever"?"2999-12-31T00:00:00Z":pulse==="until"?new Date(new Date(evDate+"T23:59:59").getTime()+2*864e5).toISOString():new Date(Date.now()+(+pulse)*864e5).toISOString();const {data:evRow,error}=await client.from("life_events").insert({person_id:$("#eventPerson").value,event_type:evType,show_until:showUntil,event_date:evDate,event_year:toInt($("#eventYear").value)||(evDate?+evDate.slice(0,4):null),place_id:place,title:$("#eventTitle").value.trim()||null,description:$("#eventDescription").value.trim()||null,confidence:$("#eventConfidence").value}).select("id").single();if(error)throw error;$("#eventMsg").textContent="تم حفظ الحدث ✅";e.target.reset();await loadAccountData();if(evRow?.id&&pulse!=="0"&&["marriage","engagement","birth","graduation","achievement","death"].includes(evType))sendEventPush(evRow.id);syncPulseDefault();}catch(err){$("#eventMsg").textContent=err.message;}};
   // ---- library: several linked people + clear visibility, incl. "people I choose" ----
   const LIB_HELP={family:"يراه كل من دخل برمزه الشخصي. لا يظهر لمن دخل برمز العائلة العام.",editors:"يراه المدير ومدخلو البيانات فقط.",admins:"يراه المدير فقط.",
     restricted:"يراه المدير والأشخاص الذين تختارهم بالأسفل فقط.",vault:"للوثائق الحساسة: يراه المدير فقط، ويظهر في قسم «الخزانة»."};
@@ -2531,20 +2533,27 @@ window.ShugaaHijri=(()=>{
   function renderKnow(){const items=knowItems(); const box=$("#h2Know"); if(!items.length){box.innerHTML="<p class='muted'>أضف أفراد للشجرة وتطلع لك الاكتشافات هنا.</p>";return;}
     box.innerHTML=`<p class="h2-know-text">${items[homeState.knowIdx%items.length]}</p>`; box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));}
   function eventDateText(e){const H=window.ShugaaHijri; if(e.event_date)return H.pick(H.side(null,null,e.event_date).full); if(e.event_year)return H.pick(H.side(e.event_year,null,null)); return "";}
+  function countdownPill(e){if(!e.event_date)return "";const days=Math.round((new Date(e.event_date+"T00:00:00")-new Date(new Date().toDateString()))/864e5);
+    if(days>0)return `<span class="countdown">⏳ بعد ${days} ${days===1?"يوم":days===2?"يومين":days<=10?"أيام":"يومًا"}</span>`;if(days===0)return `<span class="countdown today">🎉 اليوم</span>`;return "";}
   function renderHomeNews(){
-    const box=$("#h2News"); const rows=[...state.events].sort((a,b)=>String(b.event_date||b.event_year||"").localeCompare(String(a.event_date||a.event_year||""))||String(b.created_at||"").localeCompare(String(a.created_at||""))).slice(0,4);
-    if(!rows.length){box.innerHTML=`<div class="h2-empty">${window.ShugaaMarks.svg("mountain",96)}<b>ما فيه أخبار للحين</b><p>أول زواج أو مولود ينضاف، يطلع هنا ويباركون له الكل.</p>${canAddPeopleDirect()?`<button type="button" class="btn gold" id="h2AddNews">أضف أول خبر</button>`:""}</div>`;
-      $("#h2AddNews")?.addEventListener("click",()=>{setView("admin");setAdminPanel("event");});return;}
+    const now=Date.now(), live=e=>e.show_until?new Date(e.show_until).getTime()>now:(e.created_at&&now-new Date(e.created_at).getTime()<14*864e5&&NEWS_TYPES.includes(e.event_type));
+    const box=$("#h2News"); const rows=[...state.events].filter(live).sort((a,b)=>String(b.event_date||b.event_year||"").localeCompare(String(a.event_date||a.event_year||""))||String(b.created_at||"").localeCompare(String(a.created_at||""))).slice(0,4);
+    if(!rows.length){box.innerHTML=`<div class="h2-empty">${window.ShugaaMarks.svg("mountain",96)}<b>لا توجد أخبار جديدة حاليًا</b><p>${state.events.length?`تجد كل الأخبار السابقة في <button type="button" class="h2-person" data-go-history>أخبار وتاريخ</button>.`:"أول زواج أو مولود يُضاف يظهر هنا ليبارك له الجميع."}</p>${canAddPeopleDirect()?`<button type="button" class="btn gold" id="h2AddNews">أضف أول خبر</button>`:""}</div>`;
+      $("#h2AddNews")?.addEventListener("click",()=>{setView("admin");setAdminPanel("event");});box.querySelector("[data-go-history]")?.addEventListener("click",()=>setView("history"));return;}
     const acct=state.mode==="account";
     box.innerHTML=rows.map((e,i)=>{const m=EVT[e.event_type]||EVT.other, p=getPerson(e.person_id), r=homeState.reacts.get(e.id)||{total:0,mine:false};
       return `<div class="h2-news-item ${m.k}" style="--i:${i}">
         <div class="h2-news-badge">${esc(m.t)}</div>
         <div class="h2-news-body"><h4>${esc(e.title||m.t)}</h4>
           ${p?`<button class="h2-person" data-pid="${p.id}">${esc(p.full_name_ar)}</button>`:""}
-          ${e.description?`<p>${esc(e.description)}</p>`:""}<small>${esc(eventDateText(e))}</small></div>
+          ${e.description?`<p>${esc(e.description)}</p>`:""}<small>${esc(eventDateText(e))}</small>${countdownPill(e)}</div>
+        ${state.mode==="account"&&["admin","editor"].includes(state.role)?`<button type="button" class="h2-unpin" data-unpin="${e.id}" title="إخفاء من نبض العائلة">إخفاء</button>`:""}
         ${acct?`<button type="button" class="h2-react ${r.mine?"on":""}" data-eid="${e.id}"><span>${esc(m.btn)}</span>${r.total?`<b>${r.total}</b>`:""}</button>`:(r.total?`<span class="h2-react-count">${r.total}</span>`:"")}
       </div>`;}).join("");
     box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));
+    box.querySelectorAll("[data-unpin]").forEach(b=>b.onclick=async()=>{if(!confirm("إخفاء هذا الخبر من نبض العائلة؟ سيبقى محفوظًا في «أخبار وتاريخ».\n"))return;
+      const t=new Date().toISOString();const {error}=await client.from("life_events").update({show_until:t}).eq("id",b.dataset.unpin);if(error)return toast(error.message,4000);
+      const ev=state.events.find(x=>x.id===b.dataset.unpin);if(ev)ev.show_until=t;renderHomeNews();toast("تم نقل الخبر إلى الأرشيف");});
     box.querySelectorAll(".h2-react").forEach(b=>b.onclick=async()=>{b.disabled=true;const {data,error}=await client.rpc("toggle_event_reaction",{p_event_id:b.dataset.eid});b.disabled=false;
       if(error)return toast("تعذر: "+error.message);homeState.reacts.set(data.event_id,{total:data.total,mine:data.mine});renderHomeNews();if(data.mine)b.classList.add("pop");});
   }
@@ -3022,6 +3031,15 @@ window.ShugaaHijri=(()=>{
   const touch=()=>{if(state.mode==="account"&&document.visibilityState==="visible")client.rpc("touch_last_seen").then(()=>{},()=>{});};
   setInterval(touch,4*60000); document.addEventListener("visibilitychange",touch);
   const _syncV12=syncV12; syncV12=function(){_syncV12();startPresence();touch();renderLive();};
+
+  // news types stay two weeks on the home page by default; life records go straight to the archive
+  function syncPulseDefault(){const t=$("#eventType")?.value,d=$("#eventDate")?.value;if(!$("#eventPulse"))return;
+    const future=d&&new Date(d+"T23:59:59").getTime()>Date.now();
+    $("#eventPulse").value=future&&NEWS_TYPES.includes(t)?"until":NEWS_TYPES.includes(t)?"14":"0";
+    const hint=$("#eventDateHint");if(hint){if(d){const H=window.ShugaaHijri,[y,m,dd]=d.split("-").map(Number);const days=Math.ceil((new Date(d+"T00:00:00")-new Date(new Date().toDateString()))/864e5);
+      hint.textContent=`${H.fmtHDate(H.gToH(y,m,dd))}${days>0?` • بعد ${days} يومًا`:days===0?" • اليوم":""}`;}else hint.textContent="";}}
+  $("#eventDate")?.addEventListener("change",syncPulseDefault);
+  $("#eventType")?.addEventListener("change",syncPulseDefault); syncPulseDefault();
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
