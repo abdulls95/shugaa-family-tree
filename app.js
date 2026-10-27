@@ -309,8 +309,9 @@ window.ShugaaHijri=(()=>{
     return {father:fr?getPerson(fr.parent_id):null,mother:mr?getPerson(mr.parent_id):null,children:kids,spouses:[...new Set(sids)].map(getPerson).filter(Boolean)};
   }
 
+  let peopleGender="all";
   function renderPeople(filter=""){
-    const q=norm(filter), rows=state.people.filter(p=>!q||norm([p.full_name_ar,p.record_code,p.lineage_code,p.father_name_text,p.grandfather_name_text].join(" ")).includes(q));
+    const q=norm(filter), rows=state.people.filter(p=>peopleGender==="all"||p.gender===peopleGender).filter(p=>!q||norm([p.full_name_ar,p.record_code,p.lineage_code,p.father_name_text,p.grandfather_name_text].join(" ")).includes(q));
     const grid=$("#peopleGrid"); grid.innerHTML=""; $("#peopleEmpty").classList.toggle("hidden",!!rows.length);
     rows.forEach(p=>{ const c=document.createElement("article"); c.className="person-card"; c.innerHTML=`<div class="avatar">${genderIcon(p.gender)}</div><div><h3>${esc(p.full_name_ar)}</h3><p>${esc(yearText(p))}</p><p>${p.lineage_code?`كود الأسرة: ${esc(p.lineage_code)}`:""}${state.mode==="account"&&p.record_code?` • ${esc(p.record_code)}`:""}</p></div>`; c.onclick=()=>openPerson(p.id); grid.appendChild(c); });
   }
@@ -2588,9 +2589,11 @@ window.ShugaaHijri=(()=>{
     else{$("#h2Sub").textContent="كل اسمٍ له قصة، وكل جيلٍ امتداد.";lin.innerHTML="";}
     const f=homeFacts(); const gens=(homeState.maxDepth||0)+1;
     const branches=(()=>{const {kids,roots}=treeModelLevels();let t=roots[0];while(t&&(kids.get(t)||[]).length===1)t=kids.get(t)[0];return t?(kids.get(t)||[]).length:0;})();
-    const clan=buildTreeModel().people, living=clan.filter(p=>p.is_living!==false).length;
-    const stats=[[clan.length,"فرد من آل شجاع"],[living,"على قيد الحياة"],[gens,"جيل"],[branches,"فرع"],[state.marriages.length,"زواج"]];
-    $("#h2Stats").innerHTML=stats.map(([v,l])=>`<div><strong data-to="${v}">0</strong><span>${l}</span></div>`).join("");
+    const clan=buildTreeModel().people, alive=clan.filter(p=>p.is_living!==false), living=alive.length;
+    const split=list=>{const m=list.filter(p=>p.gender==="male").length,f=list.filter(p=>p.gender==="female").length,u=list.length-m-f,t=Math.max(1,list.length);
+      return `<div class="mf"><span>👨 <b>${m}</b> ذكر</span><span>👩 <b>${f}</b> أنثى</span>${u?`<span class="mf-u">${u} غير محدد</span>`:""}</div><div class="mf-bar"><i style="width:${(m/t*100).toFixed(1)}%"></i><i style="width:${(f/t*100).toFixed(1)}%"></i></div>`;};
+    const stats=[[clan.length,"فرد من آل شجاع",split(clan)],[living,"على قيد الحياة",split(alive)],[gens,"جيل"],[branches,"فرع"],[state.marriages.length,"زواج"]];
+    $("#h2Stats").innerHTML=stats.map(([v,l,x])=>`<div><strong data-to="${v}">0</strong><span>${l}</span>${x||""}</div>`).join("");
     $$("#h2Stats strong").forEach(el=>countUp(el,+el.dataset.to));
     const max=f.top[0]?.c||1; $("#h2Names").innerHTML=f.top.map((x,i)=>`<div class="h2-name" style="--w:${Math.round(x.c/max*100)}%;--i:${i}"><span>${esc(x.n)}</span><b>${x.c}</b></div>`).join("")||"<p class='muted'>—</p>";
     homeState.knowIdx=Math.floor(Date.now()/864e5); renderKnow(); renderHomeNews(); loadReactions();
@@ -3149,6 +3152,12 @@ window.ShugaaHijri=(()=>{
     toast(`🎉 تم الإعلان عن ${rows.length>1?`${rows.length} مواليد`:"المولود"} في نبض العائلة`,4500);
     (data||[]).forEach(r=>sendEventPush(r.id));   // the caller reloads the data afterwards
   }
+
+  // =================== V16.4 — gender filter in the people list ===================
+  (()=>{const search=$("#peopleSearch");if(!search)return;const bar=document.createElement("div");bar.className="gender-filter";bar.setAttribute("role","group");bar.setAttribute("aria-label","تصفية حسب الجنس");
+    bar.innerHTML='<button type="button" data-g="all" class="on">الكل</button><button type="button" data-g="male">👨 ذكور</button><button type="button" data-g="female">👩 إناث</button>';
+    search.insertAdjacentElement("afterend",bar);
+    bar.querySelectorAll("button").forEach(b=>b.onclick=()=>{peopleGender=b.dataset.g;bar.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));renderPeople(search.value||"");});})();
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();

@@ -2003,3 +2003,17 @@ a.sup-method:hover{border-color:var(--v7-gold)}
 /* V16.3 — newborn flag */
 .newborn-line{display:flex!important;align-items:center;gap:8px;background:#FFFBF0;border:1px solid #E8D6A4;border-radius:12px;padding:10px 12px;font-weight:600!important;color:#7A5C1F!important;cursor:pointer}
 .newborn-line input{width:20px;height:20px;accent-color:#B08A3E}
+
+/* V16.4 — male / female */
+.h2-stats .mf{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:13px;color:var(--v7-muted)}
+.h2-stats .mf b{color:var(--v7-ink);font-weight:700}
+.h2-stats .mf-u{color:#9D3F37}
+.h2-stats .mf-bar{display:flex;height:5px;border-radius:5px;overflow:hidden;background:#EFE8DA;margin-top:6px}
+.h2-stats .mf-bar i:first-child{background:#0C3530}.h2-stats .mf-bar i:last-child{background:#C9969C}
+.gender-filter{display:inline-flex;gap:6px;margin:10px 0;background:#fff;border:1px solid var(--v7-line);border-radius:14px;padding:4px}
+.gender-filter button{border:0;background:transparent;border-radius:10px;padding:8px 16px;font-family:inherit;font-weight:600;color:var(--v7-muted);cursor:pointer}
+.gender-filter button.on{background:var(--v7-ink);color:#F6EBCF}
+.h2-stats .mf,.h2-stats .mf-bar{padding:0!important;border:0!important;border-top:0!important;border-inline-start:0!important;grid-column:auto!important}
+.h2-stats .mf{display:flex!important;flex-direction:row;justify-content:flex-start}
+.h2-stats .mf-bar{display:flex!important;height:5px!important;min-height:0;background:#EFE8DA!important}
+.gender-filter button{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:4px;white-space:nowrap}
