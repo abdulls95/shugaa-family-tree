@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=16.1.0" />
+  <link rel="stylesheet" href="./styles.css?v=16.1.1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -539,7 +539,7 @@
           <form id="addEventForm" class="panel stack compact-form">
             <h3>إضافة حدث</h3>
             <label>الشخص<select id="eventPerson" required></select></label>
-            <label>النوع<select id="eventType"><option value="residence">سكن</option><option value="migration">هجرة / انتقال</option><option value="historical">حدث تاريخي</option><option value="marriage">زواج</option><option value="birth">ميلاد</option><option value="death">وفاة</option><option value="burial">دفن</option><option value="engagement">خطوبة</option><option value="graduation">تخرج</option><option value="achievement">إنجاز</option><option value="other">أخرى</option></select></label>
+            <label>النوع<select id="eventType"><option value="residence">سكن</option><option value="migration">هجرة / انتقال</option><option value="historical">حدث تاريخي</option><option value="marriage">زواج</option><option value="birth">مولود جديد 👶</option><option value="death">وفاة</option><option value="burial">دفن</option><option value="engagement">خطوبة</option><option value="graduation">تخرج</option><option value="achievement">إنجاز</option><option value="other">أخرى</option></select></label>
             <div class="two-cols"><label>تاريخ المناسبة (اليوم)<input id="eventDate" type="date" /><small id="eventDateHint" class="micro-copy"></small></label><label>أو السنة فقط<input id="eventYear" type="number" /></label></div>
             <label>المكان<input id="eventPlace" /></label>
             <label>العنوان<input id="eventTitle" /></label><label>الوصف<textarea id="eventDescription" rows="4"></textarea></label>
@@ -1188,7 +1188,7 @@
     <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-ev aria-label="إغلاق">×</button>
       <h2>تعديل الخبر</h2>
       <div class="batch-row">
-        <label>النوع<select id="evType" class="no-search"><option value="residence">سكن</option><option value="migration">هجرة / انتقال</option><option value="historical">حدث تاريخي</option><option value="marriage">زواج</option><option value="birth">ميلاد</option><option value="death">وفاة</option><option value="burial">دفن</option><option value="engagement">خطوبة</option><option value="graduation">تخرج</option><option value="achievement">إنجاز</option><option value="other">أخرى</option></select></label>
+        <label>النوع<select id="evType" class="no-search"><option value="residence">سكن</option><option value="migration">هجرة / انتقال</option><option value="historical">حدث تاريخي</option><option value="marriage">زواج</option><option value="birth">مولود جديد 👶</option><option value="death">وفاة</option><option value="burial">دفن</option><option value="engagement">خطوبة</option><option value="graduation">تخرج</option><option value="achievement">إنجاز</option><option value="other">أخرى</option></select></label>
         <div class="batch-grid"><label>تاريخ المناسبة<input id="evDate" type="date" /></label><label>أو السنة<input id="evYear" type="number" /></label></div>
         <label>العنوان<input id="evTitle" /></label>
         <label>الوصف<textarea id="evDesc" rows="3"></textarea></label>
@@ -1196,7 +1196,7 @@
       </div>
       <div class="batch-footer"><button type="button" id="evSave" class="btn primary wide">حفظ التعديل</button><button type="button" id="evDelete" class="btn light danger wide admin-only hidden">حذف الخبر نهائيًا</button><p id="evMsg" class="form-msg"></p></div>
     </article></div>
-  <script src="./config.js?v=16.1.0"></script>
-  <script src="./app.js?v=16.1.0"></script>
+  <script src="./config.js?v=16.1.1"></script>
+  <script src="./app.js?v=16.1.1"></script>
 </body>
 </html>
