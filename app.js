@@ -2256,7 +2256,8 @@ window.ShugaaHijri=(()=>{
     if(!admin&&["restricted","vault"].includes(sel.value))sel.value="editors";
     $("#libAccessHelp").textContent=LIB_HELP[sel.value]||"";
     const r=sel.value==="restricted";$("#libRestrictWrap").classList.toggle("hidden",!r);if(r)renderLibUsers();}
-  $("#libAccess").addEventListener("change",syncLibAccess);$("#libUserFilter").addEventListener("input",renderLibUsers);
+  $("#libAccess").addEventListener("change",syncLibAccess);
+  $("#libFile")?.addEventListener("change",e=>{const n=e.target.files.length;$("#libFilesInfo").textContent=n>1?`اخترت ${n} ملفات — سيُضاف كل ملف كعنصر مستقل بنفس العنوان والبيانات (مرقّمة).`:"يمكنك اختيار أكثر من ملف، وسيُضاف كل ملف كعنصر مستقل بنفس البيانات.";});$("#libUserFilter").addEventListener("input",renderLibUsers);
   document.querySelector('.admin-tab[data-admin-panel="library"]')?.addEventListener("click",()=>setTimeout(syncLibAccess,0));
   syncLibAccess();
   $("#addLibraryForm").onsubmit=async e=>{e.preventDefault();const msg=$("#libraryAdminMsg");
@@ -2267,14 +2268,18 @@ window.ShugaaHijri=(()=>{
         viewers=[...new Set(viewers)];
         if(!viewers.length&&!confirm("لم تختر أحدًا، ولن يرى هذا المحتوى إلا المدير. متابعة؟"))return;}
       msg.textContent="جارٍ الحفظ...";
-      const row={title:$("#libTitle").value.trim(),item_type:$("#libType").value,record_year:toInt($("#libYear").value),summary:$("#libSummary").value.trim()||null,confidence:"family_tradition",access_level:access,external_url:$("#libExternalUrl").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id,status:"published"};
-      const {data:item,error}=await client.from("library_items").insert(row).select().single();if(error)throw error;
-      if(libPeople.length){const {error:pe}=await client.from("library_item_people").insert(libPeople.map(id=>({item_id:item.id,person_id:id})));if(pe)throw pe;}
-      if(viewers.length){const {error:ve}=await client.from("library_item_permissions").insert(viewers.map(u=>({item_id:item.id,user_id:u,can_view:true,granted_by:state.session.user.id})));if(ve)throw ve;}
-      const file=$("#libFile").files[0];
-      if(file){const path=`${item.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,file,{contentType:file.type||undefined});if(ue)throw ue;await client.from("library_items").update({file_path:path,mime_type:file.type||null}).eq("id",item.id);}
-      msg.textContent=`تمت الإضافة ✅${libPeople.length?` — مرتبط بـ ${libPeople.length} ${libPeople.length>1?"أشخاص":"شخص"}`:""}${viewers.length?` — يراه ${viewers.length} ${viewers.length>1?"حسابات":"حساب"} مع المدير`:""}`;
-      e.target.reset();libPeople=[];renderLibChips();syncLibAccess();libLinksCache=null;await loadAccountData();}
+      // several files -> one separate item per file, all with the same details, people and visibility
+      const files=[...$("#libFile").files], baseTitle=$("#libTitle").value.trim(), total=Math.max(1,files.length);
+      for(let i=0;i<total;i++){const file=files[i];
+        if(total>1)msg.textContent=`جارٍ رفع ${i+1} من ${total}...`;
+        const row={title:total>1?`${baseTitle} (${i+1})`:baseTitle,item_type:$("#libType").value,record_year:toInt($("#libYear").value),summary:$("#libSummary").value.trim()||null,confidence:"family_tradition",access_level:access,external_url:$("#libExternalUrl").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id,status:"published"};
+        const {data:item,error}=await client.from("library_items").insert(row).select().single();if(error)throw error;
+        if(libPeople.length){const {error:pe}=await client.from("library_item_people").insert(libPeople.map(id=>({item_id:item.id,person_id:id})));if(pe)throw pe;}
+        if(viewers.length){const {error:ve}=await client.from("library_item_permissions").insert(viewers.map(u=>({item_id:item.id,user_id:u,can_view:true,granted_by:state.session.user.id})));if(ve)throw ve;}
+        if(file){const path=`${item.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,file,{contentType:file.type||undefined});if(ue)throw ue;await client.from("library_items").update({file_path:path,mime_type:file.type||null}).eq("id",item.id);}
+      }
+      msg.textContent=`${total>1?`تمت إضافة ${total} عناصر`:"تمت الإضافة"} ✅${libPeople.length?` — مرتبط بـ ${libPeople.length} ${libPeople.length>1?"أشخاص":"شخص"}`:""}${viewers.length?` — يراه ${viewers.length} ${viewers.length>1?"حسابات":"حساب"} مع المدير`:""}`;
+      e.target.reset();libPeople=[];renderLibChips();syncLibAccess();$("#libFilesInfo").textContent="يمكنك اختيار أكثر من ملف، وسيُضاف كل ملف كعنصر مستقل بنفس البيانات.";libLinksCache=null;await loadAccountData();}
     catch(err){msg.textContent="تعذّر الحفظ: "+err.message;}};
 
   // V7.1 — dual-calendar year inputs. Existing code keeps reading .value as a Gregorian year;
