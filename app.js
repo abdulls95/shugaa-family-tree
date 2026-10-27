@@ -950,6 +950,8 @@ window.ShugaaHijri=(()=>{
     const smart=["add_relatives","correction"].includes(type);
     const {data,error}=await client.rpc(smart?"staff_apply_smart_request":"staff_apply_change_request",{p_request_id:id,p_admin_note:null});
     if(error)return toast("تعذر تنفيذ الطلب: "+error.message,6000);
+    const req=(state.changeRequests||[]).find(r=>r.id===id);
+    if(type==="add_relatives"&&req?.payload?.relation==="child"&&(req.payload.people||[]).some(p=>p.newborn))await announceNewborns(req.target_person_id,req.payload.people,data?.people);
     toast("تم اعتماد الطلب وتنفيذ البيانات في الشجرة ✅",4500);
     state.changeFilter="approved";
     await loadAccountData();
@@ -2287,7 +2289,7 @@ window.ShugaaHijri=(()=>{
   const YEAR_FIELDS=["#pBirthYear","#pDeathYear","#eBirthYear","#eDeathYear","#relativeBirthYear","#childBirthYear"];
   const nativeInputValue=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value");
   function hijriYearOf(sel){const el=$(sel);return el&&el.dataset.cal==="hijri"?toInt(nativeInputValue.get.call(el)):null;}
-  function setYearField(sel,greg,hijri){const el=$(sel);if(!el)return;if(hijri){el._setCal?.("hijri");nativeInputValue.set.call(el,hijri);}else{el._setCal?.("gregorian");nativeInputValue.set.call(el,greg||"");}el._hint?.();}
+  function setYearField(sel,greg,hijri){const el=typeof sel==="string"?$(sel):sel;if(!el)return;if(hijri){el._setCal?.("hijri");nativeInputValue.set.call(el,hijri);}else{el._setCal?.("gregorian");nativeInputValue.set.call(el,greg||"");}el._hint?.();}
   function enhanceYearField(el){
     if(!el||el.dataset.calReady)return; el.dataset.calReady="1"; el.dataset.cal="gregorian";
     const wrap=document.createElement("div"); wrap.className="cal-field";
@@ -2364,9 +2366,12 @@ window.ShugaaHijri=(()=>{
         <fieldset class="seg"><legend>الجنس</legend><label><input type="radio" name="g${uid}" value="male" checked><span>ذكر</span></label><label><input type="radio" name="g${uid}" value="female"><span>أنثى</span></label></fieldset>
         <fieldset class="seg"><legend>الحالة</legend><label><input type="radio" name="l${uid}" value="true" checked><span>حي</span></label><label><input type="radio" name="l${uid}" value="false"><span>متوفى</span></label><label><input type="radio" name="l${uid}" value=""><span>غير معروف</span></label></fieldset>
       </div>
-      <label>سنة الميلاد (اختياري)<input class="batch-year" type="number" inputmode="numeric" min="1" max="3000"/></label>`;
+      <label>سنة الميلاد (اختياري)<input class="batch-year" type="number" inputmode="numeric" min="1" max="3000"/></label>
+      ${batchState.rel==="child"?`<label class="newborn-line"><input type="checkbox" class="batch-newborn"/> 👶 مولود جديد (أعلن عنه في الأخبار)</label>`:""}`;
     $("#batchRows").appendChild(row);
     enhanceYearField(row.querySelector(".batch-year"));
+    row.querySelector(".batch-newborn")?.addEventListener("change",e=>{if(!e.target.checked)return;const y=row.querySelector(".batch-year");
+      setYearField(y,new Date().getFullYear(),null);row.querySelector('input[name^="l"][value="true"]').checked=true;});
     row.querySelector(".batch-remove").onclick=()=>{row.remove();if(!$$("#batchRows .batch-row").length)batchRow();numberBatch();};
     row.querySelector(".batch-name").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();batchRow();$$("#batchRows .batch-name").pop().focus();}});
     numberBatch(); return row;
@@ -2404,7 +2409,7 @@ window.ShugaaHijri=(()=>{
       const y=r.querySelector(".batch-year"), hijri=y.dataset.cal==="hijri"?toInt(nativeInputValue.get.call(y)):null, greg=toInt(y.value);
       const life=r.querySelector('input[name^="l"]:checked').value;
       return {first_name_ar:r.querySelector(".batch-name").value.trim(),gender:r.querySelector('input[name^="g"]:checked').value,
-        is_living:life===""?null:life==="true",birth_year:greg?String(greg):"",birth_year_hijri:hijri?String(hijri):""};
+        is_living:life===""?null:life==="true",birth_year:greg?String(greg):"",birth_year_hijri:hijri?String(hijri):"",newborn:!!r.querySelector(".batch-newborn")?.checked};
     }).filter(p=>p.first_name_ar);
     if(!people.length){msg.textContent="اكتب اسم واحد على الأقل.";return;}
     const long=people.find(p=>p.first_name_ar.split(/\s+/).length>2);
@@ -2424,6 +2429,7 @@ window.ShugaaHijri=(()=>{
     $("#batchSave").disabled=false;
     if(error){msg.textContent="تعذر الحفظ: "+hubErr(error.message)+" (لم يُحفظ أي اسم)";return;}
     closeBatch(); toast(`تمت إضافة ${data?.count||people.length} ✅`);
+    await announceNewborns(anchor,people,data?.people);
     try{await loadAccountData();}catch(e){console.error(e);}
     openPerson(anchor); setProfileTab("family");
   };
@@ -2435,7 +2441,7 @@ window.ShugaaHijri=(()=>{
   function smartRequestHtml(r){
     const p=r.payload||{}, t=getPerson(r.target_person_id), who=esc(r.requester_name||"عضو"), tn=esc(t?.full_name_ar||"شخص");
     if(r.request_type==="add_relatives"){
-      const ppl=(p.people||[]).map(x=>`<li><b>${esc(x.first_name_ar)}</b> <small>${fmtVal("gender",x.gender)} • ${fmtVal("is_living",x.is_living)}${x.birth_year_hijri?` • ${esc(x.birth_year_hijri)} هـ`:x.birth_year?` • ${esc(x.birth_year)} م`:""}</small></li>`).join("");
+      const ppl=(p.people||[]).map(x=>`<li><b>${esc(x.first_name_ar)}</b> <small>${fmtVal("gender",x.gender)} • ${fmtVal("is_living",x.is_living)}${x.birth_year_hijri?` • ${esc(x.birth_year_hijri)} هـ`:x.birth_year?` • ${esc(x.birth_year)} م`:""}${x.newborn?" • 👶 مولود جديد":""}</small></li>`).join("");
       return `<div class="smart-req"><p>📝 <b>${who}</b> يطلب إضافة <b>${REL_AR[p.relation]||""}</b> لـ <b>${tn}</b>${p.other_parent_name?` (${p.relation==="child"?"من":"مع"} ${esc(p.other_parent_name)})`:""}:</p><ul>${ppl}</ul>${r.requester_relation_note?`<p class="muted">ملاحظة: ${esc(r.requester_relation_note)}</p>`:""}</div>`;
     }
     const ch=p.changes||{};
@@ -3130,6 +3136,19 @@ window.ShugaaHijri=(()=>{
     $("#pacCreate")?.addEventListener("click",async()=>{const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:"personal",p_person_id:id,p_label:p.full_name_ar,p_expires_at:null,p_max_uses:null,p_grant_role:$("#pacRole").value});
       if(error)return toast(error.message,4000);const nc=data?.[0]?.access_code;await loadStaffData();renderProfileAccess(id);if(nc)showProfileCode(nc,p,"تم إنشاء الرمز");});}
   const _aop=afterOpenPerson; afterOpenPerson=async function(id){renderProfileAccess(id);return _aop(id);};
+
+  // =================== V16.3 — announce newborns ===================
+  async function announceNewborns(parentId,people,created){
+    const parent=getPerson(parentId), list=(people||[]).filter(p=>p.first_name_ar), ids=(created||[]).map(r=>r?.person_id||r?.id);
+    const rows=[];list.forEach((p,i)=>{if(p.newborn&&ids[i])rows.push({person_id:ids[i],event_type:"birth",event_year:new Date().getFullYear(),
+      title:`مولود جديد: ${p.first_name_ar} ${p.gender==="female"?"بنت":"بن"} ${firstName(parent)||""}`.trim(),description:"حيّاه الله في العائلة 🤍",
+      show_until:new Date(Date.now()+14*864e5).toISOString(),confidence:"family_tradition"});});
+    if(!rows.length)return;
+    const {data,error}=await client.from("life_events").insert(rows).select("id");
+    if(error)return toast("انضاف المولود، لكن تعذّر إعلانه: "+error.message,6000);
+    toast(`🎉 تم الإعلان عن ${rows.length>1?`${rows.length} مواليد`:"المولود"} في نبض العائلة`,4500);
+    (data||[]).forEach(r=>sendEventPush(r.id));   // the caller reloads the data afterwards
+  }
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();

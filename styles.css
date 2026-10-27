@@ -1999,3 +1999,7 @@ a.sup-method:hover{border-color:var(--v7-gold)}
 .pac-code{display:grid;gap:6px;text-align:center;background:#fff;border:1px dashed var(--v7-line-2);border-radius:12px;padding:10px}
 .pac-code.hidden{display:none}.pac-code code{font-size:24px;font-weight:700;letter-spacing:2px;color:var(--v7-ink);direction:ltr}
 @media (max-width:560px){.profile-access{margin:0 18px 12px}}
+
+/* V16.3 — newborn flag */
+.newborn-line{display:flex!important;align-items:center;gap:8px;background:#FFFBF0;border:1px solid #E8D6A4;border-radius:12px;padding:10px 12px;font-weight:600!important;color:#7A5C1F!important;cursor:pointer}
+.newborn-line input{width:20px;height:20px;accent-color:#B08A3E}
