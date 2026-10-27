@@ -822,7 +822,12 @@ window.ShugaaHijri=(()=>{
 
   function renderHistory(){
     const list=$("#historyList"); if(!list)return; const rows=[...state.events].sort((a,b)=>(a.event_year||9999)-(b.event_year||9999)); list.innerHTML=""; $("#historyEmpty").classList.toggle("hidden",!!rows.length);
-    rows.forEach(ev=>{const p=getPerson(ev.person_id),pl=getPlace(ev.place_id);const c=document.createElement("article");c.className="history-card";c.innerHTML=`<div class="history-year">${esc(ev.event_year||"—")}</div><div><h3>${esc(ev.title||p?.full_name_ar||"حدث")}</h3><p>${p?esc(p.full_name_ar):""}${pl?` • ${esc(pl.name_ar)}`:""}</p>${ev.description?`<p>${esc(ev.description)}</p>`:""}</div>`;list.appendChild(c);});
+    rows.forEach(ev=>{const p=getPerson(ev.person_id),pl=getPlace(ev.place_id);const c=document.createElement("article");c.className="history-card";const staff=state.mode==="account"&&["admin","editor"].includes(state.role);
+      c.innerHTML=`<div class="history-year">${esc(ev.event_year||(ev.event_date?String(ev.event_date).slice(0,4):"—"))}</div><div><span class="meta-pill">${esc((EVT[ev.event_type]||EVT.other).t)}</span><h3>${esc(ev.title||p?.full_name_ar||"حدث")}</h3><p>${p?esc(p.full_name_ar):""}${pl?` • ${esc(pl.name_ar)}`:""}${ev.event_date?` • ${esc(eventDateText(ev))}`:""}</p>${ev.description?`<p>${esc(ev.description)}</p>`:""}
+        ${staff?`<div class="history-actions"><button type="button" class="btn light" data-ev-edit="${ev.id}">تعديل</button>${state.role==="admin"?`<button type="button" class="btn light danger" data-ev-del="${ev.id}">حذف</button>`:""}</div>`:""}</div>`;
+      c.querySelector("[data-ev-edit]")?.addEventListener("click",()=>openEventEditor(ev.id));
+      c.querySelector("[data-ev-del]")?.addEventListener("click",()=>deleteEvent(ev.id));
+      list.appendChild(c);});
   }
 
 
@@ -3078,6 +3083,48 @@ window.ShugaaHijri=(()=>{
     box.querySelectorAll("[data-up]").forEach(b=>b.onclick=async()=>{const i=supMethods.findIndex(x=>x.id===b.dataset.up);if(i<1)return;const a=supMethods[i],c=supMethods[i-1];
       await client.from("support_methods").update({sort:c.sort}).eq("id",a.id);await client.from("support_methods").update({sort:a.sort===c.sort?a.sort+1:a.sort}).eq("id",c.id);loadSupport();});}
   const _syncV12b=syncV12; syncV12=function(){_syncV12b();loadSupport();};
+
+  // =================== V16.1 — edit/delete news; access codes inside the person's profile ===================
+  let evEditing=null;
+  function openEventEditor(id){const e=state.events.find(x=>x.id===id);if(!e)return;evEditing=e;
+    $("#evType").value=e.event_type;$("#evDate").value=e.event_date||"";$("#evYear").value=e.event_year||"";$("#evTitle").value=e.title||"";$("#evDesc").value=e.description||"";$("#evPulse").value="keep";
+    const until=e.show_until?new Date(e.show_until):null;
+    $("#evPulseNow").textContent=!until?"الحالي: تلقائي (أسبوعان من الإضافة للأخبار السعيدة)":until.getFullYear()>2900?"الحالي: مثبّت دائمًا":until<new Date()?"الحالي: في الأرشيف فقط":`الحالي: يظهر حتى ${until.toLocaleDateString("ar-SA-u-nu-latn")}`;
+    $("#evMsg").textContent="";$("#evEditModal").classList.remove("hidden");}
+  $$("[data-close-ev]").forEach(b=>b.onclick=()=>$("#evEditModal").classList.add("hidden"));
+  $("#evSave").onclick=async()=>{const e=evEditing;if(!e)return;const msg=$("#evMsg"),pulse=$("#evPulse").value,d=$("#evDate").value||null;
+    if(pulse==="until"&&!d)return msg.textContent="اختر تاريخ المناسبة أولًا.";
+    const row={event_type:$("#evType").value,event_date:d,event_year:toInt($("#evYear").value)||(d?+d.slice(0,4):null),title:$("#evTitle").value.trim()||null,description:$("#evDesc").value.trim()||null};
+    if(pulse!=="keep")row.show_until=pulse==="forever"?"2999-12-31T00:00:00Z":pulse==="until"?new Date(new Date(d+"T23:59:59").getTime()+2*864e5).toISOString():pulse==="0"?new Date().toISOString():new Date(Date.now()+(+pulse)*864e5).toISOString();
+    $("#evSave").disabled=true;const {error}=await client.from("life_events").update(row).eq("id",e.id);$("#evSave").disabled=false;
+    if(error)return msg.textContent="تعذّر الحفظ: "+error.message;Object.assign(e,row);$("#evEditModal").classList.add("hidden");toast("تم تعديل الخبر ✅");renderHistory();renderHomeNews();};
+  async function deleteEvent(id){const e=state.events.find(x=>x.id===id);if(!e||!confirm(`حذف «${e.title||"هذا الخبر"}» نهائيًا؟ سيُحذف من الأخبار ونبض العائلة.`))return;
+    const {error}=await client.from("life_events").delete().eq("id",id);if(error)return toast("تعذّر الحذف: "+error.message,5000);
+    state.events=state.events.filter(x=>x.id!==id);$("#evEditModal").classList.add("hidden");toast("تم حذف الخبر");renderHistory();renderHomeNews();}
+  $("#evDelete").onclick=()=>evEditing&&deleteEvent(evEditing.id);
+
+  // ---- access code box in the profile (admin) ----
+  function codeShareText(name,code){const first=String(name||"").split(/\s+/)[0]||"";const link=location.origin+location.pathname.replace(/index\.html$/,"");
+    return `السلام عليكم${first?" "+first:""} 🌳\nهذا رمز دخولك الخاص إلى موقع شجرة آل شجاع:\n${code}\n\nافتح الرابط وأدخل الرمز:\n${link}\n\nالرمز خاص بك، فلا تشاركه مع أحد.`;}
+  function showProfileCode(code,p,title){const box=$("#profileAccessCode");box.classList.remove("hidden");
+    box.innerHTML=`<small>${esc(title)}</small><code>${esc(code)}</code><div class="code-share-actions"><button type="button" class="btn gold" id="pacCopy">نسخ</button><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(codeShareText(p.full_name_ar,code))}">إرسال بالواتساب</a></div>`;
+    $("#pacCopy").onclick=async()=>{try{await navigator.clipboard.writeText(code);toast("تم نسخ الرمز ✅");}catch(_){toast("انسخه يدويًا");}};}
+  function renderProfileAccess(id){const box=$("#profileAccessBox");if(!box)return;const admin=state.mode==="account"&&state.role==="admin";box.classList.toggle("hidden",!admin);if(!admin)return;
+    const p=getPerson(id);const live=c=>c.code_type==="personal"&&c.person_id===id&&c.status==="active"&&!(c.expires_at&&new Date(c.expires_at)<new Date());
+    const code=(state.accessCodes||[]).filter(live).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0];
+    const acct=(state.adminUsers||[]).find(u=>u.person_id===id);
+    box.innerHTML=`<div class="pac-head"><b>🔑 رمز الدخول</b><span>${acct?`له حساب ${acct.status==="suspended"?"(موقوف)":"فعّال"} • ${esc(roleLabel(acct.role))}`:"لا يوجد حساب بعد"}</span></div>
+      ${code?`<p class="muted">له رمز شخصي فعّال ينتهي بـ <b dir="ltr">${esc(code.code_hint||"")}</b></p>
+        <div class="pac-actions">${code.can_reveal?`<button type="button" class="btn primary" id="pacReveal">عرض الرمز ونسخه</button>`:""}<button type="button" class="btn light" id="pacRotate">إصدار رمز بديل</button></div>
+        ${code.can_reveal?"":`<small class="micro-copy">هذا رمز قديم لا يمكن عرضه. أصدر بديلًا لتتمكن من نسخه وإرساله.</small>`}`
+      :`<div class="pac-actions"><select id="pacRole" class="no-search"><option value="viewer">مشاهد</option><option value="editor">مدخل بيانات</option></select><button type="button" class="btn primary" id="pacCreate">إنشاء رمز دخول</button></div>`}
+      <div id="profileAccessCode" class="pac-code hidden"></div>`;
+    $("#pacReveal")?.addEventListener("click",async()=>{const {data,error}=await client.rpc("admin_reveal_access_code",{p_code_id:code.id});if(error)return toast(error.message,4000);showProfileCode(data,p,"الرمز الحالي");});
+    $("#pacRotate")?.addEventListener("click",async()=>{if(!confirm("إصدار رمز جديد سيُلغي الرمز الحالي فورًا. متابعة؟"))return;const {data,error}=await client.rpc("admin_rotate_access_code",{p_code_id:code.id});if(error)return toast(error.message,4000);
+      const nc=data?.[0]?.access_code;await loadStaffData();renderProfileAccess(id);if(nc)showProfileCode(nc,p,"الرمز الجديد");});
+    $("#pacCreate")?.addEventListener("click",async()=>{const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:"personal",p_person_id:id,p_label:p.full_name_ar,p_expires_at:null,p_max_uses:null,p_grant_role:$("#pacRole").value});
+      if(error)return toast(error.message,4000);const nc=data?.[0]?.access_code;await loadStaffData();renderProfileAccess(id);if(nc)showProfileCode(nc,p,"تم إنشاء الرمز");});}
+  const _aop=afterOpenPerson; afterOpenPerson=async function(id){renderProfileAccess(id);return _aop(id);};
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
