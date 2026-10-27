@@ -1972,3 +1972,18 @@ html.is-app body{overscroll-behavior-y:none}
 /* V15.2 — upcoming occasions */
 .countdown{display:inline-block;margin-inline-start:8px;background:#0C3530;color:#F6EBCF;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700}
 .countdown.today{background:#B08A3E;color:#fff}
+
+/* =================== V16 — support =================== */
+.shugaa-v7 .nav-btn[data-support]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2020s-7-4.4-7-10a4%204%200%20017-2.6A4%204%200%200119%2010c0%205.6-7%2010-7%2010z%22/%3E%3Cpath%20d%3D%22M9.5%2010.5h5M12%208v5%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2020s-7-4.4-7-10a4%204%200%20017-2.6A4%204%200%200119%2010c0%205.6-7%2010-7%2010z%22/%3E%3Cpath%20d%3D%22M9.5%2010.5h5M12%208v5%22/%3E%3C/svg%3E")}
+.support-banner{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#FFFBF0,#FBF3DD);border:1px solid #E8D6A4;border-radius:18px;padding:14px 18px}
+.support-banner.hidden{display:none}.support-banner div{flex:1;display:grid;gap:2px}
+.support-banner b{font-family:var(--v7-display);font-size:20px;color:var(--v7-ink)}.support-banner small{color:#6F6650}
+.support-card{text-align:center;max-width:460px}.support-head{font-size:44px;line-height:1}
+.support-card h2{font-family:var(--v7-display);font-size:28px;color:var(--v7-ink);margin:4px 0}
+.support-methods{display:grid;gap:10px;margin-top:14px;text-align:right}
+.sup-method{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 10px;background:#fff;border:1px solid var(--v7-line);border-radius:16px;padding:14px 16px;text-decoration:none;color:inherit}
+a.sup-method:hover{border-color:var(--v7-gold)}
+.sup-method b{color:var(--v7-ink);font-size:17px}.sup-method small{grid-column:1;color:var(--v7-muted)}
+.sup-method span{grid-row:1/3;grid-column:2;width:36px;height:36px;border-radius:50%;background:#0C3530;color:#F6EBCF;display:grid;place-items:center;font-weight:700}
+.sup-method.copy code{grid-column:1/-1;background:#FBF8F1;border:1px dashed var(--v7-line-2);border-radius:10px;padding:8px 10px;direction:ltr;text-align:left;word-break:break-all;font-size:14px}
+.sup-method.copy .btn{grid-column:1/-1;justify-self:start}

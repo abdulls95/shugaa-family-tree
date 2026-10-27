@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=15.2.0" />
+  <link rel="stylesheet" href="./styles.css?v=16.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -131,6 +131,7 @@
         <button data-view="library" class="nav-btn account-only hidden">محتوى العائلة</button>
         <button data-view="albums" class="nav-btn account-only hidden">الألبومات</button>
         <button data-view="help" class="nav-btn">الشروحات</button>
+        <button type="button" class="nav-btn support-entry hidden" data-support>ادعم الموقع</button>
         <button data-view="history" class="nav-btn">أخبار وتاريخ</button>
         <button data-view="contribute" class="nav-btn contribution-only hidden">الطلبات</button>
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">أسرتي</button>
@@ -173,6 +174,7 @@
               <article class="h2-card"><header><div><span class="h2-kicker">آل شجاع بالأرقام</span><h3>أكثر الأسماء</h3></div></header><div id="h2Names" class="h2-names"></div></article>
             </div>
           </section>
+          <div id="supportBanner" class="support-banner hidden"><div><b>🤍 ادعم استمرار الموقع</b><small>دعمك يغطي تكاليف الاستضافة وقاعدة البيانات وتطوير مزايا جديدة للعائلة.</small></div><button type="button" class="btn gold" data-support>ادعم</button></div>
           <section class="h2-quick">
             <button type="button" data-go="tree"><b>الشجرة</b><small>تصفح الفروع والأجيال</small></button>
             <button type="button" data-go="kinship"><b>صلة القرابة</b><small>من يلتقي بمن؟</small></button>
@@ -381,6 +383,7 @@
           <button class="admin-tab admin-only hidden" data-admin-panel="permissions">إدارة المستخدمين</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="bulk">إضافة جماعية وتصدير</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="join">طلبات الانضمام <b id="joinCount" class="count-badge">0</b></button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="support">الدعم</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="health">اكتمال البيانات</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="event">أخبار / حدث</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="library">محتوى العائلة</button>
@@ -508,6 +511,21 @@
         </div>
 
         <div id="admin-join" class="admin-panel admin-only hidden"><div class="panel stack"><h3>طلبات الانضمام</h3><p class="muted">أفراد دخلوا برمز العائلة وطلبوا حسابًا شخصيًا. حدّد الصلاحية واعتمد الطلب، وسيظهر لك الرمز جاهزًا لإرساله عبر واتساب.</p><div id="joinList" class="join-list"></div><div id="joinCodeBox" class="new-code-result hidden"></div></div></div>
+        <div id="admin-support" class="admin-panel admin-only hidden"><div class="admin-grid">
+          <form id="supportForm" class="panel stack">
+            <h3>إضافة طريقة دعم</h3>
+            <label>الخدمة<select id="supProvider" class="no-search">
+              <option value="bmc">Buy Me a Coffee</option><option value="kofi">Ko-fi</option><option value="stripe">Stripe (بطاقة / Apple Pay)</option>
+              <option value="paypal">PayPal</option><option value="venmo">Venmo</option><option value="cashapp">Cash App</option>
+              <option value="zelle">Zelle</option><option value="bank">تحويل بنكي</option><option value="other">أخرى</option></select></label>
+            <label>الاسم الظاهر<input id="supLabel" required /></label>
+            <label id="supValueLabel">الرابط<input id="supValue" dir="ltr" required /></label>
+            <label>ملاحظة (اختياري)<input id="supNote" placeholder="مثال: للأقارب داخل أمريكا — بدون عمولة" /></label>
+            <p id="supHelp" class="access-help"></p>
+            <button class="btn primary">إضافة</button><p id="supMsg" class="form-msg"></p>
+          </form>
+          <div class="panel stack"><h3>طرق الدعم الحالية</h3><p class="muted">تظهر للجميع في «ادعم الموقع» بالترتيب. أوقف أي طريقة مؤقتًا بدل حذفها.</p><div id="supList" class="join-list"></div></div>
+        </div></div>
         <div id="admin-health" class="admin-panel admin-only hidden">
           <div class="health-grid">
             <article class="health-card"><strong id="healthNoFather">0</strong><span>أشخاص بلا أب مربوط</span></article>
@@ -572,6 +590,7 @@
         <button data-view="lineage" class="nav-btn">↟<span>مسار النسب</span></button>
         <button data-view="albums" class="nav-btn account-only hidden">🖼️<span>الألبومات</span></button>
         <button data-view="help" class="nav-btn">▶<span>الشروحات</span></button>
+        <button type="button" class="nav-btn support-entry hidden" data-support>🤍<span>ادعم الموقع</span></button>
         <button type="button" class="nav-btn general-only hidden" data-join>🙋<span>طلب حساب شخصي</span></button>
         <button type="button" class="nav-btn push-entry hidden" data-push>🔔<span>الإشعارات</span></button>
         <button data-view="myfamily" class="nav-btn linked-account-only hidden">♡<span>أسرتي</span></button>
@@ -1152,7 +1171,16 @@
       <h3 class="live-h">آخر ظهور</h3><div id="liveLastSeen" class="live-list"></div>
       <p class="micro-copy">الضيوف (برمز العائلة العام) يظهرون كعدد فقط بدون أسماء. هذه الصفحة تظهر للمدير فقط.</p>
     </article></div>
-  <script src="./config.js?v=15.2.0"></script>
-  <script src="./app.js?v=15.2.0"></script>
+
+  <!-- V16 — support the site -->
+  <div id="supportModal" class="modal hidden"><div class="modal-backdrop" data-close-support></div>
+    <article class="modal-card batch-card support-card"><button class="modal-close" type="button" data-close-support aria-label="إغلاق">×</button>
+      <div class="support-head">🤍</div>
+      <h2>ادعم استمرار الموقع</h2>
+      <p class="muted">موقع شجرة آل شجاع مجاني لكل العائلة. دعمك يغطي تكاليف الاستضافة وقاعدة البيانات، ويساعد في تطوير مزايا جديدة. جزاك الله خيرًا.</p>
+      <div id="supportMethods" class="support-methods"></div>
+    </article></div>
+  <script src="./config.js?v=16.0.0"></script>
+  <script src="./app.js?v=16.0.0"></script>
 </body>
 </html>

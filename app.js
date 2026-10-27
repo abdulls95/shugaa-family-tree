@@ -3041,6 +3041,44 @@ window.ShugaaHijri=(()=>{
   $("#eventDate")?.addEventListener("change",syncPulseDefault);
   $("#eventType")?.addEventListener("change",syncPulseDefault); syncPulseDefault();
 
+  // =================== V16 — support the site ===================
+  const SUP={bmc:{n:"Buy Me a Coffee",k:"link",ph:"https://buymeacoffee.com/اسمك",help:"أنشئ صفحتك في buymeacoffee.com والصق رابطها. يدفع الشخص ببطاقته أو Apple Pay من أي دولة."},
+    kofi:{n:"Ko-fi",k:"link",ph:"https://ko-fi.com/اسمك",help:"صفحة دعم مثل Buy Me a Coffee، تقبل البطاقات وPayPal من أي دولة."},
+    stripe:{n:"ادفع بالبطاقة / Apple Pay",k:"link",ph:"https://buy.stripe.com/...",help:"من لوحة Stripe: Payment Links ← أنشئ رابطًا (اختر «يحدد العميل المبلغ») والصقه هنا."},
+    paypal:{n:"PayPal",k:"link",ph:"https://paypal.me/اسمك",help:"أنشئ رابط paypal.me من حسابك والصقه هنا."},
+    venmo:{n:"Venmo",k:"link",ph:"https://venmo.com/u/اسمك",help:"للأقارب في أمريكا فقط."},
+    cashapp:{n:"Cash App",k:"link",ph:"https://cash.app/$اسمك",help:"للأقارب في أمريكا فقط."},
+    zelle:{n:"Zelle",k:"copy",ph:"البريد أو رقم الجوال المسجل في Zelle",help:"Zelle بدون رابط: يظهر بريدك أو رقمك مع زر نسخ. للأقارب الذين لديهم بنك أمريكي."},
+    bank:{n:"تحويل بنكي",k:"copy",ph:"اسم البنك، الاسم، رقم الحساب / الآيبان",help:"يظهر النص مع زر نسخ."},
+    other:{n:"",k:"link",ph:"https://...",help:"رابط يبدأ بـ https، أو اكتب نصًا ليُنسخ."}};
+  let supMethods=[];
+  async function loadSupport(){const {data}=await client.from("support_methods").select("*").order("sort").order("created_at");supMethods=data||[];
+    const any=supMethods.some(m=>m.active);$$(".support-entry").forEach(e=>e.classList.toggle("hidden",!any));$("#supportBanner")?.classList.toggle("hidden",!any);
+    if(state.mode==="account"&&state.role==="admin")renderSupAdmin();}
+  function openSupport(){$("#moreSheet")?.classList.add("hidden");const box=$("#supportMethods");const rows=supMethods.filter(m=>m.active);
+    box.innerHTML=rows.map(m=>m.kind==="link"?`<a class="sup-method" href="${esc(m.value)}" target="_blank" rel="noopener"><b>${esc(m.label)}</b>${m.note?`<small>${esc(m.note)}</small>`:""}<span>↗</span></a>`
+      :`<div class="sup-method copy"><b>${esc(m.label)}</b>${m.note?`<small>${esc(m.note)}</small>`:""}<code>${esc(m.value)}</code><button type="button" class="btn light" data-copy="${esc(m.value)}">نسخ</button></div>`).join("")||"<p class='muted'>لا توجد طرق دعم حاليًا.</p>";
+    box.querySelectorAll("[data-copy]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);b.textContent="تم النسخ ✓";setTimeout(()=>b.textContent="نسخ",1800);}catch(_){toast("انسخه يدويًا");}});
+    $("#supportModal").classList.remove("hidden");}
+  $$("[data-support]").forEach(b=>b.addEventListener("click",openSupport));
+  $$("[data-close-support]").forEach(b=>b.onclick=()=>$("#supportModal").classList.add("hidden"));
+  function syncSupForm(){const s=SUP[$("#supProvider").value];$("#supLabel").value=s.n;$("#supValue").placeholder=s.ph;$("#supHelp").textContent=s.help;
+    $("#supValueLabel").firstChild.textContent=s.k==="copy"?"النص الذي يُنسخ":"الرابط";$("#supValue").dir=s.k==="copy"?"auto":"ltr";}
+  $("#supProvider").addEventListener("change",syncSupForm);syncSupForm();
+  $("#supportForm").onsubmit=async e=>{e.preventDefault();const prov=$("#supProvider").value,value=$("#supValue").value.trim(),msg=$("#supMsg");
+    const kind=SUP[prov].k==="copy"||(prov==="other"&&!/^https:\/\//i.test(value))?"copy":"link";
+    if(kind==="link"&&!/^https:\/\//i.test(value))return msg.textContent="الرابط لازم يبدأ بـ https://";
+    const {error}=await client.from("support_methods").insert({provider:prov,kind,label:$("#supLabel").value.trim(),value,note:$("#supNote").value.trim()||null,sort:(supMethods.length+1)*10});
+    if(error)return msg.textContent="تعذّر الحفظ: "+error.message;msg.textContent="تمت الإضافة ✅";$("#supValue").value="";$("#supNote").value="";loadSupport();};
+  function renderSupAdmin(){const box=$("#supList");if(!box)return;
+    box.innerHTML=supMethods.map((m,i)=>`<div class="join-item ${m.active?"":"is-stopped"}"><div><b>${esc(m.label)}</b><small dir="auto">${esc(m.value)}</small>${m.note?`<small>${esc(m.note)}</small>`:""}</div>
+      <div class="join-actions"><button class="btn light" data-up="${m.id}" ${i===0?"disabled":""}>▲</button><button class="btn light" data-act="${m.id}">${m.active?"إيقاف":"تفعيل"}</button><button class="btn light danger" data-del="${m.id}">حذف</button></div></div>`).join("")||"<p class='muted'>لم تُضف أي طريقة بعد.</p>";
+    box.querySelectorAll("[data-act]").forEach(b=>b.onclick=async()=>{const m=supMethods.find(x=>x.id===b.dataset.act);await client.from("support_methods").update({active:!m.active}).eq("id",m.id);loadSupport();});
+    box.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("حذف طريقة الدعم؟"))return;await client.from("support_methods").delete().eq("id",b.dataset.del);loadSupport();});
+    box.querySelectorAll("[data-up]").forEach(b=>b.onclick=async()=>{const i=supMethods.findIndex(x=>x.id===b.dataset.up);if(i<1)return;const a=supMethods[i],c=supMethods[i-1];
+      await client.from("support_methods").update({sort:c.sort}).eq("id",a.id);await client.from("support_methods").update({sort:a.sort===c.sort?a.sort+1:a.sort}).eq("id",c.id);loadSupport();});}
+  const _syncV12b=syncV12; syncV12=function(){_syncV12b();loadSupport();};
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){
