@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=17.0.0" />
+  <link rel="stylesheet" href="./styles.css?v=17.1.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -385,7 +385,7 @@
           <button class="admin-tab staff-only hidden" data-admin-panel="bulk">إضافة جماعية وتصدير</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="join">طلبات الانضمام <b id="joinCount" class="count-badge">0</b></button>
           <button class="admin-tab admin-only hidden" data-admin-panel="support">الدعم</button>
-          <button class="admin-tab admin-only hidden" data-admin-panel="health">اكتمال البيانات</button>
+          <button class="admin-tab staff-only hidden" data-admin-panel="health">مراجعة البيانات <b id="reviewCount" class="count-badge hidden">0</b></button>
           <button class="admin-tab staff-only hidden" data-admin-panel="event">أخبار / حدث</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="library">محتوى العائلة</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="audit">سجل النشاط</button>
@@ -528,12 +528,11 @@
           </form>
           <div class="panel stack"><h3>طرق الدعم الحالية</h3><p class="muted">تظهر للجميع في «ادعم الموقع» بالترتيب. أوقف أي طريقة مؤقتًا بدل حذفها.</p><div id="supList" class="join-list"></div></div>
         </div></div>
-        <div id="admin-health" class="admin-panel admin-only hidden">
-          <div class="health-grid">
-            <article class="health-card"><strong id="healthNoFather">0</strong><span>أشخاص بلا أب مربوط</span></article>
-            <article class="health-card"><strong id="healthNoMother">0</strong><span>أشخاص بلا أم مربوطة</span></article>
-            <article class="health-card"><strong id="healthNoCode">0</strong><span>بدون كود أسرة</span></article>
-            <article class="health-card"><strong id="healthUncertain">0</strong><span>غير مؤكدين</span></article>
+        <div id="admin-health" class="admin-panel staff-only hidden">
+          <div class="panel stack">
+            <h3>🩺 مراجعة دقة البيانات</h3>
+            <p class="muted">أشخاص بياناتهم غالبًا خاطئة أو ناقصة. صحّحها بضغطة، والعدد يقل تلقائيًا. الأرقام في الرئيسية تصير أدق مع كل تصحيح.</p>
+            <div id="reviewGroups" class="review-groups"></div>
           </div>
         </div>
 
@@ -1226,7 +1225,7 @@
       <div class="batch-footer"><button type="button" id="lbkApply" class="btn primary wide">تطبيق على المحدد</button><p id="lbkMsg" class="form-msg"></p></div>
     </article></div>
   <div id="libSelectBar" class="lib-select-bar hidden"><b id="lsCount">0</b><button type="button" data-bulk="person">👤 ربط بشخص</button><button type="button" data-bulk="access">🔒 من يراه</button><button type="button" data-bulk="delete" class="danger">🗑 حذف</button><button type="button" data-bulk="cancel">إلغاء</button></div>
-  <script src="./config.js?v=17.0.0"></script>
-  <script src="./app.js?v=17.0.0"></script>
+  <script src="./config.js?v=17.1.0"></script>
+  <script src="./app.js?v=17.1.0"></script>
 </body>
 </html>

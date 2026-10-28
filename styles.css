@@ -2024,3 +2024,17 @@ a.sup-method:hover{border-color:var(--v7-gold)}
 @media (max-width:860px){.live-badge{white-space:nowrap}}
 
 @media (max-width:560px){.live-badge .lb-word{display:none}}
+
+/* V17.1 — data review */
+.review-groups{display:grid;gap:10px}
+.review-group{border:1px solid var(--v7-line);border-radius:14px;background:#fff;overflow:hidden}
+.review-group summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;font-weight:700;color:var(--v7-ink);list-style:none}
+.review-group summary::-webkit-details-marker{display:none}
+.review-group summary b{background:#F6E9E7;color:#9D3F37;border-radius:999px;padding:2px 12px;min-width:34px;text-align:center}
+.review-group summary b.ok{background:#E6F2EC;color:#1E6B4E}
+.review-all{margin:0 14px 8px}
+.review-list{display:grid;gap:6px;padding:0 14px 14px;max-height:420px;overflow:auto}
+.review-row{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--v7-line);border-radius:12px;padding:8px 10px;background:#FBF8F1;flex-wrap:wrap}
+.review-row>div:first-child{display:grid;gap:2px}.review-row small{color:var(--v7-muted)}
+.review-actions{display:flex;gap:6px}.review-actions .btn{padding:6px 12px}
+.review-ok{padding:0 14px 12px;margin:0;color:#1E6B4E!important}

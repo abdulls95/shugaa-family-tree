@@ -1058,7 +1058,7 @@ window.ShugaaHijri=(()=>{
   }
 
   function renderAudit(){const box=$("#auditList");if(!box)return;box.innerHTML=state.audit.map(a=>`<div class="audit-row"><div>${new Date(a.changed_at).toLocaleString("ar")}</div><div>${esc(a.action)}</div><div><b>${esc(a.table_name)}</b> <code>${esc((a.record_id||"").slice(0,12))}</code></div></div>`).join("")||"<p>لا توجد تعديلات.</p>";}
-  function renderHealth(){if(!$("#healthNoFather"))return;const fathers=new Set(state.relations.filter(r=>r.parent_role==="father").map(r=>r.child_id)),mothers=new Set(state.relations.filter(r=>r.parent_role==="mother").map(r=>r.child_id));$("#healthNoFather").textContent=state.people.filter(p=>!fathers.has(p.id)).length;$("#healthNoMother").textContent=state.people.filter(p=>!mothers.has(p.id)).length;$("#healthNoCode").textContent=state.people.filter(p=>!p.lineage_code).length;$("#healthUncertain").textContent=state.people.filter(p=>p.record_confidence==="uncertain").length;}
+  function renderHealth(){try{renderReview();}catch(_){}if(!$("#healthNoFather"))return;const fathers=new Set(state.relations.filter(r=>r.parent_role==="father").map(r=>r.child_id)),mothers=new Set(state.relations.filter(r=>r.parent_role==="mother").map(r=>r.child_id));$("#healthNoFather").textContent=state.people.filter(p=>!fathers.has(p.id)).length;$("#healthNoMother").textContent=state.people.filter(p=>!mothers.has(p.id)).length;$("#healthNoCode").textContent=state.people.filter(p=>!p.lineage_code).length;$("#healthUncertain").textContent=state.people.filter(p=>p.record_confidence==="uncertain").length;}
 
   async function ensurePlace(name){const clean=(name||"").trim();if(!clean)return null;const f=state.places.find(p=>norm(p.name_ar)===norm(clean));if(f)return f.id;const {data,error}=await client.from("places").insert({name_ar:clean}).select().single();if(error)throw error;state.places.push(data);return data.id;}
 
@@ -3291,6 +3291,39 @@ window.ShugaaHijri=(()=>{
   $$("[data-backup]").forEach(b=>b.addEventListener("click",backupNow));
   $("#backupLater")?.addEventListener("click",()=>{try{localStorage.setItem("shugaa_backup_snooze",String(Date.now()+3*864e5));}catch(_){}syncBackupUI();});
 
+
+  // =================== V17.1 — data review ===================
+  const CLAN_NAME="شجاع";
+  const isClanByName=p=>(p.family_name_text||"").trim()===CLAN_NAME||String(p.full_name_ar||"").trim().split(/\s+/).pop()===CLAN_NAME;
+  function birthYearG(p){if(p.birth_year)return +p.birth_year;if(p.birth_year_hijri)return window.ShugaaHijri.hYearToG(+p.birth_year_hijri);if(p.birth_date)return +String(p.birth_date).slice(0,4);return null;}
+  function reviewData(){const Y=new Date().getFullYear(),alive=p=>p.is_living!==false;
+    const kids=new Map();state.relations.forEach(r=>{(kids.get(r.parent_id)||kids.set(r.parent_id,[]).get(r.parent_id)).push(r.child_id);});
+    const depthMemo=new Map();const depth=(id,guard=0)=>{if(depthMemo.has(id))return depthMemo.get(id);if(guard>40)return 0;const ks=kids.get(id)||[];const d=ks.length?1+Math.max(...ks.map(k=>depth(k,guard+1))):0;depthMemo.set(id,d);return d;};
+    const fathers=new Set(state.relations.filter(r=>r.parent_role==="father").map(r=>r.child_id));
+    const clan=state.people.filter(isClanByName);const rootNo=Math.min(...clan.map(p=>p.person_no||1e9));
+    return {
+      old:state.people.filter(p=>alive(p)&&birthYearG(p)&&birthYearG(p)<=Y-100).map(p=>({p,info:`مواليد ${birthYearG(p)} م — العمر ${Y-birthYearG(p)} سنة`})),
+      elders:state.people.filter(p=>alive(p)&&!birthYearG(p)&&depth(p.id)>=4).map(p=>({p,info:`له ذرية حتى ${depth(p.id)} أجيال، ومسجل حي`})),
+      gender:state.people.filter(p=>!["male","female"].includes(p.gender)).map(p=>({p,info:"الجنس غير محدد"})),
+      orphans:clan.filter(p=>!fathers.has(p.id)&&p.person_no!==rootNo&&p.lineage_code!=="01").map(p=>({p,info:"من آل شجاع بالاسم، لكن بدون أب مربوط — لا يظهر في مكانه بالشجرة"}))};}
+  function renderReview(){const box=$("#reviewGroups");const staff=state.mode==="account"&&["admin","editor"].includes(state.role);if(!box||!staff)return;
+    const d=reviewData(),total=d.old.length+d.elders.length+d.gender.length+d.orphans.length;
+    const badge=$("#reviewCount");if(badge){badge.textContent=total;badge.classList.toggle("hidden",!total);}
+    const G=[["old","👴 مسجلون أحياء ومولودون قبل 100 سنة أو أكثر","dead"],["elders","🌳 أجداد بلا سنة ميلاد ومسجلون أحياء","dead"],["gender","❓ بدون جنس محدد","gender"],["orphans","🔗 من آل شجاع بدون أب مربوط","open"]];
+    box.innerHTML=G.map(([k,title,act])=>{const rows=d[k];
+      return `<details class="review-group" ${rows.length?"open":""}><summary><span>${title}</span><b class="${rows.length?"":"ok"}">${rows.length?rows.length:"✓"}</b></summary>
+        ${rows.length?`${act==="dead"&&rows.length>1?`<button type="button" class="btn light review-all" data-all="${k}">تسجيل الكل متوفين (${rows.length})</button>`:""}
+        <div class="review-list">${rows.map(({p,info})=>`<div class="review-row"><div><button type="button" class="h2-person" data-pid="${p.id}">${esc(p.full_name_ar)}</button><small>${esc(info)}</small></div>
+          <div class="review-actions">${act==="dead"?`<button type="button" class="btn light" data-dead="${p.id}">متوفى ✓</button>`:act==="gender"?`<button type="button" class="btn light" data-g="male" data-id="${p.id}">ذكر</button><button type="button" class="btn light" data-g="female" data-id="${p.id}">أنثى</button>`:`<button type="button" class="btn light" data-pid="${p.id}">فتح الملف</button>`}</div></div>`).join("")}</div>`
+        :`<p class="muted review-ok">✓ لا توجد مشاكل</p>`}</details>`;}).join("");
+    box.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));
+    box.querySelectorAll("[data-dead]").forEach(b=>b.onclick=()=>fixPeople([b.dataset.dead],{is_living:false}));
+    box.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>fixPeople([b.dataset.id],{gender:b.dataset.g}));
+    box.querySelectorAll("[data-all]").forEach(b=>b.onclick=()=>{const ids=reviewData()[b.dataset.all].map(x=>x.p.id);if(confirm(`تسجيل ${ids.length} أشخاص كمتوفين؟`))fixPeople(ids,{is_living:false});});}
+  async function fixPeople(ids,patch){const {error}=await client.from("people").update(patch).in("id",ids);if(error)return toast("تعذّر الحفظ: "+error.message,5000);
+    ids.forEach(id=>{const p=getPerson(id);if(p)Object.assign(p,patch);});toast(ids.length>1?`تم تصحيح ${ids.length} أشخاص ✅`:"تم التصحيح ✅");renderReview();try{renderHome();}catch(_){}}
+  viewHooks.push(n=>{if(n==="admin")setTimeout(renderReview,0);});
+  document.querySelector('.admin-tab[data-admin-panel="health"]')?.addEventListener("click",()=>setTimeout(renderReview,0));
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
