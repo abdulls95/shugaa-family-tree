@@ -370,7 +370,7 @@ window.ShugaaHijri=(()=>{
   function closePerson(){ $("#personModal").classList.add("hidden"); }
 
   function fillPersonSelects(){
-    const selectors=["#joinPerson","#smartContribPerson","#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
+    const selectors=["#lePerson","#lbkPerson","#joinPerson","#smartContribPerson","#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
     selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if((sel==="#pFather"||sel==="#bulkFather")&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
   }
 
@@ -870,11 +870,13 @@ window.ShugaaHijri=(()=>{
     if(libView==="grid"){renderLibraryGrid(rows);return;}
     grid.classList.remove("lib-grid-mode");
     grid.innerHTML=""; $("#libraryEmpty").classList.toggle("hidden",!!rows.length);
-    rows.forEach(item=>{const c=document.createElement("article");c.className="library-card";c.innerHTML=`<div class="library-card-top"><span class="library-card-icon">${itemTypeIcon(item.item_type)}</span><span>${esc(item.reference_code||"")}</span></div><div class="library-card-body"><h3>${esc(item.title)}</h3><p>${esc(item.summary||"")}</p><div class="library-meta"><span class="meta-pill">${esc(itemTypeLabel(item.item_type))}</span>${item.record_year?`<span class="meta-pill">${item.record_year}</span>`:""}</div><div class="library-actions">${item.file_path?`<button class="btn light open-file" data-path="${esc(item.file_path)}">فتح المرفق</button>`:""}${item.external_url?`<button class="btn light open-url" data-url="${esc(item.external_url)}">فتح الرابط</button>`:""}</div></div>`;grid.appendChild(c);});
+    rows.forEach(item=>{const c=document.createElement("article");c.className="library-card";c.innerHTML=`<div class="library-card-top"><span class="library-card-icon">${itemTypeIcon(item.item_type)}</span><span>${esc(item.reference_code||"")}</span></div><div class="library-card-body"><h3>${esc(item.title)}</h3><p>${esc(item.summary||"")}</p><div class="library-meta"><span class="meta-pill">${esc(itemTypeLabel(item.item_type))}</span>${item.record_year?`<span class="meta-pill">${item.record_year}</span>`:""}</div><div class="library-actions">${libStaff()?`<button class="btn light lib-edit" data-id="${item.id}">تعديل</button><button class="btn light danger lib-del" data-id="${item.id}">حذف</button>`:""}${item.file_path?`<button class="btn light open-file" data-path="${esc(item.file_path)}">فتح المرفق</button>`:""}${item.external_url?`<button class="btn light open-url" data-url="${esc(item.external_url)}">فتح الرابط</button>`:""}</div></div>`;grid.appendChild(c);});
     fillLibraryPeople(rows);
     $$(".open-file").forEach(b=>b.onclick=()=>openLibraryFile(b.dataset.path,b.closest(".library-card")?.querySelector("h3")?.textContent||""));
     fillLibraryThumbs(rows);
     $$(".open-url").forEach(b=>b.onclick=()=>window.open(b.dataset.url,"_blank"));
+    $$(".lib-edit").forEach(b=>b.onclick=()=>openLibEditor(b.dataset.id));
+    $$(".lib-del").forEach(b=>b.onclick=()=>deleteLibItems([b.dataset.id]));
   }
 
   function renderMyFamily(){
@@ -3172,7 +3174,7 @@ window.ShugaaHijri=(()=>{
   let libView=(()=>{try{return localStorage.getItem("shugaa_lib_view")||(window.innerWidth<700?"grid":"list");}catch(_){return "list";}})();
   let libPersonFilter=null, libRows=[];
   (()=>{const filters=$("#libraryFilters");if(!filters)return;const tb=document.createElement("div");tb.className="lib-toolbar";
-    tb.innerHTML=`<div id="libPersonChip" class="lib-person-chip hidden"></div><div class="lib-view-toggle" role="group" aria-label="طريقة العرض"><button type="button" data-v="grid">▦ شبكة</button><button type="button" data-v="list">☰ قائمة</button></div>`;
+    tb.innerHTML=`<div id="libPersonChip" class="lib-person-chip hidden"></div><button type="button" id="libSelectBtn" class="btn light lib-select-btn hidden">☑ تحديد</button><div class="lib-view-toggle" role="group" aria-label="طريقة العرض"><button type="button" data-v="grid">▦ شبكة</button><button type="button" data-v="list">☰ قائمة</button></div>`;
     filters.insertAdjacentElement("afterend",tb);
     tb.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{libView=b.dataset.v;try{localStorage.setItem("shugaa_lib_view",libView);}catch(_){}renderLibrary();});})();
   function syncLibToolbar(){$$(".lib-view-toggle [data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===libView));
@@ -3183,7 +3185,9 @@ window.ShugaaHijri=(()=>{
       const img=it.file_path&&IMG_RE.test(it.file_path);
       b.innerHTML=img?"":`<span class="lib-tile-ico">${itemTypeIcon(it.item_type)}</span><span class="lib-tile-t">${esc(it.title)}</span>`;
       b.setAttribute("aria-label",it.title);
-      b.onclick=()=>{if(img)openLibViewer(it.id);else if(it.file_path)openLibraryFile(it.file_path,it.title);else if(it.external_url)window.open(it.external_url,"_blank");};
+      b.dataset.id=it.id;b.classList.toggle("sel",libSelected.has(it.id));
+      b.onclick=()=>{if(libSelecting){libSelected.has(it.id)?libSelected.delete(it.id):libSelected.add(it.id);b.classList.toggle("sel");syncSelectBar();return;}
+        if(img)openLibViewer(it.id);else if(it.file_path)openLibraryFile(it.file_path,it.title);else if(it.external_url)window.open(it.external_url,"_blank");};
       grid.appendChild(b);
       if(img)libSignedUrl(it.file_path).then(u=>{b.style.backgroundImage=`url("${u}")`;b.classList.add("has-img");}).catch(()=>{});});}
   // viewer with previous / next across the photos currently shown
@@ -3197,7 +3201,12 @@ window.ShugaaHijri=(()=>{
     const show=async k=>{i=(k+photos.length)%photos.length;const it=photos[i];
       try{$("#lbImg").src=await libSignedUrl(it.file_path);}catch(e){return toast(e.message,4000);}
       const names=(libLinksCache?.get(it.id)||[]).map(pid=>firstName(getPerson(pid))).filter(Boolean);
-      $("#lbCap").innerHTML=`<b>${esc(it.title)}</b>${names.length?`<br><small>👥 ${esc(names.join("، "))}</small>`:""}<br><small>${i+1} / ${photos.length}</small>`;};
+      const ids=(libLinksCache?.get(it.id)||[]).filter(pid=>getPerson(pid));
+      $("#lbCap").innerHTML=`<b>${esc(it.title)}</b>${ids.length?`<br><span class="lb-people">👥 ${ids.map(pid=>`<button type="button" data-lbp="${pid}">${esc(getPerson(pid).full_name_ar)}</button>`).join("")}</span>`:""}<br><small>${i+1} / ${photos.length}</small>
+        ${libStaff()?`<div class="lb-actions"><button type="button" data-lbe="${it.id}">✏️ تعديل</button><button type="button" data-lbd="${it.id}" class="danger">🗑 حذف</button></div>`:""}`;
+      $$("#lbCap [data-lbp]").forEach(b=>b.onclick=e=>{e.stopPropagation();$("#lightbox").classList.add("hidden");openPerson(b.dataset.lbp);});
+      $("#lbCap [data-lbe]")?.addEventListener("click",e=>{e.stopPropagation();$("#lightbox").classList.add("hidden");openLibEditor(it.id);});
+      $("#lbCap [data-lbd]")?.addEventListener("click",async e=>{e.stopPropagation();if(await deleteLibItems([it.id]))$("#lightbox").classList.add("hidden");});};
     lbNav=d=>show(i+d);const many=photos.length>1;$("#lbPrev").classList.toggle("hidden",!many);$("#lbNext").classList.toggle("hidden",!many);
     $("#lightbox").classList.remove("hidden");await show(i);}
   // other openers of the viewer use their own navigation
@@ -3213,6 +3222,73 @@ window.ShugaaHijri=(()=>{
         if($("#librarySearch"))$("#librarySearch").value="";$("#personModal")?.classList.add("hidden");document.body.classList.remove("modal-open");setView("library");renderLibrary();};}
     btn.classList.toggle("hidden",!n);btn.textContent=`📷 صور ${firstName(getPerson(id))} (${n})`;}
   const _aop2=afterOpenPerson; afterOpenPerson=async function(id){syncProfilePhotos(id);return _aop2(id);};
+
+  // =================== V16.6 — edit / delete library items, bulk actions ===================
+  const libStaff=()=>state.mode==="account"&&["admin","editor"].includes(state.role);
+  let libSelecting=false; const libSelected=new Set();
+  function syncSelectBar(){$("#lsCount").textContent=`تم تحديد ${libSelected.size}`;$("#libSelectBar").classList.toggle("hidden",!libSelecting);
+    $("#libSelectBtn")&&($("#libSelectBtn").textContent=libSelecting?"✓ إنهاء التحديد":"☑ تحديد");}
+  const _syncLibToolbar=syncLibToolbar; syncLibToolbar=function(){_syncLibToolbar();const b=$("#libSelectBtn");if(b)b.classList.toggle("hidden",!(libStaff()&&libView==="grid"));
+    if(libView!=="grid"&&libSelecting){libSelecting=false;libSelected.clear();}syncSelectBar();};
+  document.addEventListener("click",e=>{if(e.target.id!=="libSelectBtn")return;libSelecting=!libSelecting;libSelected.clear();renderLibrary();});
+  async function afterLibChange(){libLinksCache=null;await loadAccountData();renderLibrary();}
+  async function deleteLibItems(ids){if(!ids.length)return false;
+    const items=state.library.filter(x=>ids.includes(x.id));
+    if(!confirm(items.length===1?`حذف «${items[0]?.title||""}» نهائيًا؟ سيُحذف الملف وروابطه بالأشخاص.`:`حذف ${items.length} عناصر نهائيًا؟`))return false;
+    const files=items.map(x=>x.file_path).filter(Boolean);
+    await client.from("library_item_people").delete().in("item_id",ids);
+    const {error}=await client.from("library_items").delete().in("id",ids);if(error){toast("تعذّر الحذف: "+error.message,5000);return false;}
+    if(files.length)await client.storage.from("family-library").remove(files);
+    toast(items.length===1?"تم الحذف":`تم حذف ${items.length} عناصر`);libSelected.clear();await afterLibChange();return true;}
+  // edit one item
+  let leItem=null, lePeople=[];
+  function renderLeChips(){$("#lePeopleChips").innerHTML=lePeople.length?lePeople.map(id=>`<span class="chip">${esc(getPerson(id)?.full_name_ar||"")}<button type="button" data-rm="${id}">×</button></span>`).join(""):'<span class="muted">لا أحد مربوط.</span>';
+    $$("#lePeopleChips [data-rm]").forEach(b=>b.onclick=()=>{lePeople=lePeople.filter(x=>x!==b.dataset.rm);renderLeChips();});}
+  $("#lePerson").addEventListener("change",()=>{const v=$("#lePerson").value;if(v&&!lePeople.includes(v))lePeople.push(v);$("#lePerson").value="";renderLeChips();});
+  async function syncLeAccess(){const admin=state.role==="admin",sel=$("#leAccess");
+    sel.querySelectorAll('option[value="restricted"],option[value="vault"]').forEach(o=>{o.hidden=!admin;o.disabled=!admin;});
+    const r=sel.value==="restricted"&&admin;$("#leRestrictWrap").classList.toggle("hidden",!r);
+    if(r&&!$("#leUsers").dataset.loaded){const {data}=await client.from("library_item_permissions").select("user_id").eq("item_id",leItem.id);const on=new Set((data||[]).map(x=>x.user_id));
+      $("#leUsers").innerHTML=(state.adminUsers||[]).filter(u=>u.status==="active"&&u.role!=="admin").map(u=>`<label class="check-line"><input type="checkbox" value="${u.id}" ${on.has(u.id)?"checked":""}/> ${esc(getPerson(u.person_id)?.full_name_ar||u.display_name||"")}</label>`).join("")||"<span class='muted'>لا توجد حسابات.</span>";
+      $("#leUsers").dataset.loaded="1";}}
+  $("#leAccess").addEventListener("change",syncLeAccess);
+  async function openLibEditor(id){leItem=state.library.find(x=>x.id===id);if(!leItem)return;await ensureLibLinks();
+    $("#leTitle").value=leItem.title||"";$("#leType").value=leItem.item_type;$("#leYear").value=leItem.record_year||"";$("#leSummary").value=leItem.summary||"";
+    $("#leAccess").value=leItem.access_level;$("#leUrl").value=leItem.external_url||"";$("#leFile").value="";$("#leMsg").textContent="";delete $("#leUsers").dataset.loaded;
+    lePeople=[...(libLinksCache.get(id)||[])];renderLeChips();await syncLeAccess();$("#libEditModal").classList.remove("hidden");}
+  $$("[data-close-libedit]").forEach(b=>b.onclick=()=>$("#libEditModal").classList.add("hidden"));
+  $("#leDelete").onclick=async()=>{if(leItem&&await deleteLibItems([leItem.id]))$("#libEditModal").classList.add("hidden");};
+  $("#leSave").onclick=async()=>{const it=leItem,msg=$("#leMsg");if(!it)return;const title=$("#leTitle").value.trim();if(!title)return msg.textContent="يرجى كتابة العنوان.";
+    $("#leSave").disabled=true;msg.textContent="جارٍ الحفظ...";
+    try{const row={title,item_type:$("#leType").value,record_year:toInt($("#leYear").value),summary:$("#leSummary").value.trim()||null,access_level:$("#leAccess").value,external_url:$("#leUrl").value.trim()||null,updated_by:state.session.user.id};
+      const file=$("#leFile").files[0];let oldFile=null;
+      if(file){const path=`${it.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,file,{contentType:file.type||undefined});if(ue)throw ue;row.file_path=path;row.mime_type=file.type||null;oldFile=it.file_path;}
+      const {error}=await client.from("library_items").update(row).eq("id",it.id);if(error)throw error;
+      await client.from("library_item_people").delete().eq("item_id",it.id);
+      if(lePeople.length){const {error:pe}=await client.from("library_item_people").insert(lePeople.map(pid=>({item_id:it.id,person_id:pid})));if(pe)throw pe;}
+      if(state.role==="admin"&&row.access_level==="restricted"&&$("#leUsers").dataset.loaded){await client.from("library_item_permissions").delete().eq("item_id",it.id);
+        const users=$$("#leUsers input:checked").map(i=>i.value);if(users.length)await client.from("library_item_permissions").insert(users.map(u=>({item_id:it.id,user_id:u,can_view:true,granted_by:state.session.user.id})));}
+      if(oldFile)client.storage.from("family-library").remove([oldFile]);
+      libUrlCache.delete(it.file_path);$("#libEditModal").classList.add("hidden");toast("تم حفظ التعديل ✅");await afterLibChange();}
+    catch(e){msg.textContent="تعذّر الحفظ: "+e.message;}finally{$("#leSave").disabled=false;}};
+  // bulk actions
+  let bulkMode=null;
+  $$("#libSelectBar [data-bulk]").forEach(b=>b.onclick=async()=>{const m=b.dataset.bulk,ids=[...libSelected];
+    if(m==="cancel"){libSelecting=false;libSelected.clear();renderLibrary();return;}
+    if(!ids.length)return toast("حدّد عناصر أولًا");
+    if(m==="delete"){if(await deleteLibItems(ids)){libSelecting=false;renderLibrary();}return;}
+    bulkMode=m;$("#lbkTitle").textContent=m==="person"?`ربط ${ids.length} عناصر بشخص`:`تغيير من يرى ${ids.length} عناصر`;
+    $("#lbkPersonWrap").classList.toggle("hidden",m!=="person");$("#lbkAccessWrap").classList.toggle("hidden",m!=="access");
+    $$("#lbkAccess .admin-opt").forEach(o=>{o.hidden=state.role!=="admin";o.disabled=state.role!=="admin";});
+    $("#lbkPerson").value="";$("#lbkMsg").textContent="";$("#libBulkModal").classList.remove("hidden");});
+  $$("[data-close-libbulk]").forEach(b=>b.onclick=()=>$("#libBulkModal").classList.add("hidden"));
+  $("#lbkApply").onclick=async()=>{const ids=[...libSelected],msg=$("#lbkMsg");
+    if(bulkMode==="person"){const pid=$("#lbkPerson").value;if(!pid)return msg.textContent="اختر الشخص.";await ensureLibLinks();
+      const rows=ids.filter(id=>!(libLinksCache.get(id)||[]).includes(pid)).map(id=>({item_id:id,person_id:pid}));
+      if(rows.length){const {error}=await client.from("library_item_people").insert(rows);if(error)return msg.textContent=error.message;}
+      toast(`تم ربط ${ids.length} عناصر بـ ${firstName(getPerson(pid))} ✅`);}
+    else{const {error}=await client.from("library_items").update({access_level:$("#lbkAccess").value,updated_by:state.session.user.id}).in("id",ids);if(error)return msg.textContent=error.message;toast("تم تغيير الصلاحية ✅");}
+    $("#libBulkModal").classList.add("hidden");libSelecting=false;libSelected.clear();await afterLibChange();};
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();

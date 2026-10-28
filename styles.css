@@ -2032,3 +2032,26 @@ a.sup-method:hover{border-color:var(--v7-gold)}
 .lib-tile.has-img{cursor:zoom-in}
 .lib-tile-ico{font-size:30px}.lib-tile-t{font-size:12px;color:var(--v7-ink);font-weight:600;line-height:1.3;max-height:2.6em;overflow:hidden;text-align:center}
 #lbCap small{color:#B9C7C2}
+
+/* V16.6 — library editing */
+.lb-people{display:inline-flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px}
+.lb-people button{border:1px solid rgba(217,182,106,.5);background:rgba(255,255,255,.08);color:#F6EBCF;border-radius:999px;padding:4px 12px;font-family:inherit;font-size:14px;cursor:pointer;text-decoration:underline dotted}
+.lb-actions{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.lb-actions button{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;border-radius:10px;padding:7px 14px;font-family:inherit;cursor:pointer}
+.lb-actions button.danger{color:#F3B6AE;border-color:rgba(243,182,174,.5)}
+#lightbox #lbCap{position:static;text-align:center;max-width:90vw}
+.lightbox button.hidden{display:none}
+.lib-select-btn{padding:7px 14px}.lib-select-btn.hidden{display:none}
+.lib-tile{position:relative}
+.lib-tile.sel{outline:3px solid #B08A3E;outline-offset:-3px;filter:brightness(.82)}
+.lib-tile.sel::after{content:"✓";position:absolute;top:6px;left:6px;width:24px;height:24px;border-radius:50%;background:#B08A3E;color:#fff;display:grid;place-items:center;font-weight:700}
+.lib-select-bar{position:fixed;z-index:900;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom));display:flex;gap:6px;align-items:center;background:#0C3530;color:#F6EBCF;border-radius:16px;padding:8px 10px;box-shadow:0 14px 34px rgba(0,0,0,.3);flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 20px)}
+.lib-select-bar.hidden{display:none}
+.lib-select-bar b{padding:0 6px;white-space:nowrap}
+.lib-select-bar button{border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:8px 10px;font-family:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+.lib-select-bar button.danger{background:#9D3F37}
+@media (min-width:861px){.lib-select-bar{bottom:24px}}
+.library-actions .lib-del{color:#9D3F37}
+#lightbox #lbCap button{position:static!important;width:auto!important;height:auto!important;font-size:14px!important;line-height:1.4;top:auto!important;left:auto!important;right:auto!important}
+#lightbox #lbCap .lb-people button{border-radius:999px!important}
+#lightbox #lbCap .lb-actions button{border-radius:10px!important}

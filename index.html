@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=16.5.0" />
+  <link rel="stylesheet" href="./styles.css?v=16.6.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -1196,7 +1196,35 @@
       </div>
       <div class="batch-footer"><button type="button" id="evSave" class="btn primary wide">حفظ التعديل</button><button type="button" id="evDelete" class="btn light danger wide admin-only hidden">حذف الخبر نهائيًا</button><p id="evMsg" class="form-msg"></p></div>
     </article></div>
-  <script src="./config.js?v=16.5.0"></script>
-  <script src="./app.js?v=16.5.0"></script>
+
+  <!-- V16.6 — edit library items, bulk actions -->
+  <div id="libEditModal" class="modal hidden"><div class="modal-backdrop" data-close-libedit></div>
+    <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-libedit aria-label="إغلاق">×</button>
+      <h2>تعديل المحتوى</h2>
+      <div class="batch-row">
+        <label>العنوان<input id="leTitle" /></label>
+        <div class="batch-grid"><label>القسم<select id="leType" class="no-search"><option value="document">وثيقة</option><option value="record">سجل</option><option value="land_record">سجل أرض / ملكية</option><option value="photo">صورة</option><option value="video">فيديو</option><option value="audio">تسجيل صوتي</option><option value="oral_history">رواية شفهية</option><option value="genealogy">مشجرة / نسب</option><option value="correspondence">مراسلة</option><option value="map">خريطة</option><option value="other">أخرى</option></select></label><label>السنة<input id="leYear" type="number" /></label></div>
+        <label>الأشخاص المرتبطون<select id="lePerson"><option value="">— اكتب الاسم وأضفه —</option></select></label>
+        <div id="lePeopleChips" class="chip-list"></div>
+        <label>الوصف<textarea id="leSummary" rows="3"></textarea></label>
+        <label>من يستطيع رؤيته<select id="leAccess" class="no-search"><option value="family">كل أصحاب الحسابات الشخصية</option><option value="editors">المدير ومدخلو البيانات</option><option value="admins">المدير فقط</option><option value="restricted">أشخاص أختارهم</option><option value="vault">الخزانة (وثائق حساسة)</option></select></label>
+        <div id="leRestrictWrap" class="restrict-box hidden"><b>الحسابات المسموح لها:</b><div id="leUsers" class="user-checks"></div></div>
+        <label>استبدال الملف (اختياري)<input id="leFile" type="file" /></label>
+        <label>رابط خارجي<input id="leUrl" type="url" dir="ltr" /></label>
+      </div>
+      <div class="batch-footer"><button type="button" id="leSave" class="btn primary wide">حفظ التعديل</button><button type="button" id="leDelete" class="btn light danger wide">حذف نهائيًا</button><p id="leMsg" class="form-msg"></p></div>
+    </article></div>
+  <div id="libBulkModal" class="modal hidden"><div class="modal-backdrop" data-close-libbulk></div>
+    <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-libbulk aria-label="إغلاق">×</button>
+      <h2 id="lbkTitle"></h2>
+      <div class="batch-row">
+        <label id="lbkPersonWrap">الشخص<select id="lbkPerson"><option value="">— اكتب الاسم —</option></select></label>
+        <label id="lbkAccessWrap">من يستطيع رؤيته<select id="lbkAccess" class="no-search"><option value="family">كل أصحاب الحسابات الشخصية</option><option value="editors">المدير ومدخلو البيانات</option><option value="admins">المدير فقط</option><option value="vault" class="admin-opt">الخزانة (وثائق حساسة)</option></select></label>
+      </div>
+      <div class="batch-footer"><button type="button" id="lbkApply" class="btn primary wide">تطبيق على المحدد</button><p id="lbkMsg" class="form-msg"></p></div>
+    </article></div>
+  <div id="libSelectBar" class="lib-select-bar hidden"><b id="lsCount">0</b><button type="button" data-bulk="person">👤 ربط بشخص</button><button type="button" data-bulk="access">🔒 من يراه</button><button type="button" data-bulk="delete" class="danger">🗑 حذف</button><button type="button" data-bulk="cancel">إلغاء</button></div>
+  <script src="./config.js?v=16.6.0"></script>
+  <script src="./app.js?v=16.6.0"></script>
 </body>
 </html>
