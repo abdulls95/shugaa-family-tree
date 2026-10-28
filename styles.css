@@ -2059,3 +2059,14 @@ a.sup-method:hover{border-color:var(--v7-gold)}
 .ov-card.ok{border-color:#CDE3D8;background:#F6FBF8}.ov-card.ok b{color:#1E6B4E}
 @media (max-width:700px){.admin-groups{grid-template-columns:repeat(5,1fr);gap:5px}.admin-groups button{padding:10px 2px;border-radius:12px}.admin-groups button span{font-size:11px}.admin-groups button i{font-size:22px}}
 @media (max-width:700px){.overview-cards{grid-template-columns:1fr 1fr;gap:8px}.ov-card{grid-template-columns:1fr;text-align:center;padding:12px 8px;justify-items:center}.ov-card i{grid-row:auto;font-size:24px}.ov-card b{font-size:26px}.ov-card span{font-size:13px}}
+
+/* V17.3 — albums inside the library */
+.lib-albums{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;grid-column:1/-1}
+@media (max-width:700px){.lib-albums{grid-template-columns:1fr 1fr;gap:10px}}
+.lib-album-card{position:relative;display:grid;gap:4px;text-align:right}
+.lib-album-cover{aspect-ratio:1;border:0;border-radius:16px;background:#EDE6D6 center/cover no-repeat;cursor:pointer;box-shadow:0 6px 16px rgba(7,38,33,.12)}
+.lib-album-card b{color:var(--v7-ink);cursor:pointer}.lib-album-card small{color:var(--v7-muted)}
+.lib-album-card.new{border:2px dashed var(--v7-line-2);border-radius:16px;aspect-ratio:1;display:grid;place-items:center;align-content:center;background:#FBF8F1;cursor:pointer;font-family:inherit}
+.lib-album-card.new i{font-style:normal;font-size:36px;color:var(--v7-gold)}
+.lib-album-tools{position:absolute;top:8px;left:8px;display:flex;gap:4px}
+.lib-album-tools button{border:0;background:rgba(255,255,255,.92);border-radius:8px;width:30px;height:30px;cursor:pointer}

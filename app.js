@@ -842,7 +842,8 @@ window.ShugaaHijri=(()=>{
     const grid=$("#libraryGrid"); if(!grid)return; const q=norm($("#librarySearch")?.value||""); const f=state.libraryFilter;
     if(state.mode==="account"&&!libLinksCache){ensureLibLinks().then(()=>renderLibrary());}
     const linkedNames=x=>(libLinksCache?.get(x.id)||[]).map(id=>getPerson(id)?.full_name_ar||"").join(" ");
-    const rows=state.library.filter(x=>{const typeOk=f==="all"||f==="documents"&&["document","correspondence"].includes(x.item_type)||f==="records"&&["record","land_record"].includes(x.item_type)||f==="photos"&&x.item_type==="photo"||f==="media"&&["video","audio","oral_history"].includes(x.item_type)||f==="genealogy"&&x.item_type==="genealogy"||f==="vault"&&x.access_level==="vault"; return typeOk&&(!libPersonFilter||(libLinksCache?.get(x.id)||[]).includes(libPersonFilter))&&(!q||norm([x.title,x.summary,(x.keywords||[]).join(" "),linkedNames(x)].join(" ")).includes(q));});
+    if(f==="albums"&&!libAlbumFilter){syncLibToolbar();renderAlbumCards();return;}
+    const rows=state.library.filter(x=>{const typeOk=(f==="albums"&&!!libAlbumFilter)||f==="all"||f==="documents"&&["document","correspondence"].includes(x.item_type)||f==="records"&&["record","land_record"].includes(x.item_type)||f==="photos"&&x.item_type==="photo"||f==="media"&&["video","audio","oral_history"].includes(x.item_type)||f==="genealogy"&&x.item_type==="genealogy"||f==="vault"&&x.access_level==="vault"; return typeOk&&(!libAlbumFilter||x.album_id===libAlbumFilter)&&(!libPersonFilter||(libLinksCache?.get(x.id)||[]).includes(libPersonFilter))&&(!q||norm([x.title,x.summary,(x.keywords||[]).join(" "),linkedNames(x)].join(" ")).includes(q));});
     syncLibToolbar(); libRows=rows;
     if(libView==="grid"){renderLibraryGrid(rows);return;}
     grid.classList.remove("lib-grid-mode");
@@ -1869,6 +1870,7 @@ window.ShugaaHijri=(()=>{
 
   const viewHooks=[]; // features that react to page changes register here
   function setView(name){
+    if(name==="albums"){state.libraryFilter="albums";libAlbumFilter=null;name="library";$$("#libraryFilters .filter-chip").forEach(c=>c.classList.toggle("active",c.dataset.filter==="albums"));}
     const allowed = name==="library" ? state.mode==="account" : name==="contribute" ? ["personal","account"].includes(state.mode) : name==="myfamily" ? state.mode==="account"&&!!state.profile?.person_id : name==="admin" ? state.mode==="account"&&["admin","editor"].includes(state.role) : true;
     if(!allowed)return toast("هذه الصفحة غير متاحة بنوع الدخول الحالي.");
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===`view-${name}`));$$(".nav-btn[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
@@ -2266,14 +2268,14 @@ window.ShugaaHijri=(()=>{
       const files=[...$("#libFile").files], baseTitle=$("#libTitle").value.trim(), total=Math.max(1,files.length);
       for(let i=0;i<total;i++){const file=files[i];
         if(total>1)msg.textContent=`جارٍ رفع ${i+1} من ${total}...`;
-        const row={title:total>1?`${baseTitle} (${i+1})`:baseTitle,item_type:$("#libType").value,record_year:toInt($("#libYear").value),summary:$("#libSummary").value.trim()||null,confidence:"family_tradition",access_level:access,external_url:$("#libExternalUrl").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id,status:"published"};
+        const row={title:total>1?`${baseTitle} (${i+1})`:baseTitle,album_id:($("#libAlbum").value&&$("#libAlbum").value!=="__new")?$("#libAlbum").value:null,item_type:$("#libType").value,record_year:toInt($("#libYear").value),summary:$("#libSummary").value.trim()||null,confidence:"family_tradition",access_level:access,external_url:$("#libExternalUrl").value.trim()||null,created_by:state.session.user.id,updated_by:state.session.user.id,status:"published"};
         const {data:item,error}=await client.from("library_items").insert(row).select().single();if(error)throw error;
         if(libPeople.length){const {error:pe}=await client.from("library_item_people").insert(libPeople.map(id=>({item_id:item.id,person_id:id})));if(pe)throw pe;}
         if(viewers.length){const {error:ve}=await client.from("library_item_permissions").insert(viewers.map(u=>({item_id:item.id,user_id:u,can_view:true,granted_by:state.session.user.id})));if(ve)throw ve;}
         if(file){const up=await compressForLibrary(file);const path=`${item.id}/${Date.now()}-${up.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,up,{contentType:up.type||undefined});if(ue)throw ue;await client.from("library_items").update({file_path:path,mime_type:up.type||null}).eq("id",item.id);}
       }
       msg.textContent=`${total>1?`تمت إضافة ${total} عناصر`:"تمت الإضافة"} ✅${libPeople.length?` — مرتبط بـ ${libPeople.length} ${libPeople.length>1?"أشخاص":"شخص"}`:""}${viewers.length?` — يراه ${viewers.length} ${viewers.length>1?"حسابات":"حساب"} مع المدير`:""}`;
-      e.target.reset();libPeople=[];renderLibChips();syncLibAccess();$("#libFilesInfo").textContent="يمكنك اختيار أكثر من ملف، وسيُضاف كل ملف كعنصر مستقل بنفس البيانات.";libLinksCache=null;await loadAccountData();}
+      e.target.reset();libPeople=[];renderLibChips();fillAlbumSelects();syncLibAccess();$("#libFilesInfo").textContent="يمكنك اختيار أكثر من ملف، وسيُضاف كل ملف كعنصر مستقل بنفس البيانات.";libLinksCache=null;await loadAccountData();}
     catch(err){msg.textContent="تعذّر الحفظ: "+err.message;}};
 
   // V7.1 — dual-calendar year inputs. Existing code keeps reading .value as a Gregorian year;
@@ -2821,7 +2823,7 @@ window.ShugaaHijri=(()=>{
   $("#lbClose").onclick=()=>$("#lightbox").classList.add("hidden");$("#lightbox").addEventListener("click",e=>{if(e.target.id==="lightbox"||e.target.id==="lbImg")$("#lightbox").classList.add("hidden");});$("#lbNext").onclick=()=>openLightbox(lbIdx+1);$("#lbPrev").onclick=()=>openLightbox(lbIdx-1);
 
   // ---------- views: albums + map ----------
-  viewHooks.push(name=>{if(name==="albums"&&state.mode==="account")renderAlbums();if(name==="history")setTimeout(initMap,60);});
+  viewHooks.push(name=>{if(name==="history")setTimeout(initMap,60);});
   let leafletMap=null,addPlaceMode=false;
   function loadLeaflet(){return window.L?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";s.onload=res;s.onerror=()=>rej(new Error("map"));document.head.appendChild(s);});}
   async function initMap(){
@@ -2959,7 +2961,7 @@ window.ShugaaHijri=(()=>{
           {view:"home",sel:"#h2News",text:"«نبض العائلة»: آخر الزواجات والمواليد والأخبار، ويمكنك التهنئة بضغطة."},
           {sel:'[data-view="tree"]',text:"«الشجرة»: تصفح الأجيال والفروع، واضغط على أي اسم لترى خياراته."},
           {sel:'[data-view="history"]',text:"«الأخبار»: كل أحداث العائلة وخريطة الأماكن."},
-          {sel:'[data-view="library"]',text:"«المحتوى»: وثائق العائلة وصورها (لأصحاب الحسابات الشخصية)."},
+          {sel:'[data-view="library"]',text:"«المكتبة»: وثائق العائلة وصورها وألبوماتها (لأصحاب الحسابات الشخصية)."},
           {sel:'#moreNavBtn,[data-view="people"]',text:"ومن هنا تصل إلى قائمة الأفراد، وصلة القرابة، ومسار النسب، والطلبات."},
           {sel:'[data-view="help"]',text:"وهنا الشروحات متى احتجتها. بالتوفيق! 🌳"}],
     tree:[{view:"tree",sel:"#treeSearch",text:"اكتب اسمًا هنا ليظهر في الشجرة ويضيء نسبه."},
@@ -3224,13 +3226,13 @@ window.ShugaaHijri=(()=>{
   $("#leAccess").addEventListener("change",syncLeAccess);
   async function openLibEditor(id){leItem=state.library.find(x=>x.id===id);if(!leItem)return;await ensureLibLinks();
     $("#leTitle").value=leItem.title||"";$("#leType").value=leItem.item_type;$("#leYear").value=leItem.record_year||"";$("#leSummary").value=leItem.summary||"";
-    $("#leAccess").value=leItem.access_level;$("#leUrl").value=leItem.external_url||"";$("#leFile").value="";$("#leMsg").textContent="";delete $("#leUsers").dataset.loaded;
+    $("#leAccess").value=leItem.access_level;if(!albumsLoaded)await loadAlbums();$("#leAlbum").value=leItem.album_id||"";$("#leUrl").value=leItem.external_url||"";$("#leFile").value="";$("#leMsg").textContent="";delete $("#leUsers").dataset.loaded;
     lePeople=[...(libLinksCache.get(id)||[])];renderLeChips();await syncLeAccess();$("#libEditModal").classList.remove("hidden");}
   $$("[data-close-libedit]").forEach(b=>b.onclick=()=>$("#libEditModal").classList.add("hidden"));
   $("#leDelete").onclick=async()=>{if(leItem&&await deleteLibItems([leItem.id]))$("#libEditModal").classList.add("hidden");};
   $("#leSave").onclick=async()=>{const it=leItem,msg=$("#leMsg");if(!it)return;const title=$("#leTitle").value.trim();if(!title)return msg.textContent="يرجى كتابة العنوان.";
     $("#leSave").disabled=true;msg.textContent="جارٍ الحفظ...";
-    try{const row={title,item_type:$("#leType").value,record_year:toInt($("#leYear").value),summary:$("#leSummary").value.trim()||null,access_level:$("#leAccess").value,external_url:$("#leUrl").value.trim()||null,updated_by:state.session.user.id};
+    try{const row={title,album_id:($("#leAlbum").value&&$("#leAlbum").value!=="__new")?$("#leAlbum").value:null,item_type:$("#leType").value,record_year:toInt($("#leYear").value),summary:$("#leSummary").value.trim()||null,access_level:$("#leAccess").value,external_url:$("#leUrl").value.trim()||null,updated_by:state.session.user.id};
       const file=$("#leFile").files[0];let oldFile=null;
       if(file){const up=await compressForLibrary(file);const path=`${it.id}/${Date.now()}-${up.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,up,{contentType:up.type||undefined});if(ue)throw ue;row.file_path=path;row.mime_type=up.type||null;oldFile=it.file_path;}
       const {error}=await client.from("library_items").update(row).eq("id",it.id);if(error)throw error;
@@ -3247,8 +3249,9 @@ window.ShugaaHijri=(()=>{
     if(m==="cancel"){libSelecting=false;libSelected.clear();renderLibrary();return;}
     if(!ids.length)return toast("حدّد عناصر أولًا");
     if(m==="delete"){if(await deleteLibItems(ids)){libSelecting=false;renderLibrary();}return;}
-    bulkMode=m;$("#lbkTitle").textContent=m==="person"?`ربط ${ids.length} عناصر بشخص`:`تغيير من يرى ${ids.length} عناصر`;
-    $("#lbkPersonWrap").classList.toggle("hidden",m!=="person");$("#lbkAccessWrap").classList.toggle("hidden",m!=="access");
+    bulkMode=m;$("#lbkTitle").textContent=m==="person"?`ربط ${ids.length} عناصر بشخص`:m==="album"?`نقل ${ids.length} عناصر إلى ألبوم`:`تغيير من يرى ${ids.length} عناصر`;
+    $("#lbkPersonWrap").classList.toggle("hidden",m!=="person");$("#lbkAccessWrap").classList.toggle("hidden",m!=="access");$("#lbkAlbumWrap").classList.toggle("hidden",m!=="album");
+    if(m==="album"&&!albumsLoaded)await loadAlbums();
     $$("#lbkAccess .admin-opt").forEach(o=>{o.hidden=state.role!=="admin";o.disabled=state.role!=="admin";});
     $("#lbkPerson").value="";$("#lbkMsg").textContent="";$("#libBulkModal").classList.remove("hidden");});
   $$("[data-close-libbulk]").forEach(b=>b.onclick=()=>$("#libBulkModal").classList.add("hidden"));
@@ -3257,6 +3260,9 @@ window.ShugaaHijri=(()=>{
       const rows=ids.filter(id=>!(libLinksCache.get(id)||[]).includes(pid)).map(id=>({item_id:id,person_id:pid}));
       if(rows.length){const {error}=await client.from("library_item_people").insert(rows);if(error)return msg.textContent=error.message;}
       toast(`تم ربط ${ids.length} عناصر بـ ${firstName(getPerson(pid))} ✅`);}
+    else if(bulkMode==="album"){const al=$("#lbkAlbum").value;if(al==="__new")return msg.textContent="أنشئ الألبوم أولًا من القائمة.";
+      const {error}=await client.from("library_items").update({album_id:al||null,updated_by:state.session.user.id}).in("id",ids);if(error)return msg.textContent=error.message;
+      toast(al?`نُقلت ${ids.length} عناصر إلى «${libAlbums.find(a=>a.id===al)?.title||""}» ✅`:"أُخرجت العناصر من الألبوم ✅");}
     else{const {error}=await client.from("library_items").update({access_level:$("#lbkAccess").value,updated_by:state.session.user.id}).in("id",ids);if(error)return msg.textContent=error.message;toast("تم تغيير الصلاحية ✅");}
     $("#libBulkModal").classList.add("hidden");libSelecting=false;libSelected.clear();await afterLibChange();};
 
@@ -3355,6 +3361,40 @@ window.ShugaaHijri=(()=>{
   new MutationObserver(()=>{syncGroupBadges();if(adminGroup==="overview")renderOverview();}).observe($(".admin-tabs"),{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["class"]});
   viewHooks.push(n=>{if(n==="admin"){syncGroupBadges();setAdminGroup("overview");}});
   $("#backupExcelBtn")?.addEventListener("click",()=>$("#exportExcelBtn")?.click());
+
+  // =================== V17.3 — albums inside the family library ===================
+  let libAlbums=[], libAlbumFilter=null, albumsLoaded=false;
+  async function loadAlbums(){const {data}=await client.from("albums").select("*").order("album_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false});libAlbums=data||[];albumsLoaded=true;fillAlbumSelects();}
+  function fillAlbumSelects(){$$(".album-select").forEach(sel=>{const v=sel.value;
+    sel.innerHTML='<option value="">— بدون ألبوم —</option>'+libAlbums.map(a=>`<option value="${a.id}">📁 ${esc(a.title)}</option>`).join("")+(libStaff()?'<option value="__new">＋ ألبوم جديد…</option>':"");
+    if([...sel.options].some(o=>o.value===v))sel.value=v;});}
+  async function newAlbumPrompt(sel){const t=prompt("اسم الألبوم الجديد (مثال: زواج محمد علي، عيد 1447):");if(!t||!t.trim()){sel.value="";return;}
+    const {data,error}=await client.from("albums").insert({title:t.trim()}).select("*").single();if(error){toast(error.message,4000);sel.value="";return;}
+    libAlbums.unshift(data);fillAlbumSelects();sel.value=data.id;toast(`أُنشئ الألبوم «${data.title}» ✅`);}
+  $$(".album-select").forEach(sel=>sel.addEventListener("change",()=>{if(sel.value==="__new")newAlbumPrompt(sel);}));
+  function renderAlbumCards(){const grid=$("#libraryGrid");grid.classList.remove("lib-grid-mode");grid.innerHTML="";$("#libraryEmpty")?.classList.add("hidden");
+    if(!albumsLoaded){loadAlbums().then(()=>renderLibrary());return;}
+    const wrap=document.createElement("div");wrap.className="lib-albums";
+    if(libStaff()){const nb=document.createElement("button");nb.type="button";nb.className="lib-album-card new";nb.innerHTML="<i>＋</i><b>ألبوم جديد</b>";
+      nb.onclick=async()=>{const t=prompt("اسم الألبوم الجديد:");if(!t||!t.trim())return;const {error}=await client.from("albums").insert({title:t.trim()});if(error)return toast(error.message,4000);await loadAlbums();renderLibrary();};wrap.appendChild(nb);}
+    libAlbums.forEach(a=>{const items=state.library.filter(x=>x.album_id===a.id),photo=items.find(x=>x.file_path&&IMG_RE.test(x.file_path));
+      const c=document.createElement("div");c.className="lib-album-card";c.innerHTML=`<button type="button" class="lib-album-cover" aria-label="${esc(a.title)}"></button><b>${esc(a.title)}</b><small>${items.length} ${items.length===1?"عنصر":"عناصر"}</small>
+        ${libStaff()?`<div class="lib-album-tools"><button type="button" data-ren title="إعادة تسمية">✏️</button><button type="button" data-delalb title="حذف الألبوم">🗑</button></div>`:""}`;
+      const open=()=>{libAlbumFilter=a.id;renderLibrary();};c.querySelector(".lib-album-cover").onclick=open;c.querySelector("b").onclick=open;
+      c.querySelector("[data-ren]")?.addEventListener("click",async()=>{const t=prompt("الاسم الجديد للألبوم:",a.title);if(!t||!t.trim())return;await client.from("albums").update({title:t.trim()}).eq("id",a.id);await loadAlbums();renderLibrary();});
+      c.querySelector("[data-delalb]")?.addEventListener("click",async()=>{if(!confirm(`حذف ألبوم «${a.title}»؟\nالصور نفسها لا تُحذف، تبقى في المكتبة بدون ألبوم.`))return;await client.from("albums").delete().eq("id",a.id);await loadAlbums();await afterLibChange();});
+      if(photo)libSignedUrl(photo.file_path).then(u=>{c.querySelector(".lib-album-cover").style.backgroundImage=`url("${u}")`;}).catch(()=>{});
+      wrap.appendChild(c);});
+    if(!libAlbums.length&&!libStaff())wrap.innerHTML=`<div class="h2-empty">${window.ShugaaMarks.svg("mountain",96)}<b>لا توجد ألبومات بعد</b></div>`;
+    grid.appendChild(wrap);}
+  // chip that shows which album is open
+  const _sync=syncLibToolbar; syncLibToolbar=function(){_sync();let chip=$("#libAlbumChip");
+    if(!chip){chip=document.createElement("div");chip.id="libAlbumChip";chip.className="lib-person-chip hidden";$("#libPersonChip")?.insertAdjacentElement("afterend",chip);}
+    const a=libAlbums.find(x=>x.id===libAlbumFilter);chip.classList.toggle("hidden",!a);
+    if(a){chip.innerHTML=`📁 ${esc(a.title)} <button type="button" aria-label="رجوع للألبومات">×</button>`;chip.querySelector("button").onclick=()=>{libAlbumFilter=null;renderLibrary();};}};
+  // leaving the albums tab closes the open album
+  $$("#libraryFilters .filter-chip").forEach(b=>b.addEventListener("click",()=>{libAlbumFilter=null;}));
+  viewHooks.push(n=>{if(n==="library"&&state.mode==="account"&&!albumsLoaded)loadAlbums();if(n==="admin"&&libStaff()&&!albumsLoaded)loadAlbums();});
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();

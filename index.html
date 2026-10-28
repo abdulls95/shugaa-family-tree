@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=17.2.0" />
+  <link rel="stylesheet" href="./styles.css?v=17.3.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -128,8 +128,7 @@
         <button data-view="people" class="nav-btn">قائمة الأفراد</button>
         <button data-view="kinship" class="nav-btn">صلة القرابة</button>
         <button data-view="lineage" class="nav-btn">مسار النسب</button>
-        <button data-view="library" class="nav-btn account-only hidden">محتوى العائلة</button>
-        <button data-view="albums" class="nav-btn account-only hidden">الألبومات</button>
+        <button data-view="library" class="nav-btn account-only hidden">مكتبة العائلة</button>
         <button data-view="help" class="nav-btn">الشروحات</button>
         <button type="button" class="nav-btn support-entry hidden" data-support>ادعم الموقع</button>
         <button data-view="history" class="nav-btn">أخبار وتاريخ</button>
@@ -180,7 +179,7 @@
             <button type="button" data-go="tree"><b>الشجرة</b><small>تصفح الفروع والأجيال</small></button>
             <button type="button" data-go="kinship"><b>صلة القرابة</b><small>من يلتقي بمن؟</small></button>
             <button type="button" data-go="lineage"><b>مسار النسب</b><small>من الحفيد إلى الجد</small></button>
-            <button type="button" data-go="library" class="account-only hidden"><b>محتوى العائلة</b><small>وثائق وصور وروايات</small></button>
+            <button type="button" data-go="library" class="account-only hidden"><b>مكتبة العائلة</b><small>وثائق وصور وألبومات</small></button>
             <button type="button" data-go="help"><b>الشروحات</b><small>تعلّم استخدام الموقع</small></button>
           </section>
         </div>
@@ -289,7 +288,7 @@
         <div class="page-head"><div><span class="section-kicker">خاص بالحسابات المعتمدة</span><h2>مكتبة آل شجاع</h2><p>وثائق، سجلات، صور، مشجرات وروايات حسب صلاحيتك.</p></div><input id="librarySearch" class="search-input" placeholder="ابحث في المكتبة..." /></div>
         <div class="archive-notice">🔐 هذا المحتوى خاص بأصحاب الحسابات الشخصية، ولا يظهر لمن دخل برمز العائلة العام.</div>
         <div id="libraryFilters" class="library-filters">
-          <button class="filter-chip active" data-filter="all">الكل</button><button class="filter-chip" data-filter="documents">📜 الوثائق</button><button class="filter-chip" data-filter="records">📚 السجلات</button><button class="filter-chip" data-filter="photos">📷 الصور</button><button class="filter-chip" data-filter="media">🎙️ الوسائط</button><button class="filter-chip" data-filter="genealogy">🌳 المشجرات</button><button class="filter-chip admin-only hidden" data-filter="vault">🔐 الخزانة</button>
+          <button class="filter-chip active" data-filter="all">الكل</button><button class="filter-chip" data-filter="albums">📁 الألبومات</button><button class="filter-chip" data-filter="documents">📜 الوثائق</button><button class="filter-chip" data-filter="records">📚 السجلات</button><button class="filter-chip" data-filter="photos">📷 الصور</button><button class="filter-chip" data-filter="media">🎙️ الوسائط</button><button class="filter-chip" data-filter="genealogy">🌳 المشجرات</button><button class="filter-chip admin-only hidden" data-filter="vault">🔐 الخزانة</button>
         </div>
         <div id="libraryGrid" class="library-grid"></div>
         <div id="libraryEmpty" class="empty-state hidden"><div>🏛️</div><h3>لا توجد مواد متاحة</h3></div>
@@ -380,7 +379,7 @@
           <button type="button" data-group="overview"><i>🏠</i><span>نظرة عامة</span></button>
           <button type="button" data-group="tree"><i>🌳</i><span>الشجرة</span><b class="grp-badge hidden"></b></button>
           <button type="button" data-group="people"><i>👥</i><span>الأشخاص والحسابات</span><b class="grp-badge hidden"></b></button>
-          <button type="button" data-group="content"><i>📰</i><span>الأخبار والمحتوى</span><b class="grp-badge hidden"></b></button>
+          <button type="button" data-group="content"><i>📰</i><span>الأخبار والمكتبة</span><b class="grp-badge hidden"></b></button>
           <button type="button" data-group="site"><i>⚙️</i><span>الموقع</span><b class="grp-badge hidden"></b></button>
         </nav>
         <div id="admin-overview" class="admin-panel"><div id="overviewCards" class="overview-cards"></div></div>
@@ -396,7 +395,7 @@
           <button class="admin-tab admin-only hidden" data-admin-panel="backup">النسخ الاحتياطي</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="health">مراجعة البيانات <b id="reviewCount" class="count-badge hidden">0</b></button>
           <button class="admin-tab staff-only hidden" data-admin-panel="event">أخبار / حدث</button>
-          <button class="admin-tab staff-only hidden" data-admin-panel="library">محتوى العائلة</button>
+          <button class="admin-tab staff-only hidden" data-admin-panel="library">مكتبة العائلة</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="audit">سجل النشاط</button>
         </div>
 
@@ -565,6 +564,7 @@
             <label>العنوان<input id="libTitle" required /></label>
             <div class="two-cols"><label>القسم<select id="libType"><option value="document">وثيقة</option><option value="record">سجل</option><option value="land_record">سجل أرض / ملكية</option><option value="photo">صورة</option><option value="video">فيديو</option><option value="audio">تسجيل صوتي</option><option value="oral_history">رواية شفهية</option><option value="genealogy">مشجرة / نسب</option><option value="correspondence">مراسلة</option><option value="map">خريطة</option><option value="other">أخرى</option></select></label><label>السنة<input id="libYear" type="number" /></label></div>
             <label>الأشخاص المرتبطون<select id="libPerson"><option value="">— اكتب الاسم وأضفه —</option></select></label>
+            <label>الألبوم (اختياري)<select id="libAlbum" class="no-search album-select"><option value="">— بدون ألبوم —</option></select></label>
             <div id="libPeopleChips" class="chip-list"><span class="muted">لم يُربط أحد بعد. يمكنك إضافة أكثر من شخص (مثل الصور الجماعية).</span></div>
             <label>الوصف<textarea id="libSummary" rows="4"></textarea></label>
             <label>من يستطيع رؤيته<select id="libAccess" class="no-search"><option value="family">كل أصحاب الحسابات الشخصية</option><option value="editors">المدير ومدخلو البيانات</option><option value="admins">المدير فقط</option><option value="restricted">أشخاص أختارهم</option><option value="vault">الخزانة (وثائق حساسة)</option></select></label>
@@ -588,7 +588,7 @@
       <button data-view="home" class="nav-btn active">⌂<span>الرئيسية</span></button>
       <button data-view="tree" class="nav-btn">🌳<span>الشجرة</span></button>
       <button data-view="history" class="nav-btn">📰<span>الأخبار</span></button>
-      <button data-view="library" class="nav-btn account-only hidden">📚<span>المحتوى</span></button>
+      <button data-view="library" class="nav-btn account-only hidden">📚<span>المكتبة</span></button>
       <button type="button" id="moreNavBtn" class="nav-btn more-btn">☰<span>المزيد</span></button>
     </nav>
     <div id="moreSheet" class="more-sheet hidden" role="dialog" aria-label="المزيد">
@@ -598,7 +598,6 @@
         <button data-view="people" class="nav-btn">👥<span>قائمة الأفراد</span></button>
         <button data-view="kinship" class="nav-btn">🧬<span>صلة القرابة</span></button>
         <button data-view="lineage" class="nav-btn">↟<span>مسار النسب</span></button>
-        <button data-view="albums" class="nav-btn account-only hidden">🖼️<span>الألبومات</span></button>
         <button data-view="help" class="nav-btn">▶<span>الشروحات</span></button>
         <button type="button" class="nav-btn support-entry hidden" data-support>🤍<span>ادعم الموقع</span></button>
         <button type="button" class="nav-btn general-only hidden" data-join>🙋<span>طلب حساب شخصي</span></button>
@@ -1210,12 +1209,13 @@
   <!-- V16.6 — edit library items, bulk actions -->
   <div id="libEditModal" class="modal hidden"><div class="modal-backdrop" data-close-libedit></div>
     <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-libedit aria-label="إغلاق">×</button>
-      <h2>تعديل المحتوى</h2>
+      <h2>تعديل عنصر المكتبة</h2>
       <div class="batch-row">
         <label>العنوان<input id="leTitle" /></label>
         <div class="batch-grid"><label>القسم<select id="leType" class="no-search"><option value="document">وثيقة</option><option value="record">سجل</option><option value="land_record">سجل أرض / ملكية</option><option value="photo">صورة</option><option value="video">فيديو</option><option value="audio">تسجيل صوتي</option><option value="oral_history">رواية شفهية</option><option value="genealogy">مشجرة / نسب</option><option value="correspondence">مراسلة</option><option value="map">خريطة</option><option value="other">أخرى</option></select></label><label>السنة<input id="leYear" type="number" /></label></div>
         <label>الأشخاص المرتبطون<select id="lePerson"><option value="">— اكتب الاسم وأضفه —</option></select></label>
         <div id="lePeopleChips" class="chip-list"></div>
+        <label>الألبوم<select id="leAlbum" class="no-search album-select"><option value="">— بدون ألبوم —</option></select></label>
         <label>الوصف<textarea id="leSummary" rows="3"></textarea></label>
         <label>من يستطيع رؤيته<select id="leAccess" class="no-search"><option value="family">كل أصحاب الحسابات الشخصية</option><option value="editors">المدير ومدخلو البيانات</option><option value="admins">المدير فقط</option><option value="restricted">أشخاص أختارهم</option><option value="vault">الخزانة (وثائق حساسة)</option></select></label>
         <div id="leRestrictWrap" class="restrict-box hidden"><b>الحسابات المسموح لها:</b><div id="leUsers" class="user-checks"></div></div>
@@ -1229,12 +1229,13 @@
       <h2 id="lbkTitle"></h2>
       <div class="batch-row">
         <label id="lbkPersonWrap">الشخص<select id="lbkPerson"><option value="">— اكتب الاسم —</option></select></label>
+        <label id="lbkAlbumWrap">الألبوم<select id="lbkAlbum" class="no-search album-select"><option value="">— بدون ألبوم —</option></select></label>
         <label id="lbkAccessWrap">من يستطيع رؤيته<select id="lbkAccess" class="no-search"><option value="family">كل أصحاب الحسابات الشخصية</option><option value="editors">المدير ومدخلو البيانات</option><option value="admins">المدير فقط</option><option value="vault" class="admin-opt">الخزانة (وثائق حساسة)</option></select></label>
       </div>
       <div class="batch-footer"><button type="button" id="lbkApply" class="btn primary wide">تطبيق على المحدد</button><p id="lbkMsg" class="form-msg"></p></div>
     </article></div>
-  <div id="libSelectBar" class="lib-select-bar hidden"><b id="lsCount">0</b><button type="button" data-bulk="person">👤 ربط بشخص</button><button type="button" data-bulk="access">🔒 من يراه</button><button type="button" data-bulk="delete" class="danger">🗑 حذف</button><button type="button" data-bulk="cancel">إلغاء</button></div>
-  <script src="./config.js?v=17.2.0"></script>
-  <script src="./app.js?v=17.2.0"></script>
+  <div id="libSelectBar" class="lib-select-bar hidden"><b id="lsCount">0</b><button type="button" data-bulk="person">👤 ربط بشخص</button><button type="button" data-bulk="album">📁 نقل إلى ألبوم</button><button type="button" data-bulk="access">🔒 من يراه</button><button type="button" data-bulk="delete" class="danger">🗑 حذف</button><button type="button" data-bulk="cancel">إلغاء</button></div>
+  <script src="./config.js?v=17.3.0"></script>
+  <script src="./app.js?v=17.3.0"></script>
 </body>
 </html>
