@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=16.6.0" />
+  <link rel="stylesheet" href="./styles.css?v=16.7.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -162,6 +162,7 @@
           </section>
           <div id="installBanner" class="install-banner hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>خلّ آل شجاع على شاشتك</b><small>ثبّته كتطبيق ويفتح معك بضغطة</small></div><button type="button" class="btn gold" data-install>ثبّت</button><button type="button" class="install-x" id="installBannerX" aria-label="إخفاء">×</button></div>
           <div id="joinBanner" class="install-banner general-only hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>هل ترغب في حساب شخصي؟</b><small>اختر اسمك من الشجرة، وسيصلك رمزك الخاص من الإدارة.</small></div><button type="button" class="btn gold" data-join>اطلب الآن</button></div>
+          <div id="backupBanner" class="backup-banner hidden"><div><b>📦 حان وقت النسخة الاحتياطية</b><small id="backupBannerText"></small></div><button type="button" class="btn primary" data-backup>نزّلها الآن</button><button type="button" class="install-x" id="backupLater" aria-label="ذكّرني لاحقًا" title="ذكّرني بعد 3 أيام">×</button></div>
           <section id="h2Stats" class="h2-stats"></section>
           <article id="h2Today" class="h2-card h2-today hidden"><header><div><span class="h2-kicker">في مثل هذا اليوم</span><h3 id="h2TodayTitle"></h3></div></header><div id="h2TodayList"></div></article>
           <section class="h2-grid">
@@ -505,6 +506,7 @@
               <p class="micro-copy">ملف فيه كل أفراد العائلة: الاسم، الأب، الأم، الأزواج، عدد الأبناء، سنوات الميلاد والوفاة، وكود النسب. يصلح كنسخة احتياطية أو للمراجعة والطباعة.</p>
               <div class="archive-notice">🔒 الملف فيه بيانات شخصية للعائلة، احفظه في مكان آمن ولا تنشره.</div>
               <button type="button" id="exportExcelBtn" class="btn gold wide">تنزيل ملف Excel</button>
+              <div class="backup-box admin-only hidden"><b>📦 النسخة الاحتياطية الكاملة</b><small id="backupLast">—</small><p class="micro-copy">ملف واحد فيه كل بيانات الموقع (الأشخاص، العلاقات، الزواجات، الأخبار، بيانات المحتوى والألبومات...). احفظه في «الملفات» أو iCloud أو أرسله لنفسك.</p><button type="button" class="btn primary wide" data-backup>تنزيل نسخة احتياطية الآن</button></div>
               <p id="exportMsg" class="form-msg"></p>
             </div>
           </div>
@@ -1224,7 +1226,7 @@
       <div class="batch-footer"><button type="button" id="lbkApply" class="btn primary wide">تطبيق على المحدد</button><p id="lbkMsg" class="form-msg"></p></div>
     </article></div>
   <div id="libSelectBar" class="lib-select-bar hidden"><b id="lsCount">0</b><button type="button" data-bulk="person">👤 ربط بشخص</button><button type="button" data-bulk="access">🔒 من يراه</button><button type="button" data-bulk="delete" class="danger">🗑 حذف</button><button type="button" data-bulk="cancel">إلغاء</button></div>
-  <script src="./config.js?v=16.6.0"></script>
-  <script src="./app.js?v=16.6.0"></script>
+  <script src="./config.js?v=16.7.0"></script>
+  <script src="./app.js?v=16.7.0"></script>
 </body>
 </html>

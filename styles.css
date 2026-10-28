@@ -2055,3 +2055,10 @@ a.sup-method:hover{border-color:var(--v7-gold)}
 #lightbox #lbCap button{position:static!important;width:auto!important;height:auto!important;font-size:14px!important;line-height:1.4;top:auto!important;left:auto!important;right:auto!important}
 #lightbox #lbCap .lb-people button{border-radius:999px!important}
 #lightbox #lbCap .lb-actions button{border-radius:10px!important}
+
+/* V16.7 — backups */
+.backup-box{display:grid;gap:6px;margin-top:14px;border:1px solid var(--v7-line);border-radius:14px;padding:12px;background:#FBF8F1}
+.backup-box.hidden{display:none}.backup-box b{color:var(--v7-ink)}.backup-box small{color:var(--v7-gold);font-weight:600}
+.backup-banner{display:flex;align-items:center;gap:12px;background:#EEF4F1;border:1px solid #BFD6CC;border-radius:18px;padding:12px 14px}
+.backup-banner.hidden{display:none}.backup-banner div{flex:1;display:grid;gap:2px}
+.backup-banner b{font-family:var(--v7-display);font-size:19px;color:var(--v7-ink)}.backup-banner small{color:#4A5853}

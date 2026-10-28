@@ -2290,7 +2290,7 @@ window.ShugaaHijri=(()=>{
         const {data:item,error}=await client.from("library_items").insert(row).select().single();if(error)throw error;
         if(libPeople.length){const {error:pe}=await client.from("library_item_people").insert(libPeople.map(id=>({item_id:item.id,person_id:id})));if(pe)throw pe;}
         if(viewers.length){const {error:ve}=await client.from("library_item_permissions").insert(viewers.map(u=>({item_id:item.id,user_id:u,can_view:true,granted_by:state.session.user.id})));if(ve)throw ve;}
-        if(file){const path=`${item.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,file,{contentType:file.type||undefined});if(ue)throw ue;await client.from("library_items").update({file_path:path,mime_type:file.type||null}).eq("id",item.id);}
+        if(file){const up=await compressForLibrary(file);const path=`${item.id}/${Date.now()}-${up.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,up,{contentType:up.type||undefined});if(ue)throw ue;await client.from("library_items").update({file_path:path,mime_type:up.type||null}).eq("id",item.id);}
       }
       msg.textContent=`${total>1?`تمت إضافة ${total} عناصر`:"تمت الإضافة"} ✅${libPeople.length?` — مرتبط بـ ${libPeople.length} ${libPeople.length>1?"أشخاص":"شخص"}`:""}${viewers.length?` — يراه ${viewers.length} ${viewers.length>1?"حسابات":"حساب"} مع المدير`:""}`;
       e.target.reset();libPeople=[];renderLibChips();syncLibAccess();$("#libFilesInfo").textContent="يمكنك اختيار أكثر من ملف، وسيُضاف كل ملف كعنصر مستقل بنفس البيانات.";libLinksCache=null;await loadAccountData();}
@@ -3262,7 +3262,7 @@ window.ShugaaHijri=(()=>{
     $("#leSave").disabled=true;msg.textContent="جارٍ الحفظ...";
     try{const row={title,item_type:$("#leType").value,record_year:toInt($("#leYear").value),summary:$("#leSummary").value.trim()||null,access_level:$("#leAccess").value,external_url:$("#leUrl").value.trim()||null,updated_by:state.session.user.id};
       const file=$("#leFile").files[0];let oldFile=null;
-      if(file){const path=`${it.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,file,{contentType:file.type||undefined});if(ue)throw ue;row.file_path=path;row.mime_type=file.type||null;oldFile=it.file_path;}
+      if(file){const up=await compressForLibrary(file);const path=`${it.id}/${Date.now()}-${up.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,up,{contentType:up.type||undefined});if(ue)throw ue;row.file_path=path;row.mime_type=up.type||null;oldFile=it.file_path;}
       const {error}=await client.from("library_items").update(row).eq("id",it.id);if(error)throw error;
       await client.from("library_item_people").delete().eq("item_id",it.id);
       if(lePeople.length){const {error:pe}=await client.from("library_item_people").insert(lePeople.map(pid=>({item_id:it.id,person_id:pid})));if(pe)throw pe;}
@@ -3289,6 +3289,38 @@ window.ShugaaHijri=(()=>{
       toast(`تم ربط ${ids.length} عناصر بـ ${firstName(getPerson(pid))} ✅`);}
     else{const {error}=await client.from("library_items").update({access_level:$("#lbkAccess").value,updated_by:state.session.user.id}).in("id",ids);if(error)return msg.textContent=error.message;toast("تم تغيير الصلاحية ✅");}
     $("#libBulkModal").classList.add("hidden");libSelecting=false;libSelected.clear();await afterLibChange();};
+
+  // =================== V16.7 — photo compression + backups ===================
+  // photos from phones are 3–5 MB; 2400 px JPEG keeps them sharp on any screen at a fraction of the size
+  async function compressForLibrary(file){
+    if(!/^image\/(jpe?g|png|webp|heic|heif)$/i.test(file.type||"")||file.size<700*1024)return file;
+    try{const blob=await shrinkImage(file,2400,.86);if(!blob||blob.size>=file.size)return file;
+      return new File([blob],file.name.replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg"});}catch(_){return file;}}
+  const BACKUP_TABLES=["people","parent_child_relations","marriages","life_events","places","branches","person_branches","library_items","library_item_people","albums","album_photos","person_stories","tutorials","support_methods"];
+  async function fetchAll(t){let all=[],from=0;for(;;){const {data,error}=await client.from(t).select("*").range(from,from+999);if(error)throw new Error(`${t}: ${error.message}`);all=all.concat(data||[]);if(!data||data.length<1000)break;from+=1000;}return all;}
+  async function backupNow(){if(!(state.mode==="account"&&state.role==="admin"))return;
+    toast("جارٍ تجهيز النسخة الاحتياطية...");
+    try{const tables={},counts={};for(const t of BACKUP_TABLES){try{tables[t]=await fetchAll(t);counts[t]=tables[t].length;}catch(e){console.warn(e);}}
+      const now=new Date(),stamp=now.toISOString().slice(0,10);
+      const payload={app:"shugaa-family-tree",format:1,exported_at:now.toISOString(),exported_by:state.session.user.email,counts,tables};
+      const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
+      await deliverFile(blob,`نسخة-احتياطية-آل-شجاع-${stamp}.json`,"نسخة احتياطية — شجرة آل شجاع");
+      await client.from("admin_meta").upsert({key:"last_backup",value:{at:now.toISOString(),counts},updated_at:now.toISOString()});
+      lastBackup={at:now.toISOString(),counts};syncBackupUI();toast("تم حفظ النسخة الاحتياطية ✅",4000);}
+    catch(e){toast("تعذّر إنشاء النسخة: "+e.message,6000);}}
+  let lastBackup=null; const BACKUP_EVERY_DAYS=14;
+  async function loadBackupMeta(){if(!(state.mode==="account"&&state.role==="admin"))return;
+    const {data}=await client.from("admin_meta").select("value").eq("key","last_backup").maybeSingle();lastBackup=data?.value||null;syncBackupUI();}
+  function syncBackupUI(){const admin=state.mode==="account"&&state.role==="admin";
+    const days=lastBackup?.at?Math.floor((Date.now()-new Date(lastBackup.at))/864e5):null;
+    $("#backupLast")&&($("#backupLast").textContent=lastBackup?.at?`آخر نسخة: ${new Date(lastBackup.at).toLocaleDateString("ar-SA-u-nu-latn")} (${days===0?"اليوم":`قبل ${days} يوم`})`:"لم تُنزّل أي نسخة بعد");
+    let snooze=0;try{snooze=+(localStorage.getItem("shugaa_backup_snooze")||0);}catch(_){}
+    const due=admin&&(days===null||days>=BACKUP_EVERY_DAYS)&&Date.now()>snooze;
+    $("#backupBanner")?.classList.toggle("hidden",!due);
+    if(due)$("#backupBannerText").textContent=days===null?"لم تنزّل أي نسخة احتياطية حتى الآن. احفظ نسخة من بيانات العائلة للأمان.":`مرّ ${days} يومًا على آخر نسخة. نزّل نسخة جديدة للأمان.`;}
+  $$("[data-backup]").forEach(b=>b.addEventListener("click",backupNow));
+  $("#backupLater")?.addEventListener("click",()=>{try{localStorage.setItem("shugaa_backup_snooze",String(Date.now()+3*864e5));}catch(_){}syncBackupUI();});
+  const _syncV12c=syncV12; syncV12=function(){_syncV12c();loadBackupMeta();};
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
