@@ -3325,6 +3325,37 @@ window.ShugaaHijri=(()=>{
   viewHooks.push(n=>{if(n==="admin")setTimeout(renderReview,0);});
   document.querySelector('.admin-tab[data-admin-panel="health"]')?.addEventListener("click",()=>setTimeout(renderReview,0));
 
+  // =================== V17.2 — settings in groups + overview ===================
+  const ADMIN_GROUPS={tree:["person","bulk","changes","health"],people:["join","access","permissions","accounts"],content:["event","library"],site:["support","backup","audit"]};
+  let adminGroup="overview";
+  const tabEl=n=>document.querySelector(`.admin-tab[data-admin-panel="${n}"]`);
+  const tabVisible=n=>{const t=tabEl(n);return !!t&&!t.classList.contains("hidden");};
+  const tabCount=n=>{const b=tabEl(n)?.querySelector("b");const v=parseInt(b?.textContent||"0",10);return b&&!b.classList.contains("hidden")&&v>0?v:0;};
+  function setAdminGroup(g){adminGroup=g;
+    $$(".admin-groups [data-group]").forEach(b=>b.classList.toggle("on",b.dataset.group===g));
+    $(".admin-tabs").classList.toggle("hidden",g==="overview");
+    $$(".admin-tab").forEach(t=>t.classList.toggle("grp-out",g==="overview"||!(ADMIN_GROUPS[g]||[]).includes(t.dataset.adminPanel)));
+    if(g==="overview"){setAdminPanel("overview");renderOverview();return;}
+    const first=(ADMIN_GROUPS[g]||[]).find(tabVisible);if(first){setAdminPanel(first);tabEl(first)?.click();}}
+  $$(".admin-groups [data-group]").forEach(b=>b.onclick=()=>setAdminGroup(b.dataset.group));
+  function syncGroupBadges(){Object.entries(ADMIN_GROUPS).forEach(([g,tabs])=>{const btn=document.querySelector(`.admin-groups [data-group="${g}"]`);if(!btn)return;
+    btn.classList.toggle("hidden",!tabs.some(tabVisible));const n=tabs.filter(tabVisible).reduce((s,t)=>s+tabCount(t),0);const b=btn.querySelector(".grp-badge");b.textContent=n;b.classList.toggle("hidden",!n);});}
+  function renderOverview(){const box=$("#overviewCards");if(!box)return;const admin=state.role==="admin";
+    const card=(icon,title,n,txt,okTxt,go)=>`<button type="button" class="ov-card ${n?"todo":"ok"}" data-go-tab="${go}"><i>${icon}</i><b>${n?n:"✓"}</b><span>${n?txt:okTxt}</span><small>${title}</small></button>`;
+    const days=lastBackup?.at?Math.floor((Date.now()-new Date(lastBackup.at))/864e5):null;
+    box.innerHTML=[
+      tabVisible("changes")?card("📝","طلبات الشجرة",tabCount("changes"),"طلبات بانتظار مراجعتك","لا توجد طلبات معلقة","changes"):"",
+      admin&&tabVisible("join")?card("🙋","طلبات الانضمام",tabCount("join"),"طلبات انضمام جديدة","لا توجد طلبات انضمام","join"):"",
+      tabVisible("health")?card("🩺","مراجعة البيانات",tabCount("health"),"مشاكل في البيانات","البيانات سليمة","health"):"",
+      admin&&tabVisible("accounts")?card("👤","الأعضاء والضيوف",tabCount("accounts"),"حسابات بانتظار التفعيل","لا يوجد جديد","accounts"):"",
+      admin?`<button type="button" class="ov-card ${days===null||days>=BACKUP_EVERY_DAYS?"todo":"ok"}" data-go-tab="backup"><i>📦</i><b>${days===null?"!":days===0?"اليوم":days}</b><span>${days===null?"لم تُنزّل نسخة بعد":days===0?"آخر نسخة احتياطية":`يومًا منذ آخر نسخة`}</span><small>النسخ الاحتياطي</small></button>`:""
+    ].join("");
+    box.querySelectorAll("[data-go-tab]").forEach(b=>b.onclick=()=>{const t=b.dataset.goTab;const g=Object.keys(ADMIN_GROUPS).find(k=>ADMIN_GROUPS[k].includes(t));setAdminGroup(g);setAdminPanel(t);tabEl(t)?.click();});}
+  // badges change when data loads: keep the group badges and the overview fresh
+  new MutationObserver(()=>{syncGroupBadges();if(adminGroup==="overview")renderOverview();}).observe($(".admin-tabs"),{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["class"]});
+  viewHooks.push(n=>{if(n==="admin"){syncGroupBadges();setAdminGroup("overview");}});
+  $("#backupExcelBtn")?.addEventListener("click",()=>$("#exportExcelBtn")?.click());
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){
