@@ -852,14 +852,23 @@ window.ShugaaHijri=(()=>{
         top.onclick=()=>openLibraryFile(it.file_path,it.title);}catch(_){}}
   }
   let libLinksCache=null;
+  let libLinksLoading=null;
+  function ensureLibLinks(){if(libLinksCache)return Promise.resolve();if(libLinksLoading)return libLinksLoading;
+    libLinksLoading=client.from("library_item_people").select("item_id,person_id").then(({data})=>{libLinksCache=new Map();(data||[]).forEach(r=>{(libLinksCache.get(r.item_id)||libLinksCache.set(r.item_id,[]).get(r.item_id)).push(r.person_id);});libLinksLoading=null;});
+    return libLinksLoading;}
   async function fillLibraryPeople(rows){if(!rows.length||state.mode!=="account")return;
-    if(!libLinksCache){const {data}=await client.from("library_item_people").select("item_id,person_id");libLinksCache=new Map();(data||[]).forEach(r=>{(libLinksCache.get(r.item_id)||libLinksCache.set(r.item_id,[]).get(r.item_id)).push(r.person_id);});}
+    await ensureLibLinks();
     $$("#libraryGrid .library-card").forEach((card,i)=>{const ids=libLinksCache.get(rows[i]?.id)||[];if(!ids.length||card.querySelector(".lib-people"))return;
       const d=document.createElement("div");d.className="lib-people";d.innerHTML="👥 "+ids.map(id=>`<button type="button" class="h2-person" data-pid="${id}">${esc(firstName(getPerson(id))||"")}</button>`).join("، ");
       d.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>openPerson(b.dataset.pid));card.querySelector(".library-card-body")?.insertBefore(d,card.querySelector(".library-actions"));});}
   function renderLibrary(){
     const grid=$("#libraryGrid"); if(!grid)return; const q=norm($("#librarySearch")?.value||""); const f=state.libraryFilter;
-    const rows=state.library.filter(x=>{const typeOk=f==="all"||f==="documents"&&["document","correspondence"].includes(x.item_type)||f==="records"&&["record","land_record"].includes(x.item_type)||f==="photos"&&x.item_type==="photo"||f==="media"&&["video","audio","oral_history"].includes(x.item_type)||f==="genealogy"&&x.item_type==="genealogy"||f==="vault"&&x.access_level==="vault"; return typeOk&&(!q||norm([x.title,x.summary,(x.keywords||[]).join(" ")].join(" ")).includes(q));});
+    if(state.mode==="account"&&!libLinksCache){ensureLibLinks().then(()=>renderLibrary());}
+    const linkedNames=x=>(libLinksCache?.get(x.id)||[]).map(id=>getPerson(id)?.full_name_ar||"").join(" ");
+    const rows=state.library.filter(x=>{const typeOk=f==="all"||f==="documents"&&["document","correspondence"].includes(x.item_type)||f==="records"&&["record","land_record"].includes(x.item_type)||f==="photos"&&x.item_type==="photo"||f==="media"&&["video","audio","oral_history"].includes(x.item_type)||f==="genealogy"&&x.item_type==="genealogy"||f==="vault"&&x.access_level==="vault"; return typeOk&&(!libPersonFilter||(libLinksCache?.get(x.id)||[]).includes(libPersonFilter))&&(!q||norm([x.title,x.summary,(x.keywords||[]).join(" "),linkedNames(x)].join(" ")).includes(q));});
+    syncLibToolbar(); libRows=rows;
+    if(libView==="grid"){renderLibraryGrid(rows);return;}
+    grid.classList.remove("lib-grid-mode");
     grid.innerHTML=""; $("#libraryEmpty").classList.toggle("hidden",!!rows.length);
     rows.forEach(item=>{const c=document.createElement("article");c.className="library-card";c.innerHTML=`<div class="library-card-top"><span class="library-card-icon">${itemTypeIcon(item.item_type)}</span><span>${esc(item.reference_code||"")}</span></div><div class="library-card-body"><h3>${esc(item.title)}</h3><p>${esc(item.summary||"")}</p><div class="library-meta"><span class="meta-pill">${esc(itemTypeLabel(item.item_type))}</span>${item.record_year?`<span class="meta-pill">${item.record_year}</span>`:""}</div><div class="library-actions">${item.file_path?`<button class="btn light open-file" data-path="${esc(item.file_path)}">فتح المرفق</button>`:""}${item.external_url?`<button class="btn light open-url" data-url="${esc(item.external_url)}">فتح الرابط</button>`:""}</div></div>`;grid.appendChild(c);});
     fillLibraryPeople(rows);
@@ -3158,6 +3167,52 @@ window.ShugaaHijri=(()=>{
     bar.innerHTML='<button type="button" data-g="all" class="on">الكل</button><button type="button" data-g="male">👨 ذكور</button><button type="button" data-g="female">👩 إناث</button>';
     search.insertAdjacentElement("afterend",bar);
     bar.querySelectorAll("button").forEach(b=>b.onclick=()=>{peopleGender=b.dataset.g;bar.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));renderPeople(search.value||"");});})();
+
+  // =================== V16.5 — library grid view, viewer, person filter ===================
+  let libView=(()=>{try{return localStorage.getItem("shugaa_lib_view")||(window.innerWidth<700?"grid":"list");}catch(_){return "list";}})();
+  let libPersonFilter=null, libRows=[];
+  (()=>{const filters=$("#libraryFilters");if(!filters)return;const tb=document.createElement("div");tb.className="lib-toolbar";
+    tb.innerHTML=`<div id="libPersonChip" class="lib-person-chip hidden"></div><div class="lib-view-toggle" role="group" aria-label="طريقة العرض"><button type="button" data-v="grid">▦ شبكة</button><button type="button" data-v="list">☰ قائمة</button></div>`;
+    filters.insertAdjacentElement("afterend",tb);
+    tb.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{libView=b.dataset.v;try{localStorage.setItem("shugaa_lib_view",libView);}catch(_){}renderLibrary();});})();
+  function syncLibToolbar(){$$(".lib-view-toggle [data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===libView));
+    const chip=$("#libPersonChip");if(!chip)return;const p=getPerson(libPersonFilter);chip.classList.toggle("hidden",!p);
+    if(p){chip.innerHTML=`👤 محتوى ${esc(p.full_name_ar)} <button type="button" aria-label="إلغاء">×</button>`;chip.querySelector("button").onclick=()=>{libPersonFilter=null;renderLibrary();};}}
+  function renderLibraryGrid(rows){const grid=$("#libraryGrid");grid.classList.add("lib-grid-mode");grid.innerHTML="";
+    rows.forEach((it,i)=>{const b=document.createElement("button");b.type="button";b.className="lib-tile";
+      const img=it.file_path&&IMG_RE.test(it.file_path);
+      b.innerHTML=img?"":`<span class="lib-tile-ico">${itemTypeIcon(it.item_type)}</span><span class="lib-tile-t">${esc(it.title)}</span>`;
+      b.setAttribute("aria-label",it.title);
+      b.onclick=()=>{if(img)openLibViewer(it.id);else if(it.file_path)openLibraryFile(it.file_path,it.title);else if(it.external_url)window.open(it.external_url,"_blank");};
+      grid.appendChild(b);
+      if(img)libSignedUrl(it.file_path).then(u=>{b.style.backgroundImage=`url("${u}")`;b.classList.add("has-img");}).catch(()=>{});});}
+  // viewer with previous / next across the photos currently shown
+  let lbNav=null;
+  $("#lbNext").onclick=()=>lbNav?lbNav(1):openLightbox(lbIdx+1);
+  $("#lbPrev").onclick=()=>lbNav?lbNav(-1):openLightbox(lbIdx-1);
+  (()=>{let sx=null;const lb=$("#lightbox");lb.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;},{passive:true});
+    lb.addEventListener("touchend",e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)<50)return;
+      const nav=lbNav||(lbList.length>1?(d=>openLightbox(lbIdx+d)):null);if(nav)nav(dx<0?1:-1);},{passive:true});})();
+  async function openLibViewer(id){const photos=libRows.filter(x=>x.file_path&&IMG_RE.test(x.file_path));let i=photos.findIndex(x=>x.id===id);if(i<0)return;
+    const show=async k=>{i=(k+photos.length)%photos.length;const it=photos[i];
+      try{$("#lbImg").src=await libSignedUrl(it.file_path);}catch(e){return toast(e.message,4000);}
+      const names=(libLinksCache?.get(it.id)||[]).map(pid=>firstName(getPerson(pid))).filter(Boolean);
+      $("#lbCap").innerHTML=`<b>${esc(it.title)}</b>${names.length?`<br><small>👥 ${esc(names.join("، "))}</small>`:""}<br><small>${i+1} / ${photos.length}</small>`;};
+    lbNav=d=>show(i+d);const many=photos.length>1;$("#lbPrev").classList.toggle("hidden",!many);$("#lbNext").classList.toggle("hidden",!many);
+    $("#lightbox").classList.remove("hidden");await show(i);}
+  // other openers of the viewer use their own navigation
+  const _olf=openLibraryFile; openLibraryFile=function(...a){lbNav=null;return _olf(...a);};
+  const _olb=openLightbox; openLightbox=function(...a){lbNav=null;return _olb(...a);};
+  // profile: "photos of X (n)"
+  async function syncProfilePhotos(id){let btn=$("#profilePhotosBtn");
+    if(state.mode!=="account"){btn?.classList.add("hidden");return;}
+    await ensureLibLinks();if(state.activePersonId!==id)return;
+    const n=state.library.filter(it=>(libLinksCache.get(it.id)||[]).includes(id)).length;
+    if(!btn){btn=document.createElement("button");btn.type="button";btn.id="profilePhotosBtn";btn.className="btn light";$("#profileShareBtn")?.insertAdjacentElement("afterend",btn);
+      btn.onclick=()=>{libPersonFilter=state.activePersonId;state.libraryFilter="all";$$("#libraryFilters .filter-chip").forEach(c=>c.classList.toggle("active",c.dataset.filter==="all"));
+        if($("#librarySearch"))$("#librarySearch").value="";$("#personModal")?.classList.add("hidden");document.body.classList.remove("modal-open");setView("library");renderLibrary();};}
+    btn.classList.toggle("hidden",!n);btn.textContent=`📷 صور ${firstName(getPerson(id))} (${n})`;}
+  const _aop2=afterOpenPerson; afterOpenPerson=async function(id){syncProfilePhotos(id);return _aop2(id);};
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
