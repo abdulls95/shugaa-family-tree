@@ -366,6 +366,8 @@ window.ShugaaHijri=(()=>{
     $("#profileEditBtn")?.classList.toggle("hidden",!canDirectBasicEdit());
     setProfileTab("overview");
     $("#personModal").classList.remove("hidden");
+  
+    try{afterOpenPerson(id);}catch(e){console.error(e);}
   }
   function closePerson(){ $("#personModal").classList.add("hidden"); }
 
@@ -377,33 +379,7 @@ window.ShugaaHijri=(()=>{
   // V5 — clean family-tree canvas.
   // The public tree shows lineage structure only. Spouses remain fully available inside
   // the person's profile, which keeps the tree readable even when many marriages exist.
-  function preferredTreeParent(childId){
-    const rels=state.relations.filter(r=>
-      r.child_id===childId &&
-      ["father","mother","parent"].includes(r.parent_role) &&
-      getPerson(r.parent_id)
-    );
-    if(!rels.length)return null;
 
-    const father=rels.find(r=>r.parent_role==="father"||r.parent_role==="parent");
-    const mother=rels.find(r=>r.parent_role==="mother");
-
-    if(father&&mother){
-      const fatherLinked=state.relations.some(r=>
-        r.child_id===father.parent_id &&
-        ["father","mother","parent"].includes(r.parent_role) &&
-        getPerson(r.parent_id)
-      );
-      const motherLinked=state.relations.some(r=>
-        r.child_id===mother.parent_id &&
-        ["father","mother","parent"].includes(r.parent_role) &&
-        getPerson(r.parent_id)
-      );
-      if(fatherLinked!==motherLinked)return fatherLinked?father.parent_id:mother.parent_id;
-      return father.parent_id;
-    }
-    return (father||mother)?.parent_id||null;
-  }
 
   function buildTreeModel(){
     const allPeople=state.people;
@@ -840,6 +816,7 @@ window.ShugaaHijri=(()=>{
     const {data,error}=await client.storage.from("family-library").createSignedUrl(path,3600);if(error||!data?.signedUrl)throw error||new Error("تعذّر فتح الملف");
     libUrlCache.set(path,{url:data.signedUrl,exp:Date.now()+3300e3});return data.signedUrl;}
   async function openLibraryFile(path,title){
+    lbNav=null;
     if(IMG_RE.test(path)){try{const u=await libSignedUrl(path);lbList=[];$("#lbImg").src=u;$("#lbCap").textContent=title;$("#lbPrev").classList.add("hidden");$("#lbNext").classList.add("hidden");$("#lightbox").classList.remove("hidden");}catch(e){toast(e.message,4000);}return;}
     const cached=libUrlCache.get(path);if(cached&&cached.exp>Date.now()){window.open(cached.url,"_blank");return;}
     const w=window.open("about:blank","_blank");
@@ -1890,6 +1867,7 @@ window.ShugaaHijri=(()=>{
     msg.textContent="جاري حفظ الأسرة...";const {data,error}=await client.rpc("staff_add_family_bundle_v4",{p_anchor_id:a.id,p_spouse:spouse,p_children:children});if(error){msg.textContent="تعذر الحفظ: "+error.message;return;}msg.textContent=`تم حفظ الأسرة ✅ (${data?.children_count||children.length} أبناء)`;await loadAccountData();setTimeout(()=>{closeFamilyBuilder();openPerson(a.id);setProfileTab("family");},450);
   }
 
+  const viewHooks=[]; // features that react to page changes register here
   function setView(name){
     const allowed = name==="library" ? state.mode==="account" : name==="contribute" ? ["personal","account"].includes(state.mode) : name==="myfamily" ? state.mode==="account"&&!!state.profile?.person_id : name==="admin" ? state.mode==="account"&&["admin","editor"].includes(state.role) : true;
     if(!allowed)return toast("هذه الصفحة غير متاحة بنوع الدخول الحالي.");
@@ -1898,6 +1876,8 @@ window.ShugaaHijri=(()=>{
     if(name==="contribute"){if(state.mode==="personal")loadPersonalRequests();else loadAccountRequests();}
     if(name==="admin"&&["admin","editor"].includes(state.role))loadStaffData();
     window.scrollTo({top:0,behavior:"smooth"});
+  
+    viewHooks.forEach(h=>{try{h(name);}catch(e){console.error(e);}});
   }
   function setAdminPanel(name){$$(".admin-panel").forEach(p=>p.classList.toggle("active",p.id===`admin-${name}`));$$(".admin-tab").forEach(b=>b.classList.toggle("active",b.dataset.adminPanel===name));}
 
@@ -2650,6 +2630,7 @@ window.ShugaaHijri=(()=>{
   function syncV12(){
     $$(".general-only").forEach(e=>e.classList.toggle("hidden",state.mode!=="general"));
     syncPushEntry(); if(state.mode==="account"&&state.role==="admin")loadJoinRequests(); renderToday();
+    startPresence(); touch(); renderLive(); loadSupport(); loadBackupMeta();
   }
   // ---------- media helpers ----------
   const urlCache=new Map();
@@ -2659,9 +2640,9 @@ window.ShugaaHijri=(()=>{
   async function uploadMedia(path,blob,type){const {error}=await client.storage.from("family-media").upload(path,blob,{contentType:type||blob.type,upsert:false});if(error)throw error;return path;}
 
   // ---------- person photo, certificate, share, stories (profile hooks) ----------
-  const _openPerson=openPerson;
-  openPerson=function(id){ _openPerson(id); try{afterOpenPerson(id);}catch(e){console.error(e);} };
+
   async function afterOpenPerson(id){
+    renderProfileAccess(id); syncProfilePhotos(id);
     const p=getPerson(id), av=$("#profileAvatar"); av.style.backgroundImage=""; av.classList.remove("has-photo"); delete av.dataset.full;
     $("#profilePhotoBtn")?.classList.toggle("hidden",!(state.mode==="account"&&["admin","editor"].includes(state.role)));
     $("#storyAddBtn")?.classList.toggle("hidden",!(state.mode==="account"&&["admin","editor"].includes(state.role)));
@@ -2713,16 +2694,8 @@ window.ShugaaHijri=(()=>{
 
   function nasabText(id){const chain=ancestorsFrom(id).map(getPerson).filter(Boolean);if(!chain.length)return "";const me=chain[0];
     return [firstName(me),...chain.slice(1).map((x,i)=>`${i===0&&me.gender==="female"?"بنت":"بن"} ${firstName(x)}`)].join(" ");}
-  function sealSvg(size=120,stroke="#B08A3E",fill="#0C3530"){return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100"><g fill="none" stroke="${stroke}" stroke-width="2"><rect x="21" y="21" width="58" height="58"/><rect x="21" y="21" width="58" height="58" transform="rotate(45 50 50)"/><rect x="27" y="27" width="46" height="46" stroke-width="1"/></g><text x="50" y="62" text-anchor="middle" font-family="Amiri,serif" font-weight="700" font-size="34" fill="${fill}">ش</text></svg>`;}
-  function printHtml(inner,landscape=false){
-    let area=$("#printArea"); if(!area){area=document.createElement("div");area.id="printArea";document.body.appendChild(area);}
-    area.innerHTML=`<style>@page{size:${landscape?"A4 landscape":"A4 portrait"};margin:10mm}</style>${inner}`;
-    document.body.classList.add("printing");
-    const done=()=>{document.body.classList.remove("printing");window.removeEventListener("afterprint",done);};
-    window.addEventListener("afterprint",done);
-    const imgs=[...area.querySelectorAll("img")].map(i=>i.complete?Promise.resolve():new Promise(r=>{i.onload=i.onerror=r;}));
-    Promise.all([document.fonts?.ready,...imgs]).then(()=>setTimeout(()=>{window.print();setTimeout(done,1500);},150));
-  }
+
+
   // ---- PDF export: everything is drawn on a canvas first, so it is always exactly one page ----
   function loadJsPdf(){return window.jspdf?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=res;s.onerror=()=>rej(new Error("pdf"));document.head.appendChild(s);});}
   async function deliverFile(blob,name,title){
@@ -2740,8 +2713,7 @@ window.ShugaaHijri=(()=>{
   }
   async function ensureFonts(){try{await Promise.all([document.fonts.load('700 80px "Amiri"'),document.fonts.load('400 40px "Amiri"'),document.fonts.load('500 40px "IBM Plex Sans Arabic"')]);}catch(_){}}
   async function drawMark(x,key,cx,cy,size){try{const im=await window.ShugaaMarks.img(key);x.drawImage(im,cx-size/2,cy-size/2,size,size);}catch(e){console.warn(e);}}
-  function drawSeal(x,cx,cy,s,stroke="#B08A3E",letter="#0C3530"){x.save();x.strokeStyle=stroke;x.lineWidth=s/30;x.translate(cx,cy);x.strokeRect(-s/2,-s/2,s,s);x.rotate(Math.PI/4);x.strokeRect(-s/2,-s/2,s,s);x.restore();
-    x.save();x.fillStyle=letter;x.textAlign="center";x.direction="rtl";x.font=`700 ${Math.round(s*.55)}px "Amiri", serif`;x.fillText("ش",cx,cy+s*.2);x.restore();}
+
   function wrapText(x,t,cx,y,maxW,lh){const words=String(t).split(" ");let line="",yy=y;for(const w of words){const test=line?line+" "+w:w;if(x.measureText(test).width>maxW&&line){x.fillText(line,cx,yy);line=w;yy+=lh;}else line=test;}if(line)x.fillText(line,cx,yy);return yy;}
   $("#profileCertBtn").onclick=async()=>{const id=state.activePersonId,p=getPerson(id);if(!p)return;toast("جاري تجهيز الوثيقة...");await ensureFonts();
     const chain=ancestorsFrom(id).reverse().map(getPerson).filter(Boolean),H=window.ShugaaHijri,now=new Date(),hj=H.gToH(now.getFullYear(),now.getMonth()+1,now.getDate());
@@ -2821,7 +2793,7 @@ window.ShugaaHijri=(()=>{
     catch(e){msg.textContent="تعذر الحفظ: "+e.message;}finally{$("#storySave").disabled=false;}};
 
   // ---------- albums ----------
-  let albumsCache=[],currentAlbum=null,lbList=[],lbIdx=0;
+  let albumsCache=[],currentAlbum=null,lbList=[],lbIdx=0,lbNav=null;
   async function renderAlbums(){$("#albumView").classList.add("hidden");$("#albumsGrid").classList.remove("hidden");const grid=$("#albumsGrid");
     const {data,error}=await client.from("albums").select("*").order("album_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false});
     albumsCache=data||[];if(error||!albumsCache.length){grid.innerHTML=`<div class="h2-empty">${window.ShugaaMarks.svg("mountain",96)}<b>ما فيه ألبومات للحين</b><p>أول ألبوم ينضاف يطلع هنا.</p></div>`;return;}
@@ -2845,12 +2817,11 @@ window.ShugaaHijri=(()=>{
       await client.from("album_photos").insert({album_id:currentAlbum.id,file_path:path});
       if(!currentAlbum.cover_path){currentAlbum.cover_path=path;await client.from("albums").update({cover_path:path}).eq("id",currentAlbum.id);}}catch(err){toast("تعذر رفع صورة: "+err.message,4000);}}
     toast("تمت إضافة الصور ✅");openAlbum(currentAlbum.id);});
-  async function openLightbox(i){$("#lbPrev").classList.remove("hidden");$("#lbNext").classList.remove("hidden");lbIdx=(i+lbList.length)%lbList.length;const ph=lbList[lbIdx];$("#lbImg").src=await mediaUrl(ph.file_path)||"";$("#lbCap").textContent=ph.caption||"";$("#lightbox").classList.remove("hidden");}
+  async function openLightbox(i){lbNav=null;$("#lbPrev").classList.remove("hidden");$("#lbNext").classList.remove("hidden");lbIdx=(i+lbList.length)%lbList.length;const ph=lbList[lbIdx];$("#lbImg").src=await mediaUrl(ph.file_path)||"";$("#lbCap").textContent=ph.caption||"";$("#lightbox").classList.remove("hidden");}
   $("#lbClose").onclick=()=>$("#lightbox").classList.add("hidden");$("#lightbox").addEventListener("click",e=>{if(e.target.id==="lightbox"||e.target.id==="lbImg")$("#lightbox").classList.add("hidden");});$("#lbNext").onclick=()=>openLightbox(lbIdx+1);$("#lbPrev").onclick=()=>openLightbox(lbIdx-1);
 
   // ---------- views: albums + map ----------
-  const _setView=setView;
-  setView=function(name){const r=_setView(name);if(name==="albums"&&state.mode==="account")renderAlbums();if(name==="history")setTimeout(initMap,60);return r;};
+  viewHooks.push(name=>{if(name==="albums"&&state.mode==="account")renderAlbums();if(name==="history")setTimeout(initMap,60);});
   let leafletMap=null,addPlaceMode=false;
   function loadLeaflet(){return window.L?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";s.onload=res;s.onerror=()=>rej(new Error("map"));document.head.appendChild(s);});}
   async function initMap(){
@@ -3016,7 +2987,7 @@ window.ShugaaHijri=(()=>{
   $("#tourPrev").onclick=()=>{if(!tour||tour.i===0)return;tour.i--;showTourStep();};
   $("#tourEnd").onclick=endTour; window.addEventListener("resize",()=>tour&&showTourStep());
   $$("[data-tour]").forEach(b=>b.onclick=()=>startTour(b.dataset.tour));
-  const _setView2=setView; setView=function(name){const r=_setView2(name);if(name==="help")renderHelp();return r;};
+  viewHooks.push(name=>{if(name==="help")renderHelp();});
 
   // =================== V15 — live presence + last seen (admin only) ===================
   const VIEW_AR={home:"الرئيسية",tree:"الشجرة",people:"قائمة الأفراد",kinship:"صلة القرابة",lineage:"مسار النسب",library:"المحتوى",albums:"الألبومات",history:"الأخبار",help:"الشروحات",contribute:"الطلبات",admin:"الإعدادات",myfamily:"أسرتي"};
@@ -3041,7 +3012,7 @@ window.ShugaaHijri=(()=>{
     if(!admin){badge?.remove();return;}
     const rows=liveRows(), n=rows.length;
     let b=badge; if(!b){b=document.createElement("button");b.type="button";b.id="liveBadge";b.className="live-badge";b.onclick=openLive;$(".user-box")?.prepend(b);}
-    b.innerHTML=`<i></i>${n} متصل الآن`;
+    b.innerHTML=`<i></i>${n}<span class="lb-word"> متصل الآن</span>`;b.title=`${n} متصل الآن`;
     if(!$("#liveModal").classList.contains("hidden"))fillLive();
   }
   const ago=t=>{const m=Math.round((Date.now()-new Date(t))/60000);if(m<1)return "الآن";if(m<60)return `قبل ${m} دقيقة`;const h=Math.round(m/60);if(h<24)return `قبل ${h} ساعة`;const d=Math.round(h/24);return d<30?`قبل ${d} يوم`:new Date(t).toLocaleDateString("ar-SA-u-nu-latn");};
@@ -3056,11 +3027,11 @@ window.ShugaaHijri=(()=>{
   }
   function openLive(){$("#liveModal").classList.remove("hidden");fillLive();}
   $$("[data-close-live]").forEach(b=>b.onclick=()=>$("#liveModal").classList.add("hidden"));
-  const _setView3=setView; setView=function(name){const r=_setView3(name);live.view=name;if(live.ch)live.ch.track(presencePayload());return r;};
+  viewHooks.push(name=>{live.view=name;if(live.ch)live.ch.track(presencePayload());});
   // "last seen" heartbeat for signed-in members
   const touch=()=>{if(state.mode==="account"&&document.visibilityState==="visible")client.rpc("touch_last_seen").then(()=>{},()=>{});};
   setInterval(touch,4*60000); document.addEventListener("visibilitychange",touch);
-  const _syncV12=syncV12; syncV12=function(){_syncV12();startPresence();touch();renderLive();};
+
 
   // news types stay two weeks on the home page by default; life records go straight to the archive
   function syncPulseDefault(){const t=$("#eventType")?.value,d=$("#eventDate")?.value;if(!$("#eventPulse"))return;
@@ -3107,7 +3078,7 @@ window.ShugaaHijri=(()=>{
     box.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("حذف طريقة الدعم؟"))return;await client.from("support_methods").delete().eq("id",b.dataset.del);loadSupport();});
     box.querySelectorAll("[data-up]").forEach(b=>b.onclick=async()=>{const i=supMethods.findIndex(x=>x.id===b.dataset.up);if(i<1)return;const a=supMethods[i],c=supMethods[i-1];
       await client.from("support_methods").update({sort:c.sort}).eq("id",a.id);await client.from("support_methods").update({sort:a.sort===c.sort?a.sort+1:a.sort}).eq("id",c.id);loadSupport();});}
-  const _syncV12b=syncV12; syncV12=function(){_syncV12b();loadSupport();};
+
 
   // =================== V16.1 — edit/delete news; access codes inside the person's profile ===================
   let evEditing=null;
@@ -3149,7 +3120,7 @@ window.ShugaaHijri=(()=>{
       const nc=data?.[0]?.access_code;await loadStaffData();renderProfileAccess(id);if(nc)showProfileCode(nc,p,"الرمز الجديد");});
     $("#pacCreate")?.addEventListener("click",async()=>{const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:"personal",p_person_id:id,p_label:p.full_name_ar,p_expires_at:null,p_max_uses:null,p_grant_role:$("#pacRole").value});
       if(error)return toast(error.message,4000);const nc=data?.[0]?.access_code;await loadStaffData();renderProfileAccess(id);if(nc)showProfileCode(nc,p,"تم إنشاء الرمز");});}
-  const _aop=afterOpenPerson; afterOpenPerson=async function(id){renderProfileAccess(id);return _aop(id);};
+
 
   // =================== V16.3 — announce newborns ===================
   async function announceNewborns(parentId,people,created){
@@ -3179,7 +3150,9 @@ window.ShugaaHijri=(()=>{
     tb.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{libView=b.dataset.v;try{localStorage.setItem("shugaa_lib_view",libView);}catch(_){}renderLibrary();});})();
   function syncLibToolbar(){$$(".lib-view-toggle [data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===libView));
     const chip=$("#libPersonChip");if(!chip)return;const p=getPerson(libPersonFilter);chip.classList.toggle("hidden",!p);
-    if(p){chip.innerHTML=`👤 محتوى ${esc(p.full_name_ar)} <button type="button" aria-label="إلغاء">×</button>`;chip.querySelector("button").onclick=()=>{libPersonFilter=null;renderLibrary();};}}
+    if(p){chip.innerHTML=`👤 محتوى ${esc(p.full_name_ar)} <button type="button" aria-label="إلغاء">×</button>`;chip.querySelector("button").onclick=()=>{libPersonFilter=null;renderLibrary();};}
+    const sb=$("#libSelectBtn");if(sb)sb.classList.toggle("hidden",!(libStaff()&&libView==="grid"));
+    if(libView!=="grid"&&libSelecting){libSelecting=false;libSelected.clear();}syncSelectBar();}
   function renderLibraryGrid(rows){const grid=$("#libraryGrid");grid.classList.add("lib-grid-mode");grid.innerHTML="";
     rows.forEach((it,i)=>{const b=document.createElement("button");b.type="button";b.className="lib-tile";
       const img=it.file_path&&IMG_RE.test(it.file_path);
@@ -3191,7 +3164,6 @@ window.ShugaaHijri=(()=>{
       grid.appendChild(b);
       if(img)libSignedUrl(it.file_path).then(u=>{b.style.backgroundImage=`url("${u}")`;b.classList.add("has-img");}).catch(()=>{});});}
   // viewer with previous / next across the photos currently shown
-  let lbNav=null;
   $("#lbNext").onclick=()=>lbNav?lbNav(1):openLightbox(lbIdx+1);
   $("#lbPrev").onclick=()=>lbNav?lbNav(-1):openLightbox(lbIdx-1);
   (()=>{let sx=null;const lb=$("#lightbox");lb.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;},{passive:true});
@@ -3210,8 +3182,7 @@ window.ShugaaHijri=(()=>{
     lbNav=d=>show(i+d);const many=photos.length>1;$("#lbPrev").classList.toggle("hidden",!many);$("#lbNext").classList.toggle("hidden",!many);
     $("#lightbox").classList.remove("hidden");await show(i);}
   // other openers of the viewer use their own navigation
-  const _olf=openLibraryFile; openLibraryFile=function(...a){lbNav=null;return _olf(...a);};
-  const _olb=openLightbox; openLightbox=function(...a){lbNav=null;return _olb(...a);};
+
   // profile: "photos of X (n)"
   async function syncProfilePhotos(id){let btn=$("#profilePhotosBtn");
     if(state.mode!=="account"){btn?.classList.add("hidden");return;}
@@ -3221,15 +3192,14 @@ window.ShugaaHijri=(()=>{
       btn.onclick=()=>{libPersonFilter=state.activePersonId;state.libraryFilter="all";$$("#libraryFilters .filter-chip").forEach(c=>c.classList.toggle("active",c.dataset.filter==="all"));
         if($("#librarySearch"))$("#librarySearch").value="";$("#personModal")?.classList.add("hidden");document.body.classList.remove("modal-open");setView("library");renderLibrary();};}
     btn.classList.toggle("hidden",!n);btn.textContent=`📷 صور ${firstName(getPerson(id))} (${n})`;}
-  const _aop2=afterOpenPerson; afterOpenPerson=async function(id){syncProfilePhotos(id);return _aop2(id);};
+
 
   // =================== V16.6 — edit / delete library items, bulk actions ===================
   const libStaff=()=>state.mode==="account"&&["admin","editor"].includes(state.role);
   let libSelecting=false; const libSelected=new Set();
   function syncSelectBar(){$("#lsCount").textContent=`تم تحديد ${libSelected.size}`;$("#libSelectBar").classList.toggle("hidden",!libSelecting);
     $("#libSelectBtn")&&($("#libSelectBtn").textContent=libSelecting?"✓ إنهاء التحديد":"☑ تحديد");}
-  const _syncLibToolbar=syncLibToolbar; syncLibToolbar=function(){_syncLibToolbar();const b=$("#libSelectBtn");if(b)b.classList.toggle("hidden",!(libStaff()&&libView==="grid"));
-    if(libView!=="grid"&&libSelecting){libSelecting=false;libSelected.clear();}syncSelectBar();};
+
   document.addEventListener("click",e=>{if(e.target.id!=="libSelectBtn")return;libSelecting=!libSelecting;libSelected.clear();renderLibrary();});
   async function afterLibChange(){libLinksCache=null;await loadAccountData();renderLibrary();}
   async function deleteLibItems(ids){if(!ids.length)return false;
@@ -3320,7 +3290,7 @@ window.ShugaaHijri=(()=>{
     if(due)$("#backupBannerText").textContent=days===null?"لم تنزّل أي نسخة احتياطية حتى الآن. احفظ نسخة من بيانات العائلة للأمان.":`مرّ ${days} يومًا على آخر نسخة. نزّل نسخة جديدة للأمان.`;}
   $$("[data-backup]").forEach(b=>b.addEventListener("click",backupNow));
   $("#backupLater")?.addEventListener("click",()=>{try{localStorage.setItem("shugaa_backup_snooze",String(Date.now()+3*864e5));}catch(_){}syncBackupUI();});
-  const _syncV12c=syncV12; syncV12=function(){_syncV12c();loadBackupMeta();};
+
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
