@@ -984,7 +984,7 @@ window.ShugaaHijri=(()=>{
   function renderUsers(){
     const box=$("#userManagement"), me=state.session.user.id;
     const row=u=>`<div class="account-row ${u.status==="suspended"?"is-stopped":""}"><div><strong>${esc(u.display_name||"")}</strong><small>${esc(/@members\.shugaa-family\.app$/.test(u.email||"")?"🔑 دخول بالرمز":(u.email||""))} • ${esc(getPerson(u.person_id)?.full_name_ar||(u.person_id?"ملف غير متاح":"غير مربوط بملف"))}</small></div>
-      <div class="account-actions">${u.status!=="suspended"?`<select class="role-select user-role no-search" data-id="${u.id}"><option value="viewer" ${u.role==="viewer"?"selected":""}>مشاهد</option><option value="editor" ${u.role==="editor"?"selected":""}>مدخل بيانات</option><option value="admin" ${u.role==="admin"?"selected":""}>مدير</option></select>`:`<span class="meta-pill">${esc(roleLabel(u.role))}</span>`}
+      <div class="account-actions">${u.status!=="suspended"?`<select class="role-select user-role no-search" data-id="${u.id}"><option value="viewer" ${u.role==="viewer"?"selected":""}>مشاهد</option><option value="editor" ${u.role==="editor"?"selected":""}>مدخل بيانات</option>${state.profile?.is_founder||u.role==="admin"?`<option value="admin" ${u.role==="admin"?"selected":""}>مدير</option>`:""}</select>`:`<span class="meta-pill">${esc(roleLabel(u.role))}</span>`}
       ${u.id!==me?`<button class="btn light toggle-user" data-id="${u.id}" data-status="${u.status}">${u.status==="suspended"?"تفعيل":"إيقاف"}</button><button class="btn light danger delete-user" data-id="${u.id}" data-name="${esc(u.display_name||u.email||"")}">حذف الحساب</button>`:"<span class='meta-pill'>حسابك</span>"}</div></div>`;
     const list=state.adminUsers.filter(u=>u.status!=="pending"), active=list.filter(u=>u.status!=="suspended"), stopped=list.filter(u=>u.status==="suspended");
     box.innerHTML=`<h4 class="list-head">الحسابات الفعّالة <b>${active.length}</b></h4>${active.map(row).join("")||"<p class='muted'>لا توجد حسابات فعّالة.</p>"}
@@ -3421,6 +3421,7 @@ window.ShugaaHijri=(()=>{
   async function saveSetting(key,value){const {error}=await client.from("site_settings").upsert({key,value,updated_at:new Date().toISOString()});if(error)throw error;siteSettings[key]=value;}
   const dayNo=()=>Math.floor((Date.now()-new Date().getTimezoneOffset()*6e4)/864e5);
   async function renderGateExtras(){try{await loadSiteSettings();}catch(_){}
+    $("#gateFounder").textContent=siteSettings.founder?.line||"";
     const qs=(Array.isArray(siteSettings.quotes)?siteSettings.quotes:[]).filter(Boolean);$("#gateQuote").textContent=qs.length?`«${qs[dayNo()%qs.length]}»`:"";
     const st=$("#gateStats");if(siteSettings.show_public_stats===false){st.classList.add("hidden");}
     else{const {data}=await client.rpc("public_family_stats");if(data?.members){st.innerHTML=`<div><b>${data.members}</b><span>فردًا من آل شجاع</span></div><div><b>${data.generations}</b><span>أجيال</span></div><div><b>${data.marriages}</b><span>زواجًا</span></div>`;st.classList.remove("hidden");}}
@@ -3666,6 +3667,71 @@ window.ShugaaHijri=(()=>{
   $("#quizResetBoard").onclick=async()=>{if(!confirm("تصفير لوحة المتصدرين وحذف كل النتائج؟"))return;const {error}=await client.from("quiz_scores").delete().gt("id",0);toast(error?error.message:"تم تصفير اللوحة ✅",4000);};
   document.querySelector('.admin-tab[data-admin-panel="quizq"]')?.addEventListener("click",()=>setTimeout(renderQuizAdmin,0));
   viewHooks.push(n=>{if(n==="quiz")renderQuizStart();if(n==="home"){renderHomeQuote();renderDaily();}});
+
+  // =================== V20 — founder + making every visitor feel at home ===================
+  const founder=()=>siteSettings.founder||{};
+  const isFounderPerson=id=>!!id&&id===founder().person_id;
+  function applyFounderUI(){const f=founder();$$("#gateFounder,#h2Founder").forEach(e=>e.textContent=f.line||"");
+    if(state.mode==="account"&&state.profile?.is_founder)$("#userRoleBadge").textContent="👑 المؤسس";
+    crownFounder();}
+  function crownFounder(){const id=founder().person_id;if(!state.cy||!id)return;
+    // the founder's card may sit inside a folded branch (taken out of the graph), so look there too
+    const pools=[state.cy.elements(),treeUI.removed].filter(Boolean);
+    pools.forEach(col=>col.filter(e=>e.isNode()&&e.id()===id).forEach(n=>{if(!String(n.data("text")||"").startsWith("👑"))n.data("text","👑 "+n.data("text"));}));}
+  const _renderTree=renderTree; renderTree=function(...a){const r=_renderTree(...a);try{crownFounder();}catch(_){}return r;};
+  // profile badge + golden frame
+  const _aop3=afterOpenPerson; afterOpenPerson=async function(id){const r=_aop3(id);
+    let b=$("#profileFounderBadge");if(!b){b=document.createElement("span");b.id="profileFounderBadge";b.className="founder-badge";b.textContent="👑 مؤسس شجرة آل شجاع";$("#profileName")?.insertAdjacentElement("afterend",b);}
+    const yes=isFounderPerson(id);b.classList.toggle("hidden",!yes);$("#profileAvatar")?.classList.toggle("founder-frame",yes);return r;};
+  // user management: the founder's row shows a badge and no buttons; other admins can't touch admins
+  const _renderUsers=renderUsers; renderUsers=function(...a){const r=_renderUsers(...a);const meF=!!state.profile?.is_founder;
+    $$("#userManagement .account-row").forEach(row=>{const id=row.querySelector("[data-id]")?.dataset.id;const u=(state.adminUsers||[]).find(x=>x.id===id);
+      if(!u&&!row.querySelector(".meta-pill"))return;
+      const target=u||(state.adminUsers||[]).find(x=>row.innerHTML.includes(x.id));
+      if(target?.is_founder||(!id&&state.profile?.is_founder&&row.textContent.includes("حسابك"))){row.querySelector(".account-actions").innerHTML='<span class="founder-badge">👑 المؤسس</span>';row.classList.add("founder-row");return;}
+      if(target&&target.role==="admin"&&!meF){row.querySelector(".account-actions").innerHTML='<span class="meta-pill">مدير — يديره المؤسس</span>';}});
+    return r;};
+  // ---- confetti ----
+  function confetti(ms=2600){const c=$("#confetti");if(!c||window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;c.classList.remove("hidden");
+    const x=c.getContext("2d"),W=c.width=innerWidth,H=c.height=innerHeight,cols=["#D9B66A","#0C3530","#E9CF8E","#C9969C","#5BAA86","#F6EBCF"];
+    const P=Array.from({length:160},()=>({x:Math.random()*W,y:-20-Math.random()*H*.5,r:4+Math.random()*5,c:cols[Math.floor(Math.random()*cols.length)],vy:2+Math.random()*3.5,vx:-1.5+Math.random()*3,a:Math.random()*6,va:-.2+Math.random()*.4}));
+    const t0=performance.now();(function f(t){x.clearRect(0,0,W,H);P.forEach(p=>{p.y+=p.vy;p.x+=p.vx;p.a+=p.va;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.c;x.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);x.restore();});
+      if(t-t0<ms)requestAnimationFrame(f);else{x.clearRect(0,0,W,H);c.classList.add("hidden");}})(t0);}
+  // ---- occasions (by the Hijri calendar) ----
+  function occasionText(){const n=new Date(),h=HJ.gToH(n.getFullYear(),n.getMonth()+1,n.getDate());
+    if(h.m===9)return "🌙 رمضان كريم، تقبّل الله صيامكم وقيامكم";
+    if(h.m===10&&h.d<=3)return "🎉 عيدكم مبارك، وكل عام وأنتم بخير";
+    if(h.m===12&&h.d===9)return "🤲 يوم عرفة، تقبّل الله منا ومنكم";
+    if(h.m===12&&h.d>=10&&h.d<=13)return "🐑 عيد أضحى مبارك، وكل عام وأنتم بخير";
+    if(h.m===1&&h.d<=3)return `🌙 كل عام وأنتم بخير، عام ${h.y} هـ سعيد`;
+    if(n.getDay()===5)return "🤍 جمعة مباركة";
+    return "";}
+  // ---- birthday / welcome back / milestones / first visit / thanks ----
+  async function pamper(){const today=dayNo(),me=state.mode==="account"?getPerson(state.profile?.person_id):(state.mode==="personal"?getPerson(state.accessPersonId):null);
+    const name=me?firstName(me):"";const occ=occasionText();$("#h2Occasion").textContent=occ;$("#h2Occasion").classList.toggle("hidden",!occ);
+    const banner=(html,cls="")=>{const w=$("#h2Welcome");w.className="h2-welcome "+cls;w.innerHTML=html;w.classList.remove("hidden");};
+    $("#h2Welcome").classList.add("hidden");
+    // birthday (full date needed): Gregorian day or Hijri day
+    if(me?.birth_date){const [y,m,d]=String(me.birth_date).slice(0,10).split("-").map(Number),n=new Date(),hb=HJ.gToH(y,m,d),hn=HJ.gToH(n.getFullYear(),n.getMonth()+1,n.getDate());
+      if((m===n.getMonth()+1&&d===n.getDate())||(hb.m===hn.m&&hb.d===hn.d)){banner(`🎂 <b>كل عام وأنت بخير يا ${esc(name)}!</b> عيد ميلاد سعيد، الله يطول عمرك على طاعته 🎉`,"bday");
+        if(lsGet("shugaa_bday_shown")!==String(today)){lsSet("shugaa_bday_shown",String(today));setTimeout(()=>confetti(3200),600);}}}
+    // welcome back after two weeks or more
+    const last=+(lsGet("shugaa_last_visit")||0),now=Date.now();
+    if(last&&now-last>14*864e5&&$("#h2Welcome").classList.contains("hidden")){const since=buildTreeModel().people.filter(p=>p.created_at&&new Date(p.created_at).getTime()>last).length;
+      banner(`💚 حيّاك الله${name?` يا ${esc(name)}`:""}، اشتقنا لك! ${since?`انضاف <b>${since}</b> فرد جديد للشجرة من آخر زيارة 🌳`:""}`);}
+    if(!last||now-last>3600e3)lsSet("shugaa_last_visit",String(now));
+    // family milestones
+    const count=buildTreeModel().people.length,ms=[250,300,400,500,750,1000,1500,2000].filter(m=>count>=m).pop()||0,seenMs=+(lsGet("shugaa_milestone")||0);
+    if(ms>seenMs){lsSet("shugaa_milestone",String(ms));if(last){if($("#h2Welcome").classList.contains("hidden"))banner(`🎉 <b>وصلنا ${ms} فرد من آل شجاع!</b> شكرًا لكل من ساهم 🤍`,"bday");setTimeout(()=>confetti(),500);}}
+    // first visit on this device
+    if(!lsGet("shugaa_seen")){lsSet("shugaa_seen","1");$("#welcomeTitle").textContent=`حيّاك${name?` يا ${name}`:""} في بيت آل شجاع 🌳`;setTimeout(()=>$("#welcomeModal").classList.remove("hidden"),900);}
+    // thanks to the most active contributors this month
+    try{const {data}=await client.rpc("top_contributors",{p_days:30});const top=(data||[]).filter(x=>x.name&&x.count>=3);
+      $("#h2Thanks").classList.toggle("hidden",!top.length);if(top.length)$("#h2Thanks").innerHTML=`🙏 شكر خاص لـ ${top.map(x=>`<b>${esc(String(x.name).split(/\s+/)[0])}</b>${x.founder?" 👑":""} (${x.count} إضافة)`).join("، ")} على مساهمتهم هذا الشهر 🌟`;}catch(_){}}
+  $$("[data-close-welcome]").forEach(b=>b.onclick=()=>$("#welcomeModal").classList.add("hidden"));
+  $("#welcomeTour").onclick=()=>{$("#welcomeModal").classList.add("hidden");setView("home");setTimeout(()=>startTour("site"),300);};
+  viewHooks.push(n=>{if(n==="home"){(Object.keys(siteSettings).length?Promise.resolve():loadSiteSettings()).then(()=>{applyFounderUI();pamper();}).catch(()=>{});}});
+  const _syncV12d=syncV12; syncV12=function(){_syncV12d();(Object.keys(siteSettings).length?Promise.resolve():loadSiteSettings()).then(applyFounderUI).catch(()=>{});};
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();

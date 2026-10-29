@@ -2139,3 +2139,24 @@ html.fs-2 .shugaa-v7 .view:not(#view-tree),html.fs-2 .shugaa-v7 .modal-card,html
 .verify-card .v-ok{font-size:56px;line-height:1}.verify-card h2{font-family:var(--v7-display);color:var(--v7-ink);margin:6px 0}
 .verify-card .v-name{font-family:var(--v7-display);font-size:26px;color:var(--v7-ink)}
 .verify-card .v-meta{display:grid;gap:4px;background:#FBF8F1;border:1px solid var(--v7-line);border-radius:14px;padding:12px;margin-top:10px;color:#4A5853}
+
+/* =================== V20 — founder & warm touches =================== */
+.founder-line{margin:0 0 10px;color:var(--v7-gold);font-family:var(--v7-display);font-size:16px;line-height:1.7;text-align:center}
+.founder-line:empty{display:none}
+.founder-line.home{margin:22px auto 8px;max-width:640px;opacity:.9}
+.founder-badge{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#F6E7BF,#E9CF8E);color:#5C4315;border:1px solid #D9B66A;border-radius:999px;padding:3px 12px;font-size:13px;font-weight:700;margin:4px 0}
+.founder-badge.hidden{display:none}
+.shugaa-v7 .avatar.founder-frame{box-shadow:0 0 0 3px #D9B66A,0 0 0 6px rgba(217,182,106,.35)!important}
+.founder-row{border-color:#E8D6A4!important;background:#FFFBF0!important}
+.h2-occasion{margin:6px 0 0;display:inline-block;background:rgba(217,182,106,.18);border:1px solid rgba(217,182,106,.45);color:#F6EBCF;border-radius:999px;padding:4px 14px;font-weight:600}
+.h2-occasion.hidden{display:none}
+.h2-welcome{background:linear-gradient(135deg,#EEF6F1,#E2F0E8);border:1px solid #BFD6CC;border-radius:18px;padding:14px 16px;color:#1F3D33;line-height:1.8}
+.h2-welcome.bday{background:linear-gradient(135deg,#FFF6E0,#FBE9C0);border-color:#E8D6A4;color:#5C4315}
+.h2-welcome.hidden{display:none}
+.h2-thanks{margin:0;background:#fff;border:1px dashed #E8D6A4;border-radius:14px;padding:10px 14px;color:#4A5853;line-height:1.8}
+.h2-thanks.hidden{display:none}
+.welcome-card{text-align:center;max-width:440px}
+.welcome-mark{width:84px;height:84px;margin:0 auto 6px;border-radius:22%;background:var(--v7-logo) center/80% no-repeat,radial-gradient(circle at 50% 35%,#175349,#0C3530 70%)}
+.welcome-card h2{font-family:var(--v7-display);font-size:26px;color:var(--v7-ink);margin:4px 0}
+.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:5000}
+.confetti.hidden{display:none}

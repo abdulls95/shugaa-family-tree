@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=19.0.0" />
+  <link rel="stylesheet" href="./styles.css?v=20.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -102,6 +102,7 @@
       </div>
 
       <footer class="gate-footer">
+        <p id="gateFounder" class="founder-line"></p>
         <b>خصوصية العائلة أولًا</b>
         <span>كل رمز مرتبط بصاحبه. لا تشارك رمزك مع أحد، وإذا ضاع تواصل مع الإدارة لإصدار رمز جديد.</span>
       </footer>
@@ -158,6 +159,7 @@
               <h1 id="h2Greeting">أهلاً بك</h1>
               <p id="h2Sub" class="h2-sub">في بيت آل شجاع</p>
               <p id="h2Quote" class="h2-quote"></p>
+              <p id="h2Occasion" class="h2-occasion hidden"></p>
               <div id="h2Lineage" class="h2-lineage" aria-label="سلسلة النسب"></div>
               <div class="h2-search">
                 <input id="h2Search" type="search" autocomplete="off" placeholder="دوّر على أي شخص في العائلة..." aria-label="بحث عن شخص" />
@@ -168,7 +170,9 @@
           <div id="installBanner" class="install-banner hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>خلّ آل شجاع على شاشتك</b><small>ثبّته كتطبيق ويفتح معك بضغطة</small></div><button type="button" class="btn gold" data-install>ثبّت</button><button type="button" class="install-x" id="installBannerX" aria-label="إخفاء">×</button></div>
           <div id="joinBanner" class="install-banner general-only hidden"><img src="./icons/icon-192.png" alt="" width="46" height="46"/><div><b>هل ترغب في حساب شخصي؟</b><small>اختر اسمك من الشجرة، وسيصلك رمزك الخاص من الإدارة.</small></div><button type="button" class="btn gold" data-join>اطلب الآن</button></div>
           <div id="backupBanner" class="backup-banner hidden"><div><b>📦 حان وقت النسخة الاحتياطية</b><small id="backupBannerText"></small></div><button type="button" class="btn primary" data-backup>نزّلها الآن</button><button type="button" class="install-x" id="backupLater" aria-label="ذكّرني لاحقًا" title="ذكّرني بعد 3 أيام">×</button></div>
+          <div id="h2Welcome" class="h2-welcome hidden"></div>
           <section id="h2Stats" class="h2-stats"></section>
+          <p id="h2Thanks" class="h2-thanks hidden"></p>
           <article id="h2Today" class="h2-card h2-today hidden"><header><div><span class="h2-kicker">في مثل هذا اليوم</span><h3 id="h2TodayTitle"></h3></div></header><div id="h2TodayList"></div></article>
           <section class="h2-grid">
             <article class="h2-card h2-news">
@@ -229,6 +233,7 @@
             <div id="latestAdditions" class="latest-list"></div>
           </section>
         </div>
+          <p id="h2Founder" class="founder-line home"></p>
       </section>
 
       <section id="view-tree" class="view awraq-tree-view">
@@ -1336,7 +1341,16 @@
   <div id="verifyModal" class="modal hidden top-modal"><div class="modal-backdrop" data-close-verify></div>
     <article class="modal-card batch-card verify-card"><button class="modal-close" type="button" data-close-verify aria-label="إغلاق">×</button>
       <div id="verifyBody"></div></article></div>
-  <script src="./config.js?v=19.0.0"></script>
-  <script src="./app.js?v=19.0.0"></script>
+
+  <!-- V20 — first visit welcome + celebrations -->
+  <div id="welcomeModal" class="modal hidden top-modal"><div class="modal-backdrop" data-close-welcome></div>
+    <article class="modal-card batch-card welcome-card"><button class="modal-close" type="button" data-close-welcome aria-label="إغلاق">×</button>
+      <div class="welcome-mark"></div><h2 id="welcomeTitle">حيّاك في بيت آل شجاع 🌳</h2>
+      <p id="welcomeText" class="muted">هنا شجرة العائلة كاملة: الأجيال، وصلة القرابة، والأخبار، ووثيقة نسبك. خذ جولة سريعة تعرّفك على كل شي في دقيقة.</p>
+      <div class="inline-add"><button type="button" class="btn gold wide" id="welcomeTour">خذ جولة سريعة</button><button type="button" class="btn light wide" data-close-welcome>لاحقًا</button></div>
+    </article></div>
+  <canvas id="confetti" class="confetti hidden"></canvas>
+  <script src="./config.js?v=20.0.0"></script>
+  <script src="./app.js?v=20.0.0"></script>
 </body>
 </html>
