@@ -2070,3 +2070,5 @@ a.sup-method:hover{border-color:var(--v7-gold)}
 .lib-album-card.new i{font-style:normal;font-size:36px;color:var(--v7-gold)}
 .lib-album-tools{position:absolute;top:8px;left:8px;display:flex;gap:4px}
 .lib-album-tools button{border:0;background:rgba(255,255,255,.92);border-radius:8px;width:30px;height:30px;cursor:pointer}
+
+.snap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.snap-head b{color:var(--v7-ink)}

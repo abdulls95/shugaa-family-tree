@@ -2510,7 +2510,7 @@ window.ShugaaHijri=(()=>{
     svg.innerHTML=`<g class="h2-lines">${lines}</g><g class="h2-dots">${dots}</g>`;
     homeState.maxDepth=maxD;
   }
-  function countUp(el,to){const t0=performance.now(),dur=1100;const tick=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=Math.round(to*e).toLocaleString("ar-SA-u-nu-latn");if(k<1)requestAnimationFrame(tick);};requestAnimationFrame(tick);}
+  function countUp(el,to){const t0=performance.now(),dur=1100;const tick=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=Math.round(to*e).toLocaleString("ar-SA-u-ca-gregory-nu-latn");if(k<1)requestAnimationFrame(tick);};requestAnimationFrame(tick);}
   function homeFacts(){
     const ppl=buildTreeModel().people, counts=new Map();
     ppl.forEach(p=>{const n=nameNorm(firstName(p));if(n)counts.set(n,(counts.get(n)||{n:firstName(p),c:0})),counts.get(n).c++;});
@@ -3017,7 +3017,7 @@ window.ShugaaHijri=(()=>{
     b.innerHTML=`<i></i>${n}<span class="lb-word"> متصل الآن</span>`;b.title=`${n} متصل الآن`;
     if(!$("#liveModal").classList.contains("hidden"))fillLive();
   }
-  const ago=t=>{const m=Math.round((Date.now()-new Date(t))/60000);if(m<1)return "الآن";if(m<60)return `قبل ${m} دقيقة`;const h=Math.round(m/60);if(h<24)return `قبل ${h} ساعة`;const d=Math.round(h/24);return d<30?`قبل ${d} يوم`:new Date(t).toLocaleDateString("ar-SA-u-nu-latn");};
+  const ago=t=>{const m=Math.round((Date.now()-new Date(t))/60000);if(m<1)return "الآن";if(m<60)return `قبل ${m} دقيقة`;const h=Math.round(m/60);if(h<24)return `قبل ${h} ساعة`;const d=Math.round(h/24);return d<30?`قبل ${d} يوم`:new Date(t).toLocaleDateString("ar-SA-u-ca-gregory-nu-latn");};
   async function fillLive(){
     const rows=liveRows(), acc=rows.filter(r=>r.kind==="account"), guests=rows.filter(r=>r.kind==="guest").length;
     const uniq=new Map(); acc.forEach(r=>{const k=r.user_id||r.name;if(!uniq.has(k))uniq.set(k,{...r,devices:1});else uniq.get(k).devices++;});
@@ -3087,7 +3087,7 @@ window.ShugaaHijri=(()=>{
   function openEventEditor(id){const e=state.events.find(x=>x.id===id);if(!e)return;evEditing=e;
     $("#evType").value=e.event_type;$("#evDate").value=e.event_date||"";$("#evYear").value=e.event_year||"";$("#evTitle").value=e.title||"";$("#evDesc").value=e.description||"";$("#evPulse").value="keep";
     const until=e.show_until?new Date(e.show_until):null;
-    $("#evPulseNow").textContent=!until?"الحالي: تلقائي (أسبوعان من الإضافة للأخبار السعيدة)":until.getFullYear()>2900?"الحالي: مثبّت دائمًا":until<new Date()?"الحالي: في الأرشيف فقط":`الحالي: يظهر حتى ${until.toLocaleDateString("ar-SA-u-nu-latn")}`;
+    $("#evPulseNow").textContent=!until?"الحالي: تلقائي (أسبوعان من الإضافة للأخبار السعيدة)":until.getFullYear()>2900?"الحالي: مثبّت دائمًا":until<new Date()?"الحالي: في الأرشيف فقط":`الحالي: يظهر حتى ${until.toLocaleDateString("ar-SA-u-ca-gregory-nu-latn")}`;
     $("#evMsg").textContent="";$("#evEditModal").classList.remove("hidden");}
   $$("[data-close-ev]").forEach(b=>b.onclick=()=>$("#evEditModal").classList.add("hidden"));
   $("#evSave").onclick=async()=>{const e=evEditing;if(!e)return;const msg=$("#evMsg"),pulse=$("#evPulse").value,d=$("#evDate").value||null;
@@ -3284,12 +3284,12 @@ window.ShugaaHijri=(()=>{
       await client.from("admin_meta").upsert({key:"last_backup",value:{at:now.toISOString(),counts},updated_at:now.toISOString()});
       lastBackup={at:now.toISOString(),counts};syncBackupUI();toast("تم حفظ النسخة الاحتياطية ✅",4000);}
     catch(e){toast("تعذّر إنشاء النسخة: "+e.message,6000);}}
-  let lastBackup=null; const BACKUP_EVERY_DAYS=14;
+  let lastBackup=null; const BACKUP_EVERY_DAYS=30; // the server keeps weekly copies; this reminder is for a copy on your own device
   async function loadBackupMeta(){if(!(state.mode==="account"&&state.role==="admin"))return;
     const {data}=await client.from("admin_meta").select("value").eq("key","last_backup").maybeSingle();lastBackup=data?.value||null;syncBackupUI();}
   function syncBackupUI(){const admin=state.mode==="account"&&state.role==="admin";
     const days=lastBackup?.at?Math.floor((Date.now()-new Date(lastBackup.at))/864e5):null;
-    $("#backupLast")&&($("#backupLast").textContent=lastBackup?.at?`آخر نسخة: ${new Date(lastBackup.at).toLocaleDateString("ar-SA-u-nu-latn")} (${days===0?"اليوم":`قبل ${days} يوم`})`:"لم تُنزّل أي نسخة بعد");
+    $("#backupLast")&&($("#backupLast").textContent=lastBackup?.at?`آخر نسخة: ${new Date(lastBackup.at).toLocaleDateString("ar-SA-u-ca-gregory-nu-latn")} (${days===0?"اليوم":`قبل ${days} يوم`})`:"لم تُنزّل أي نسخة بعد");
     let snooze=0;try{snooze=+(localStorage.getItem("shugaa_backup_snooze")||0);}catch(_){}
     const due=admin&&(days===null||days>=BACKUP_EVERY_DAYS)&&Date.now()>snooze;
     $("#backupBanner")?.classList.toggle("hidden",!due);
@@ -3395,6 +3395,21 @@ window.ShugaaHijri=(()=>{
   // leaving the albums tab closes the open album
   $$("#libraryFilters .filter-chip").forEach(b=>b.addEventListener("click",()=>{libAlbumFilter=null;}));
   viewHooks.push(n=>{if(n==="library"&&state.mode==="account"&&!albumsLoaded)loadAlbums();if(n==="admin"&&libStaff()&&!albumsLoaded)loadAlbums();});
+
+  // =================== V17.4 — weekly server snapshots ===================
+  async function renderSnapshots(){const box=$("#snapList");if(!box||state.role!=="admin")return;
+    const {data,error}=await client.from("backup_snapshots").select("id,created_at,kind,counts").order("created_at",{ascending:false});
+    if(error){box.innerHTML=`<p class="muted">${esc(error.message)}</p>`;return;}
+    box.innerHTML=(data||[]).map(s=>{const d=new Date(s.created_at),H=window.ShugaaHijri,hj=H.gToH(d.getFullYear(),d.getMonth()+1,d.getDate());
+      return `<div class="join-item"><div><b>${d.toLocaleDateString("ar-SA-u-ca-gregory-nu-latn",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</b>
+        <small>${esc(H.fmtHDate(hj))} • ${s.kind==="manual"?"يدوية":"تلقائية"}</small><small>✅ ${s.counts?.people??0} فرد، ${s.counts?.parent_child_relations??0} علاقة، ${s.counts?.marriages??0} زواج، ${s.counts?.library_items??0} عنصر مكتبة</small></div>
+        <div class="join-actions"><button type="button" class="btn light" data-snap="${s.id}">تنزيل</button></div></div>`;}).join("")||"<p class='muted'>لا توجد نسخ بعد.</p>";
+    box.querySelectorAll("[data-snap]").forEach(b=>b.onclick=async()=>{b.disabled=true;const {data:row,error}=await client.from("backup_snapshots").select("created_at,data").eq("id",b.dataset.snap).single();b.disabled=false;
+      if(error||!row)return toast(error?.message||"تعذّر تحميل النسخة",4000);const stamp=String(row.created_at).slice(0,10);
+      await deliverFile(new Blob([JSON.stringify(row.data)],{type:"application/json"}),`نسخة-سيرفر-آل-شجاع-${stamp}.json`,"نسخة احتياطية — شجرة آل شجاع");});}
+  $("#snapNowBtn")?.addEventListener("click",async e=>{e.target.disabled=true;const {error}=await client.rpc("make_backup_snapshot",{p_kind:"manual"});e.target.disabled=false;
+    if(error)return toast("تعذّرت النسخة: "+error.message,5000);toast("تم حفظ نسخة على السيرفر ✅");renderSnapshots();});
+  document.querySelector('.admin-tab[data-admin-panel="backup"]')?.addEventListener("click",()=>setTimeout(renderSnapshots,0));
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();

@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=17.3.0" />
+  <link rel="stylesheet" href="./styles.css?v=17.4.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -535,7 +535,10 @@
           </form>
           <div class="panel stack"><h3>طرق الدعم الحالية</h3><p class="muted">تظهر للجميع في «ادعم الموقع» بالترتيب. أوقف أي طريقة مؤقتًا بدل حذفها.</p><div id="supList" class="join-list"></div></div>
         </div></div>
-        <div id="admin-backup" class="admin-panel admin-only hidden"><div class="panel stack"><div class="backup-box"><b>📦 النسخة الاحتياطية الكاملة</b><small id="backupLast">—</small><p class="micro-copy">ملف واحد فيه كل بيانات الموقع (الأشخاص، العلاقات، الزواجات، الأخبار، بيانات المحتوى والألبومات...). احفظه في «الملفات» أو iCloud أو أرسله لنفسك.</p><button type="button" class="btn primary wide" data-backup>تنزيل نسخة احتياطية الآن</button></div><button type="button" class="btn gold wide" id="backupExcelBtn">تنزيل ملف Excel (للقراءة)</button></div></div>
+        <div id="admin-backup" class="admin-panel admin-only hidden"><div class="panel stack"><div class="backup-box"><b>📦 النسخة الاحتياطية الكاملة</b><small id="backupLast">—</small><p class="micro-copy">ملف واحد فيه كل بيانات الموقع (الأشخاص، العلاقات، الزواجات، الأخبار، بيانات المحتوى والألبومات...). احفظه في «الملفات» أو iCloud أو أرسله لنفسك.</p><button type="button" class="btn primary wide" data-backup>تنزيل نسخة احتياطية الآن</button></div><button type="button" class="btn gold wide" id="backupExcelBtn">تنزيل ملف Excel (للقراءة)</button></div>
+          <div class="panel stack"><div class="snap-head"><b>🗄 النسخ التلقائية على السيرفر</b><button type="button" class="btn light" id="snapNowBtn">خذ نسخة الآن</button></div>
+            <p class="micro-copy">تُحفظ نسخة تلقائيًا كل يوم جمعة الساعة 3 فجرًا (بتوقيت السعودية)، ويُحتفظ بآخر 8 نسخ.</p>
+            <div id="snapList" class="join-list"></div></div></div>
         <div id="admin-health" class="admin-panel staff-only hidden">
           <div class="panel stack">
             <h3>🩺 مراجعة دقة البيانات</h3>
@@ -1235,7 +1238,7 @@
       <div class="batch-footer"><button type="button" id="lbkApply" class="btn primary wide">تطبيق على المحدد</button><p id="lbkMsg" class="form-msg"></p></div>
     </article></div>
   <div id="libSelectBar" class="lib-select-bar hidden"><b id="lsCount">0</b><button type="button" data-bulk="person">👤 ربط بشخص</button><button type="button" data-bulk="album">📁 نقل إلى ألبوم</button><button type="button" data-bulk="access">🔒 من يراه</button><button type="button" data-bulk="delete" class="danger">🗑 حذف</button><button type="button" data-bulk="cancel">إلغاء</button></div>
-  <script src="./config.js?v=17.3.0"></script>
-  <script src="./app.js?v=17.3.0"></script>
+  <script src="./config.js?v=17.4.0"></script>
+  <script src="./app.js?v=17.4.0"></script>
 </body>
 </html>
