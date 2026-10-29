@@ -2076,3 +2076,33 @@ a.sup-method:hover{border-color:var(--v7-gold)}
 /* V17.5 — larger text for elders (tree canvas keeps its own zoom) */
 html.fs-1 .shugaa-v7 .view:not(#view-tree),html.fs-1 .shugaa-v7 .modal-card,html.fs-1 .shugaa-v7 #view-tree .page-head{zoom:1.14}
 html.fs-2 .shugaa-v7 .view:not(#view-tree),html.fs-2 .shugaa-v7 .modal-card,html.fs-2 .shugaa-v7 #view-tree .page-head{zoom:1.28}
+
+/* =================== V18 =================== */
+.top-modal{z-index:4000!important}
+.gate-quote{margin:10px 0 0;color:#E9CF8E;font-family:var(--v7-display);font-size:19px;line-height:1.7;opacity:.95}
+.gate-stats{display:flex;justify-content:center;gap:10px;margin:14px auto 4px;flex-wrap:wrap;max-width:520px}
+.gate-stats.hidden{display:none}
+.gate-stats div{flex:1;min-width:110px;display:grid;text-align:center;background:rgba(255,255,255,.07);border:1px solid rgba(217,182,106,.3);border-radius:16px;padding:10px 8px;color:#F6EBCF}
+.gate-stats b{font-family:var(--v7-display);font-size:30px;line-height:1.1;color:#E9CF8E}.gate-stats span{font-size:13px;opacity:.85}
+.gate-remember{justify-content:flex-start;font-size:14px}
+.gate-links{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:6px}
+.gate-link{border:0;background:transparent;color:var(--v7-gold);font-family:inherit;font-weight:700;cursor:pointer;padding:6px 0;text-decoration:underline dotted}
+.nocode-steps{display:grid;gap:10px;margin:8px 0 14px;text-align:right}
+.nocode-steps div{border:1px solid var(--v7-line);border-radius:14px;padding:12px;background:#FBF8F1}.nocode-steps p{margin:4px 0 0;color:#4A5853}
+#noCodeWa.hidden{display:none}
+.age-card{max-width:520px}
+.age-tabs,.age-cal{display:flex;gap:6px;background:#fff;border:1px solid var(--v7-line);border-radius:12px;padding:4px;margin:6px 0 12px}
+.age-tabs button,.age-cal button{flex:1;border:0;background:transparent;border-radius:9px;padding:8px;font-family:inherit;font-weight:700;color:var(--v7-muted);cursor:pointer}
+.age-tabs button.on,.age-cal button.on{background:var(--v7-ink);color:#F6EBCF}
+.age-date{display:grid;grid-template-columns:1fr 1.6fr 1.2fr;gap:8px;margin-bottom:10px}
+.age-out{display:grid;gap:10px;margin-top:12px}
+.age-big{background:linear-gradient(135deg,#0C3530,#175349);color:#F6EBCF;border-radius:16px;padding:14px;text-align:center;display:grid;gap:4px}
+.age-big.h{background:linear-gradient(135deg,#7A5C1F,#B08A3E)}
+.age-big small{opacity:.85}.age-big b{font-family:var(--v7-display);font-size:24px;line-height:1.4}
+.age-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.age-grid div{border:1px solid var(--v7-line);border-radius:14px;padding:10px;background:#fff;display:grid;gap:2px;text-align:center}
+.age-grid small{color:var(--v7-muted)}.age-grid b{color:var(--v7-ink)}.age-grid span{color:#4A5853;font-size:13px}
+.qr-card{text-align:center;max-width:420px}
+.qr-box{display:grid;place-items:center;padding:14px;background:#fff;border:1px solid var(--v7-line);border-radius:16px;margin:10px auto;width:max-content;max-width:100%}
+.qr-box img,.qr-box canvas{max-width:100%;height:auto}
+.inline-add{display:flex;gap:8px}.inline-add input{flex:1}

@@ -190,8 +190,9 @@ window.ShugaaHijri=(()=>{
       res=await fetch(`${cfg.supabaseUrl}/functions/v1/code-login`,{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.supabasePublishableKey},body:JSON.stringify({code})});
       out=await res.json().catch(()=>({}));
     }catch(e){ msg.textContent="تعذر الاتصال. تأكد من الإنترنت وحاول مرة ثانية."; return; }
-    if(out.mode==="general") return enterCodeMode(code,"general",out.tree);
-    if(!res.ok || !out.token_hash){ msg.textContent=CODE_LOGIN_ERRORS[out.error]||"تعذر الدخول. حاول مرة ثانية."; return; }
+    if(out.mode==="general"){rememberDevice(code,"general");return enterCodeMode(code,"general",out.tree);}
+    if(!res.ok || !out.token_hash){ msg.textContent=CODE_LOGIN_ERRORS[out.error]||"تعذر الدخول. حاول مرة ثانية."; forgetIfRemembered(code); return; }
+    rememberDevice(code,"personal");
     const {data,error}=await client.auth.verifyOtp({token_hash:out.token_hash,type:"email"});
     if(error||!data?.session){ msg.textContent="تعذر فتح الجلسة: "+(error?.message||""); return; }
     msg.textContent="";
@@ -372,7 +373,7 @@ window.ShugaaHijri=(()=>{
   function closePerson(){ $("#personModal").classList.add("hidden"); }
 
   function fillPersonSelects(){
-    const selectors=["#lePerson","#lbkPerson","#joinPerson","#smartContribPerson","#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
+    const selectors=["#agePerson","#lePerson","#lbkPerson","#joinPerson","#smartContribPerson","#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
     selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if((sel==="#pFather"||sel==="#bulkFather")&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
   }
 
@@ -1896,6 +1897,7 @@ window.ShugaaHijri=(()=>{
   $("#forgotBtn").onclick=async()=>{const email=$("#email").value.trim();if(!email)return $("#authMsg").textContent="اكتب بريدك أولًا.";const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});$("#authMsg").textContent=error?error.message:"تم إرسال رابط الاستعادة إذا كان البريد مسجلًا.";};
 
   async function exitApp(){
+    try{localStorage.removeItem("shugaa_remember_code");localStorage.removeItem("shugaa_temp_session");}catch(_){}  // leaving = forget this device
     if(state.mode==="account"&&state.session)await client.auth.signOut();
     if(state.cy)state.cy.destroy();state.session=null;state.profile=null;state.people=[];showGate();
   }
@@ -2538,6 +2540,8 @@ window.ShugaaHijri=(()=>{
     if(f.byKids&&f.byKids.c>1)items.push(`أكبر أسرة مسجلة: <button class="h2-person" data-pid="${f.byKids.p.id}">${esc(f.byKids.p.full_name_ar)}</button> وعنده ${f.byKids.c} من الأبناء والبنات.`);
     if(f.root)items.push(`أقدم جد مسجل في الشجرة: <button class="h2-person" data-pid="${f.root.id}">${esc(f.root.full_name_ar)}</button>، ومنه تفرعت ${homeState.maxDepth+1||"عدة"} أجيال.`);
     if(f.newest)items.push(`آخر من انضاف للشجرة: <button class="h2-person" data-pid="${f.newest.id}">${esc(f.newest.full_name_ar)}</button>.`);
+    try{items.push(...moreFacts(me));}catch(e){console.warn(e);}
+    (customFacts||[]).filter(x=>x.active).forEach(x=>items.push(`📌 ${esc(x.text)}`));
     return items;
   }
   function renderKnow(){const items=knowItems(); const box=$("#h2Know"); if(!items.length){box.innerHTML="<p class='muted'>أضف أفراد للشجرة وتطلع لك الاكتشافات هنا.</p>";return;}
@@ -3402,6 +3406,152 @@ window.ShugaaHijri=(()=>{
         await client.storage.from("family-library").remove([it.file_path]);libUrlCache.delete(it.file_path);it.file_path=path;saved+=blob.size-up.size;changed++;}catch(err){console.warn(err);}}
     e.target.disabled=false;$("#compressMsg").textContent=`✅ انتهى: ضُغطت ${changed} صورة، ووُفّر ${(saved/1048576).toFixed(1)} ميجا.`;await afterLibChange();});
 
+  // =================== V18 — login page, age calculator, QR, did-you-know ===================
+  ADMIN_GROUPS.site.push("gateset"); ADMIN_GROUPS.content.push("facts");
+  const lsGet=k=>{try{return localStorage.getItem(k);}catch(_){return null;}}, lsSet=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch(_){}};
+  // remember this device (family code) / keep or end the session (personal code)
+  function rememberDevice(code,kind){const keep=$("#rememberCode")?.checked!==false;
+    if(kind==="general"){lsSet("shugaa_remember_code",keep?code:null);}
+    else{lsSet("shugaa_remember_code",null);lsSet("shugaa_temp_session",keep?null:"1");try{sessionStorage.setItem("shugaa_session_alive","1");}catch(_){}}}
+  function forgetIfRemembered(code){if(lsGet("shugaa_remember_code")===code)lsSet("shugaa_remember_code",null);}
+  // site settings (public)
+  let siteSettings={};
+  async function loadSiteSettings(){const {data}=await client.from("site_settings").select("key,value");siteSettings={};(data||[]).forEach(r=>siteSettings[r.key]=r.value);return siteSettings;}
+  async function saveSetting(key,value){const {error}=await client.from("site_settings").upsert({key,value,updated_at:new Date().toISOString()});if(error)throw error;siteSettings[key]=value;}
+  const dayNo=()=>Math.floor((Date.now()-new Date().getTimezoneOffset()*6e4)/864e5);
+  async function renderGateExtras(){try{await loadSiteSettings();}catch(_){}
+    const qs=(Array.isArray(siteSettings.quotes)?siteSettings.quotes:[]).filter(Boolean);$("#gateQuote").textContent=qs.length?`«${qs[dayNo()%qs.length]}»`:"";
+    const st=$("#gateStats");if(siteSettings.show_public_stats===false){st.classList.add("hidden");}
+    else{const {data}=await client.rpc("public_family_stats");if(data?.members){st.innerHTML=`<div><b>${data.members}</b><span>فردًا من آل شجاع</span></div><div><b>${data.generations}</b><span>أجيال</span></div><div><b>${data.marriages}</b><span>زواجًا</span></div>`;st.classList.remove("hidden");}}
+    const wa=String(siteSettings.contact_whatsapp||"").trim();$("#noCodeWa").classList.toggle("hidden",!wa);
+    if(wa)$("#noCodeWa").href=wa+(wa.includes("?")?"&":"?")+"text="+encodeURIComponent("السلام عليكم، أبغى رمز دخول لموقع شجرة آل شجاع.\nاسمي الكامل: ");}
+  const _showGate=showGate; showGate=function(...a){const r=_showGate(...a);renderGateExtras();return r;};
+  $("#noCodeBtn").onclick=()=>$("#noCodeModal").classList.remove("hidden");
+  $$("[data-close-nocode]").forEach(b=>b.onclick=()=>$("#noCodeModal").classList.add("hidden"));
+
+  // ---- QR login links ----
+  function loadQrLib(){return window.QRCode?Promise.resolve():new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";sc.onload=res;sc.onerror=()=>rej(new Error("qr"));document.head.appendChild(sc);});}
+  const codeLink=code=>location.origin+location.pathname.replace(/index\.html$/,"")+"?code="+encodeURIComponent(code);
+  async function showQR(code,name){const link=codeLink(code),first=String(name||"").trim().split(/\s+/)[0]||"",box=$("#qrBox");
+    $("#qrFor").textContent=name?`لـ ${name}`:"";box.innerHTML="";$("#qrModal").classList.remove("hidden");
+    try{await loadQrLib();new QRCode(box,{text:link,width:240,height:240,colorDark:"#0C3530",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});}
+    catch(_){box.innerHTML="<p class='muted'>تعذّر تحميل مولّد QR، تحقق من الإنترنت.</p>";}
+    $("#qrWa").href="https://wa.me/?text="+encodeURIComponent(`السلام عليكم${first?" "+first:""} 🌳\nهذا رابط دخولك الخاص لموقع شجرة آل شجاع، اضغطه وتدخل مباشرة:\n${link}\n\nالرابط خاص فيك، لا تشاركه مع أحد.`);
+    $("#qrCopy").onclick=async()=>{try{await navigator.clipboard.writeText(link);toast("تم نسخ الرابط ✅");}catch(_){toast(link,8000);}};
+    $("#qrShare").onclick=async()=>{const cv=box.querySelector("canvas");if(!cv)return;const pad=40,c=document.createElement("canvas");c.width=cv.width+pad*2;c.height=cv.height+pad*2+50;
+      const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(cv,pad,pad);x.fillStyle="#0C3530";x.textAlign="center";x.direction="rtl";
+      x.font='700 22px "IBM Plex Sans Arabic", sans-serif';x.fillText(`شجرة آل شجاع${first?" — "+first:""}`,c.width/2,c.height-28);
+      await deliverFile(await new Promise(r=>c.toBlob(r,"image/png")),`دخول-${first||"العائلة"}.png`,"رمز دخول شجرة آل شجاع");};}
+  $$("[data-close-qr]").forEach(b=>b.onclick=()=>$("#qrModal").classList.add("hidden"));
+  const qrBtn=(code,name)=>{const b=document.createElement("button");b.type="button";b.className="btn light";b.textContent="📷 QR";b.onclick=()=>showQR(code,name);return b;};
+  const _sgac=showGeneratedAccessCode; showGeneratedAccessCode=function(code,title,personName){const r=_sgac(code,title,personName);
+    const box=$("#newCodeResult");(box.querySelector(".code-share-actions")||box).appendChild(qrBtn(code,personName));return r;};
+  const _spc=showProfileCode; showProfileCode=function(code,p,title){const r=_spc(code,p,title);
+    const box=$("#profileAccessCode");(box.querySelector(".code-share-actions")||box).appendChild(qrBtn(code,p?.full_name_ar));return r;};
+
+  // ---- age calculator & date converter ----
+  const GM=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  const HJ=window.ShugaaHijri; let ageCal="g", convCal="g";
+  function fillDM(dSel,mSel,cal){const d=dSel.value,m=mSel.value;dSel.innerHTML=Array.from({length:cal==="h"?30:31},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join("");
+    mSel.innerHTML=(cal==="h"?HJ.MONTHS:GM).map((n,i)=>`<option value="${i+1}">${i+1} — ${n}</option>`).join("");if(d)dSel.value=Math.min(+d,cal==="h"?30:31);if(m)mSel.value=m;}
+  const validG=(y,m,d)=>{const t=new Date(Date.UTC(y,m-1,d));return t.getUTCFullYear()===y&&t.getUTCMonth()===m-1&&t.getUTCDate()===d;};
+  const todayG=()=>{const n=new Date();return {y:n.getFullYear(),m:n.getMonth()+1,d:n.getDate()};};
+  const utc=g=>Date.UTC(g.y,g.m-1,g.d);
+  const fmtNum=n=>Number(n).toLocaleString("en-US");
+  function ymd(a,b,monthLen){let y=b.y-a.y,m=b.m-a.m,d=b.d-a.d;if(d<0){m--;d+=monthLen(b);}if(m<0){y--;m+=12;}return {y,m,d};}
+  const gMonthLen=b=>new Date(Date.UTC(b.y,b.m-1,0)).getUTCDate();
+  const plural=(n,one,two,few,many)=>n===1?one:n===2?two:n>=3&&n<=10?`${n} ${few}`:`${n} ${many}`;
+  const yrs=n=>n===0?"":plural(n,"سنة","سنتان","سنوات","سنة"), mos=n=>n===0?"":plural(n,"شهر","شهران","أشهر","شهرًا"), dys=n=>n===0?"":plural(n,"يوم","يومان","أيام","يومًا");
+  const joinAge=o=>[yrs(o.y),mos(o.m),dys(o.d)].filter(Boolean).join("، ")||"أقل من يوم";
+  function readDate(prefix,cal){const y=+$(`#${prefix}Y`).value,m=+$(`#${prefix}M`).value,d=+$(`#${prefix}D`).value;if(!y||y<1)return null;
+    if(cal==="h"){if(y<1200||y>1600)return {err:"اكتب السنة الهجرية (مثال: 1415)."};const g=HJ.hToG(y,m,d);return {g,h:{y,m,d}};}
+    if(y<1800||y>2200)return {err:"اكتب السنة الميلادية (مثال: 1995)."};if(!validG(y,m,d))return {err:"هذا التاريخ غير موجود، تأكد من اليوم والشهر."};return {g:{y,m,d},h:HJ.gToH(y,m,d)};}
+  function nextHijriBirthday(hb){const t=todayG();for(let k=0;k<=390;k++){const dt=new Date(Date.UTC(t.y,t.m-1,t.d+k));const h=HJ.gToH(dt.getUTCFullYear(),dt.getUTCMonth()+1,dt.getUTCDate());
+      if(h.m===hb.m&&(h.d===hb.d||(hb.d===30&&h.d===29&&HJ.gToH(dt.getUTCFullYear(),dt.getUTCMonth()+1,dt.getUTCDate()+1).m!==h.m)))return k;}return null;}
+  function calcAge(approxNote){const r=readDate("age",ageCal),out=$("#ageOut");if(!r)return out.innerHTML="<p class='muted'>اكتب تاريخ الميلاد.</p>";if(r.err)return out.innerHTML=`<p class="form-msg">${r.err}</p>`;
+    const t=todayG();if(utc(r.g)>utc(t))return out.innerHTML="<p class='form-msg'>التاريخ في المستقبل.</p>";
+    const ga=ymd(r.g,t,gMonthLen),th=HJ.gToH(t.y,t.m,t.d),ha=ymd(r.h,th,()=>30),days=Math.floor((utc(t)-utc(r.g))/864e5);
+    const wd=new Date(utc(r.g)).toLocaleDateString("ar",{weekday:"long",timeZone:"UTC"});
+    let nb={y:t.y,m:r.g.m,d:r.g.d};if(!validG(nb.y,nb.m,nb.d))nb={y:t.y,m:3,d:1};if(utc(nb)<utc(t)){nb={y:t.y+1,m:r.g.m,d:r.g.d};if(!validG(nb.y,nb.m,nb.d))nb={y:t.y+1,m:3,d:1};}
+    const toG=Math.round((utc(nb)-utc(t))/864e5),toH=nextHijriBirthday(r.h);
+    const when=n=>n===0?"اليوم 🎉 كل عام وأنت بخير":`بعد ${dys(n)}`;
+    out.innerHTML=`${approxNote?`<p class="access-help">${approxNote}</p>`:""}
+      <div class="age-big"><small>العمر بالميلادي</small><b>${joinAge(ga)}</b></div>
+      <div class="age-big h"><small>العمر بالهجري</small><b>${joinAge(ha)}</b></div>
+      <div class="age-grid"><div><small>يوم الميلاد</small><b>${wd}</b><span>${r.g.d} ${GM[r.g.m-1]} ${r.g.y} م<br>${HJ.fmtHDate(r.h)}</span></div>
+        <div><small>عشت حتى اليوم</small><b>${fmtNum(days)} يوم</b><span>≈ ${fmtNum(days*24)} ساعة</span></div>
+        <div><small>عيد الميلاد الميلادي</small><b>${when(toG)}</b></div>
+        <div><small>عيد الميلاد الهجري</small><b>${toH==null?"—":when(toH)}</b></div></div>`;}
+  function convert(){const r=readDate("conv",convCal),out=$("#convOut");if(!r)return out.innerHTML="<p class='muted'>اكتب التاريخ.</p>";if(r.err)return out.innerHTML=`<p class="form-msg">${r.err}</p>`;
+    const wd=new Date(utc(r.g)).toLocaleDateString("ar",{weekday:"long",timeZone:"UTC"});
+    out.innerHTML=`<div class="age-big"><small>${convCal==="g"?"بالهجري":"بالميلادي"}</small><b>${convCal==="g"?HJ.fmtHDate(r.h):`${r.g.d} ${GM[r.g.m-1]} ${r.g.y} م`}</b></div><p class="muted" style="text-align:center">يوافق يوم ${wd}</p>`;}
+  function setCal(which,cal){if(which==="age"){ageCal=cal;$$("[data-cal]").forEach(b=>b.classList.toggle("on",b.dataset.cal===cal));fillDM($("#ageD"),$("#ageM"),cal);$("#ageY").placeholder=cal==="h"?"مثال: 1415":"مثال: 1995";}
+    else{convCal=cal;$$("[data-ccal]").forEach(b=>b.classList.toggle("on",b.dataset.ccal===cal));fillDM($("#convD"),$("#convM"),cal);$("#convY").placeholder=cal==="h"?"مثال: 1447":"مثال: 2026";}}
+  $$("[data-cal]").forEach(b=>b.onclick=()=>setCal("age",b.dataset.cal));$$("[data-ccal]").forEach(b=>b.onclick=()=>setCal("conv",b.dataset.ccal));
+  $$("[data-agetab]").forEach(b=>b.onclick=()=>{$$("[data-agetab]").forEach(x=>x.classList.toggle("on",x===b));$$("[data-agepane]").forEach(p=>p.classList.toggle("hidden",p.dataset.agepane!==b.dataset.agetab));});
+  $("#ageCalc").onclick=()=>calcAge();$("#convGo").onclick=convert;
+  $("#agePerson").addEventListener("change",()=>{const p=getPerson($("#agePerson").value);if(!p)return;
+    if(p.birth_date){setCal("age","g");const [y,m,d]=String(p.birth_date).slice(0,10).split("-").map(Number);$("#ageY").value=y;$("#ageM").value=m;$("#ageD").value=d;calcAge();}
+    else if(p.birth_year_hijri){setCal("age","h");$("#ageY").value=p.birth_year_hijri;$("#ageM").value=1;$("#ageD").value=1;calcAge("مسجل له سنة الميلاد فقط، فالعمر تقريبي (± سنة).");}
+    else if(p.birth_year){setCal("age","g");$("#ageY").value=p.birth_year;$("#ageM").value=1;$("#ageD").value=1;calcAge("مسجل له سنة الميلاد فقط، فالعمر تقريبي (± سنة).");}
+    else $("#ageOut").innerHTML="<p class='muted'>لا يوجد تاريخ ميلاد مسجل لهذا الشخص.</p>";});
+  function openAge(){$("#moreSheet")?.classList.add("hidden");$("#agePersonWrap").classList.toggle("hidden",!(state.people.length&&state.mode));
+    if(!$("#ageD").options.length){setCal("age","g");setCal("conv","g");const t=todayG();$("#convD").value=t.d;$("#convM").value=t.m;$("#convY").value=t.y;}
+    $("#ageOut").innerHTML="";$("#ageModal").classList.remove("hidden");}
+  $$("[data-agecalc]").forEach(b=>b.addEventListener("click",openAge));
+  $$("[data-close-age]").forEach(b=>b.onclick=()=>$("#ageModal").classList.add("hidden"));
+
+  // ---- did you know: automatic facts from the tree ----
+  let customFacts=[];
+  async function loadCustomFacts(){const {data}=await client.from("family_facts").select("*").order("created_at",{ascending:false});customFacts=data||[];}
+  function moreFacts(me){const out=[],clan=buildTreeModel().people;if(clan.length<3)return out;
+    const P=p=>`<button class="h2-person" data-pid="${p.id}">${esc(p.full_name_ar)}</button>`,kidsOf=id=>familyOf(id).children;
+    let gp=null;clan.forEach(p=>{const g=kidsOf(p.id).reduce((s,c)=>s+kidsOf(c.id).length,0);if(!gp||g>gp.g)gp={p,g};});
+    if(gp&&gp.g>1)out.push(`أكثر جد عنده أحفاد: ${P(gp.p)} — ${gp.g} من الأحفاد.`);
+    const topName=g=>{const m=new Map();clan.filter(p=>p.gender===g).forEach(p=>{const n=firstName(p);if(n)m.set(n,(m.get(n)||0)+1);});return [...m.entries()].sort((a,b)=>b[1]-a[1])[0];};
+    const tm=topName("male"),tf=topName("female");
+    if(tm&&tm[1]>1)out.push(`أكثر اسم للأولاد في العائلة: <b>${esc(tm[0])}</b> — ${tm[1]} مرات.`);
+    if(tf&&tf[1]>1)out.push(`أكثر اسم للبنات في العائلة: <b>${esc(tf[0])}</b> — ${tf[1]} مرات.`);
+    let deep=null;clan.forEach(p=>{const d=ancestorsFrom(p.id).length;if(!deep||d>deep.d)deep={p,d};});
+    if(deep&&deep.d>2)out.push(`أطول سلسلة نسب في الشجرة: <b>${deep.d}</b> أجيال متصلة، تنتهي عند ${P(deep.p)}.`);
+    const fathers=clan.filter(p=>p.gender==="male"&&kidsOf(p.id).length);
+    if(fathers.length>2)out.push(`متوسط عدد الأبناء والبنات لكل أب في العائلة: <b>${(fathers.reduce((s,p)=>s+kidsOf(p.id).length,0)/fathers.length).toFixed(1)}</b>.`);
+    const desc=(id,g=0)=>g>40?0:kidsOf(id).reduce((s,c)=>s+1+desc(c.id,g+1),0);
+    const root=clan.filter(p=>ancestorsFrom(p.id).length===1).sort((a,b)=>desc(b.id)-desc(a.id))[0];
+    if(root){const br=kidsOf(root.id).map(c=>({c,n:1+desc(c.id)})).sort((a,b)=>b.n-a.n)[0];if(br&&br.n>2)out.push(`أكبر فرع في العائلة: فرع ${P(br.c)} ويضم <b>${br.n}</b> فردًا.`);}
+    const nc=new Map();clan.forEach(p=>{const n=firstName(p);if(n)nc.set(n,(nc.get(n)||0)+1);});const rare=[...nc.values()].filter(c=>c===1).length;
+    if(rare>2)out.push(`في العائلة <b>${rare}</b> اسمًا لم يتكرر إلا مرة واحدة فقط.`);
+    const fem=clan.filter(p=>p.gender==="female").length;out.push(`عدد أبناء آل شجاع المسجلين: <b>${clan.length-fem}</b>، وعدد البنات: <b>${fem}</b>.`);
+    const withY=clan.map(p=>({p,y:birthYearG(p)})).filter(x=>x.y);
+    if(withY.length){const young=[...withY].sort((a,b)=>b.y-a.y)[0];out.push(`أصغر فرد مسجل له تاريخ ميلاد: ${P(young.p)} — مواليد ${young.y} م.`);
+      const old=withY.filter(x=>x.p.is_living!==false).sort((a,b)=>a.y-b.y)[0];if(old&&old.p.id!==young.p.id)out.push(`أكبر الأحياء سنًّا حسب المسجل: ${P(old.p)} — مواليد ${old.y} م.`);
+      const Y=new Date().getFullYear(),d0=Math.floor(Y/10)*10,cur=withY.filter(x=>x.y>=d0).length,prev=withY.filter(x=>x.y>=d0-10&&x.y<d0).length;
+      if(cur+prev>1)out.push(`وُلد <b>${cur}</b> من أبناء العائلة منذ ${d0}، مقابل <b>${prev}</b> في العقد الذي قبله.`);}
+    const my=new Map();state.events.filter(e=>e.event_type==="marriage").forEach(e=>{const y=e.event_year||(e.event_date?+String(e.event_date).slice(0,4):null);if(y)my.set(y,(my.get(y)||0)+1);});
+    const topY=[...my.entries()].sort((a,b)=>b[1]-a[1])[0];if(topY&&topY[1]>1)out.push(`أكثر سنة شهدت زواجات في العائلة: <b>${topY[0]}</b> — ${topY[1]} زواجات.`);
+    if(me){const nm=firstName(me),same=clan.filter(p=>p.id!==me.id&&firstName(p)===nm).length;if(same)out.push(`يشاركك اسم «${esc(nm)}» <b>${same}</b> من أبناء العائلة.`);
+      const gen=ancestorsFrom(me.id).length;if(gen>1){const sg=clan.filter(p=>p.id!==me.id&&ancestorsFrom(p.id).length===gen).length;out.push(`أنت من الجيل <b>${gen}</b> في الشجرة، ومعك في الجيل نفسه <b>${sg}</b> من أبناء العائلة.`);}}
+    return out;}
+  // admin: custom facts
+  async function renderFactsAdmin(){await loadCustomFacts();const box=$("#factList");
+    box.innerHTML=customFacts.map(f=>`<div class="join-item ${f.active?"":"is-stopped"}"><div><b>${esc(f.text)}</b></div><div class="join-actions"><button class="btn light" data-fe="${f.id}">تعديل</button><button class="btn light" data-ft="${f.id}">${f.active?"إخفاء":"إظهار"}</button><button class="btn light danger" data-fd="${f.id}">حذف</button></div></div>`).join("")||"<p class='muted'>لا توجد معلومات يدوية بعد.</p>";
+    box.querySelectorAll("[data-fe]").forEach(b=>b.onclick=async()=>{const f=customFacts.find(x=>x.id===b.dataset.fe);const t=prompt("عدّل المعلومة:",f.text);if(!t||!t.trim())return;await client.from("family_facts").update({text:t.trim()}).eq("id",f.id);renderFactsAdmin();});
+    box.querySelectorAll("[data-ft]").forEach(b=>b.onclick=async()=>{const f=customFacts.find(x=>x.id===b.dataset.ft);await client.from("family_facts").update({active:!f.active}).eq("id",f.id);renderFactsAdmin();});
+    box.querySelectorAll("[data-fd]").forEach(b=>b.onclick=async()=>{if(!confirm("حذف هذه المعلومة؟"))return;await client.from("family_facts").delete().eq("id",b.dataset.fd);renderFactsAdmin();});}
+  $("#factAdd").onclick=async()=>{const t=$("#factNew").value.trim();if(t.length<3)return toast("اكتب المعلومة أولًا");const {error}=await client.from("family_facts").insert({text:t});if(error)return toast(error.message,4000);$("#factNew").value="";toast("أُضيفت المعلومة ✅");renderFactsAdmin();};
+  // admin: login page settings + daily quotes
+  async function renderGateSet(){await loadSiteSettings();$("#gsWhatsapp").value=siteSettings.contact_whatsapp||"";$("#gsStats").checked=siteSettings.show_public_stats!==false;
+    const qs=Array.isArray(siteSettings.quotes)?siteSettings.quotes:[],box=$("#quoteList");
+    box.innerHTML=qs.map((q,i)=>`<div class="join-item"><div><b>${esc(q)}</b>${i===dayNo()%qs.length?"<small>⭐ حكمة اليوم</small>":""}</div><div class="join-actions"><button class="btn light" data-qe="${i}">تعديل</button><button class="btn light danger" data-qd="${i}">حذف</button></div></div>`).join("")||"<p class='muted'>لا توجد حكم.</p>";
+    box.querySelectorAll("[data-qe]").forEach(b=>b.onclick=async()=>{const i=+b.dataset.qe,t=prompt("عدّل الحكمة:",qs[i]);if(!t||!t.trim())return;qs[i]=t.trim();await saveSetting("quotes",qs);renderGateSet();});
+    box.querySelectorAll("[data-qd]").forEach(b=>b.onclick=async()=>{if(!confirm("حذف هذه الحكمة؟"))return;qs.splice(+b.dataset.qd,1);await saveSetting("quotes",qs);renderGateSet();});}
+  $("#quoteAdd").onclick=async()=>{const t=$("#quoteNew").value.trim();if(t.length<3)return;const qs=Array.isArray(siteSettings.quotes)?[...siteSettings.quotes]:[];qs.push(t);await saveSetting("quotes",qs);$("#quoteNew").value="";toast("أُضيفت الحكمة ✅");renderGateSet();};
+  $("#gateSetForm").onsubmit=async e=>{e.preventDefault();const wa=$("#gsWhatsapp").value.trim();if(wa&&!/^https:\/\//i.test(wa))return $("#gsMsg").textContent="الرابط لازم يبدأ بـ https://";
+    try{await saveSetting("contact_whatsapp",wa);await saveSetting("show_public_stats",$("#gsStats").checked);$("#gsMsg").textContent="تم الحفظ ✅";}catch(err){$("#gsMsg").textContent="تعذّر الحفظ: "+err.message;}};
+  document.querySelector('.admin-tab[data-admin-panel="gateset"]')?.addEventListener("click",()=>setTimeout(renderGateSet,0));
+  document.querySelector('.admin-tab[data-admin-panel="facts"]')?.addEventListener("click",()=>setTimeout(renderFactsAdmin,0));
+  viewHooks.push(n=>{if(n==="home")loadCustomFacts().then(()=>{try{renderKnow();}catch(_){}});});
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){
@@ -3488,9 +3638,15 @@ window.ShugaaHijri=(()=>{
 
   // Init
   client.auth.getSession().then(async({data})=>{
-    if(data.session){await enterAccount(data.session);return;}
+    const ls=k=>{try{return localStorage.getItem(k);}catch(_){return null;}};
+    const urlCode=new URLSearchParams(location.search).get("code");
+    if(urlCode){try{history.replaceState(null,"",location.pathname);}catch(_){} showGate(); await loginWithCode(urlCode); return;}   // QR / link login
+    if(data.session){
+      if(ls("shugaa_temp_session")==="1"&&!sessionStorage.getItem("shugaa_session_alive")){await client.auth.signOut();try{localStorage.removeItem("shugaa_temp_session");}catch(_){} showGate();return;}
+      await enterAccount(data.session);return;}
     const mode=sessionStorage.getItem("shugaa_access_mode"),code=sessionStorage.getItem("shugaa_access_code");
-    if(code&&["general","personal"].includes(mode)) await enterCodeMode(code,mode); else showGate();
+    if(code&&["general","personal"].includes(mode)){await enterCodeMode(code,mode);return;}
+    const rem=ls("shugaa_remember_code"); showGate(); if(rem) await loginWithCode(rem);
   });
   client.auth.onAuthStateChange((event,session)=>{setTimeout(async()=>{if(event==="SIGNED_OUT"&&state.mode==="account")showGate();if(session&&state.mode!=="account")await enterAccount(session);},0);});
   // V11 — web app: service worker with "update now" bar

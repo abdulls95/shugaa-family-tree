@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=17.6.1" />
+  <link rel="stylesheet" href="./styles.css?v=18.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -37,17 +37,21 @@
           <span class="museum-kicker">جذور تمتد… وأجيال تتصل</span>
           <h1>شجرة آل شجاع</h1>
           <p>مساحة عائلية لحفظ النسب وربط الأجيال.</p>
+          <p id="gateQuote" class="gate-quote"></p>
         </div>
       </header>
+      <div id="gateStats" class="gate-stats hidden"></div>
 
       <div class="gate-cards gate-code-box panel-glass">
         <h2>الدخول برمزك</h2>
         <p>اكتب رمز الدخول اللي وصلك من إدارة العائلة.</p>
         <form id="codeLoginForm" class="stack">
           <label>رمز الدخول<input id="loginCode" dir="ltr" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7M-4QX" required /></label>
+          <label class="check-line gate-remember"><input type="checkbox" id="rememberCode" checked /> تذكّرني على هذا الجهاز</label>
           <button class="btn gold wide">دخول</button>
         </form>
         <p id="codeLoginMsg" class="form-msg"></p>
+        <div class="gate-links"><button type="button" class="gate-link" id="noCodeBtn">ما عندي رمز؟</button><button type="button" class="gate-link" data-agecalc>🎂 حاسبة العمر ومحوّل التاريخ</button></div>
         <button class="gate-admin-link" type="button" data-gate="account">دخول الإدارة بالبريد الإلكتروني</button>
       </div>
 
@@ -181,6 +185,7 @@
             <button type="button" data-go="lineage"><b>مسار النسب</b><small>من الحفيد إلى الجد</small></button>
             <button type="button" data-go="library" class="account-only hidden"><b>مكتبة العائلة</b><small>وثائق وصور وألبومات</small></button>
             <button type="button" data-go="help"><b>الشروحات</b><small>تعلّم استخدام الموقع</small></button>
+            <button type="button" data-agecalc><b>حاسبة العمر</b><small>ومحوّل الهجري والميلادي</small></button>
           </section>
         </div>
         <div class="museum-hero">
@@ -387,6 +392,8 @@
           <button class="admin-tab admin-only hidden" data-admin-panel="support">الدعم</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="backup">النسخ الاحتياطي</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="notify">الإشعارات</button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="gateset">صفحة الدخول</button>
+          <button class="admin-tab staff-only hidden" data-admin-panel="facts">هل تعرف؟</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="health">مراجعة البيانات <b id="reviewCount" class="count-badge hidden">0</b></button>
           <button class="admin-tab staff-only hidden" data-admin-panel="event">أخبار / حدث</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="library">مكتبة العائلة</button>
@@ -529,6 +536,20 @@
           </form>
           <div class="panel stack"><h3>طرق الدعم الحالية</h3><p class="muted">تظهر للجميع في «ادعم الموقع» بالترتيب. أوقف أي طريقة مؤقتًا بدل حذفها.</p><div id="supList" class="join-list"></div></div>
         </div></div>
+        <div id="admin-gateset" class="admin-panel admin-only hidden"><div class="admin-grid">
+          <form id="gateSetForm" class="panel stack"><h3>🚪 إعدادات صفحة الدخول</h3>
+            <label>رابط واتساب لزر «ما عندي رمز؟»<input id="gsWhatsapp" dir="ltr" placeholder="https://wa.me/..." /></label>
+            <p class="micro-copy">يُفضّل رابط اسم المستخدم (wa.me/اسمك) حتى لا يظهر رقمك. اتركه فارغًا لإخفاء الزر.</p>
+            <label class="check-line"><input type="checkbox" id="gsStats" /> إظهار «العائلة بالأرقام» (العدد فقط، بدون أسماء)</label>
+            <button class="btn primary wide">حفظ</button><p id="gsMsg" class="form-msg"></p></form>
+          <div class="panel stack"><h3>🌿 الحكم اليومية</h3><p class="micro-copy">تظهر واحدة كل يوم تحت الشعار في صفحة الدخول.</p>
+            <div class="inline-add"><input id="quoteNew" placeholder="اكتب حكمة أو عبارة جديدة..." /><button type="button" class="btn gold" id="quoteAdd">إضافة</button></div>
+            <div id="quoteList" class="join-list"></div></div>
+        </div></div>
+        <div id="admin-facts" class="admin-panel staff-only hidden"><div class="panel stack"><h3>💡 معلومات «هل تعرف؟» اليدوية</h3>
+          <p class="micro-copy">تُعرض مع المعلومات التلقائية في الرئيسية. اكتب معلومة طريفة أو تاريخية عن العائلة.</p>
+          <div class="inline-add"><input id="factNew" placeholder="مثال: الجد عامر كان يزرع البن في وادي يافع..." /><button type="button" class="btn gold" id="factAdd">إضافة</button></div>
+          <div id="factList" class="join-list"></div></div></div>
         <div id="admin-notify" class="admin-panel admin-only hidden"><div class="admin-grid">
           <div class="panel stack"><h3>🔔 الإشعارات</h3>
             <p class="muted">أجهزة مفعّل عليها الإشعارات: <b id="pushDevices">—</b></p>
@@ -1241,7 +1262,44 @@
       <div class="batch-footer"><button type="button" id="lbkApply" class="btn primary wide">تطبيق على المحدد</button><p id="lbkMsg" class="form-msg"></p></div>
     </article></div>
   <div id="libSelectBar" class="lib-select-bar hidden"><b id="lsCount">0</b><button type="button" data-bulk="person">👤 ربط بشخص</button><button type="button" data-bulk="album">📁 نقل إلى ألبوم</button><button type="button" data-bulk="access">🔒 من يراه</button><button type="button" data-bulk="delete" class="danger">🗑 حذف</button><button type="button" data-bulk="cancel">إلغاء</button></div>
-  <script src="./config.js?v=17.6.1"></script>
-  <script src="./app.js?v=17.6.1"></script>
+
+  <!-- V18 — no code / age calculator / QR -->
+  <div id="noCodeModal" class="modal hidden top-modal"><div class="modal-backdrop" data-close-nocode></div>
+    <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-nocode aria-label="إغلاق">×</button>
+      <h2>ما عندي رمز؟</h2>
+      <div class="nocode-steps">
+        <div><b>👪 رمز العائلة</b><p>رمز واحد مشترك لكل العائلة، تجده في قروبات العائلة على واتساب. يفتح الشجرة والأخبار.</p></div>
+        <div><b>🔑 رمز شخصي باسمك</b><p>يفتح لك كل المزايا: المكتبة، والإضافة، والتصحيح. اطلبه من إدارة الموقع.</p></div>
+      </div>
+      <a id="noCodeWa" class="btn primary wide" target="_blank" rel="noopener">💬 تواصل مع الإدارة عبر واتساب</a>
+      <p class="micro-copy">اكتب اسمك الكامل في الرسالة لنتعرف عليك ونرسل لك الرمز.</p>
+    </article></div>
+  <div id="ageModal" class="modal hidden top-modal"><div class="modal-backdrop" data-close-age></div>
+    <article class="modal-card batch-card age-card"><button class="modal-close" type="button" data-close-age aria-label="إغلاق">×</button>
+      <h2>🎂 حاسبة العمر</h2>
+      <div class="age-tabs"><button type="button" data-agetab="age" class="on">حاسبة العمر</button><button type="button" data-agetab="conv">محوّل التاريخ</button></div>
+      <div data-agepane="age">
+        <label id="agePersonWrap" class="hidden">احسب عمر شخص من الشجرة (اختياري)<select id="agePerson"><option value="">— اختر —</option></select></label>
+        <div class="age-cal"><button type="button" data-cal="g" class="on">ميلادي</button><button type="button" data-cal="h">هجري</button></div>
+        <div class="age-date"><label>اليوم<select id="ageD" class="no-search"></select></label><label>الشهر<select id="ageM" class="no-search"></select></label><label>السنة<input id="ageY" type="number" inputmode="numeric" /></label></div>
+        <button type="button" class="btn gold wide" id="ageCalc">احسب</button>
+        <div id="ageOut" class="age-out"></div>
+      </div>
+      <div data-agepane="conv" class="hidden">
+        <div class="age-cal"><button type="button" data-ccal="g" class="on">من ميلادي إلى هجري</button><button type="button" data-ccal="h">من هجري إلى ميلادي</button></div>
+        <div class="age-date"><label>اليوم<select id="convD" class="no-search"></select></label><label>الشهر<select id="convM" class="no-search"></select></label><label>السنة<input id="convY" type="number" inputmode="numeric" /></label></div>
+        <button type="button" class="btn gold wide" id="convGo">حوّل</button>
+        <div id="convOut" class="age-out"></div>
+      </div>
+    </article></div>
+  <div id="qrModal" class="modal hidden top-modal"><div class="modal-backdrop" data-close-qr></div>
+    <article class="modal-card batch-card qr-card"><button class="modal-close" type="button" data-close-qr aria-label="إغلاق">×</button>
+      <h2>📷 رمز QR للدخول</h2><p id="qrFor" class="muted"></p>
+      <div id="qrBox" class="qr-box"></div>
+      <p class="micro-copy">يفتحه الشخص بكاميرا الجوال فيدخل مباشرة بدون كتابة الرمز.</p>
+      <div class="code-share-actions"><button type="button" class="btn gold" id="qrShare">مشاركة الصورة</button><a class="btn primary" id="qrWa" target="_blank" rel="noopener">إرسال الرابط بالواتساب</a><button type="button" class="btn light" id="qrCopy">نسخ الرابط</button></div>
+    </article></div>
+  <script src="./config.js?v=18.0.0"></script>
+  <script src="./app.js?v=18.0.0"></script>
 </body>
 </html>
