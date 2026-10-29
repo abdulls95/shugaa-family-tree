@@ -3075,6 +3075,14 @@ window.ShugaaHijri=(()=>{
     const p=getPerson(id);const live=c=>c.code_type==="personal"&&c.person_id===id&&c.status==="active"&&!(c.expires_at&&new Date(c.expires_at)<new Date());
     const code=(state.accessCodes||[]).filter(live).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0];
     const acct=(state.adminUsers||[]).find(u=>u.person_id===id);
+    // someone who signs in with a real e-mail (not a code account) does not need a code
+    const emailAcct=acct&&acct.email&&!/@members\.shugaa-family\.app$/i.test(acct.email);
+    if(emailAcct&&!code){box.innerHTML=`<div class="pac-head"><b>${acct.is_founder?"👑 المؤسس":"📧 حساب بالبريد"}</b><span>يدخل بالبريد الإلكتروني ${esc(acct.email)} • ${esc(roleLabel(acct.role))}${acct.status==="suspended"?" (موقوف)":""}</span></div>
+      <p class="micro-copy">لا يحتاج رمز دخول. <button type="button" class="gate-link" id="pacExtra">إنشاء رمز إضافي للجوال؟</button></p><div id="pacExtraBox" class="hidden"><div class="pac-actions"><select id="pacRole" class="no-search"><option value="viewer">مشاهد</option><option value="editor">مدخل بيانات</option></select><button type="button" class="btn primary" id="pacCreate">إنشاء رمز دخول</button></div></div><div id="profileAccessCode" class="pac-code hidden"></div>`;
+      $("#pacExtra").onclick=()=>$("#pacExtraBox").classList.toggle("hidden");
+      $("#pacCreate")?.addEventListener("click",async()=>{const {data,error}=await client.rpc("admin_create_access_code",{p_code_type:"personal",p_person_id:id,p_label:p.full_name_ar,p_expires_at:null,p_max_uses:null,p_grant_role:$("#pacRole").value});
+        if(error)return toast(error.message,4000);const nc=data?.[0]?.access_code;await loadStaffData();if(nc)showProfileCode(nc,p,"تم إنشاء الرمز");});
+      return;}
     box.innerHTML=`<div class="pac-head"><b>🔑 رمز الدخول</b><span>${acct?`له حساب ${acct.status==="suspended"?"(موقوف)":"فعّال"} • ${esc(roleLabel(acct.role))}`:"لا يوجد حساب بعد"}</span></div>
       ${code?`<p class="muted">له رمز شخصي فعّال ينتهي بـ <b dir="ltr">${esc(code.code_hint||"")}</b></p>
         <div class="pac-actions">${code.can_reveal?`<button type="button" class="btn primary" id="pacReveal">عرض الرمز ونسخه</button>`:""}<button type="button" class="btn light" id="pacRotate">إصدار رمز بديل</button></div>

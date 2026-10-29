@@ -2160,3 +2160,11 @@ html.fs-2 .shugaa-v7 .view:not(#view-tree),html.fs-2 .shugaa-v7 .modal-card,html
 .welcome-card h2{font-family:var(--v7-display);font-size:26px;color:var(--v7-ink);margin:4px 0}
 .confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:5000}
 .confetti.hidden{display:none}
+
+/* V20.1 — desktop/iPad sidebar: the menu scrolls, the account box always stays clear at the bottom */
+@media (min-width:861px){
+  .shugaa-v7.awraq-inspired-shell .topbar{display:flex!important;flex-direction:column!important;overflow:hidden!important}
+  .shugaa-v7.awraq-inspired-shell .topbar .brand{flex:0 0 auto}
+  .shugaa-v7.awraq-inspired-shell .topbar .desktop-nav{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:8px}
+  .shugaa-v7.awraq-inspired-shell .topbar .user-box{flex:0 0 auto!important;position:static!important;margin-top:8px!important;padding-top:10px!important;border-top:1px solid rgba(217,182,106,.22)!important;display:grid!important;gap:8px;background:inherit}
+}
