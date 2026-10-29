@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=18.0.2" />
+  <link rel="stylesheet" href="./styles.css?v=19.0.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -132,6 +132,7 @@
         <button data-view="kinship" class="nav-btn">صلة القرابة</button>
         <button data-view="lineage" class="nav-btn">مسار النسب</button>
         <button data-view="library" class="nav-btn account-only hidden">مكتبة العائلة</button>
+        <button data-view="quiz" class="nav-btn">تحدي العائلة</button>
         <button data-view="help" class="nav-btn">الشروحات</button>
         <button type="button" class="nav-btn" data-fontsize>حجم الخط</button>
         <button type="button" class="nav-btn support-entry hidden" data-support>ادعم الموقع</button>
@@ -156,6 +157,7 @@
               <p id="h2Date" class="h2-date"></p>
               <h1 id="h2Greeting">أهلاً بك</h1>
               <p id="h2Sub" class="h2-sub">في بيت آل شجاع</p>
+              <p id="h2Quote" class="h2-quote"></p>
               <div id="h2Lineage" class="h2-lineage" aria-label="سلسلة النسب"></div>
               <div class="h2-search">
                 <input id="h2Search" type="search" autocomplete="off" placeholder="دوّر على أي شخص في العائلة..." aria-label="بحث عن شخص" />
@@ -175,6 +177,7 @@
             </article>
             <div class="h2-col">
               <article class="h2-card h2-know"><header><div><span class="h2-kicker">هل تعرف؟</span><h3 id="h2KnowTitle">اكتشاف اليوم</h3></div><button type="button" id="h2KnowNext" class="h2-link">غيرها ↻</button></header><div id="h2Know"></div></article>
+          <article class="h2-card h2-daily"><header><div><span class="h2-kicker">🎯 تحدي اليوم</span><h3>سؤال عن العائلة</h3></div><button type="button" class="h2-link" data-view-go="quiz">التحدي الكامل ←</button></header><div id="h2Daily"></div></article>
               <article class="h2-card"><header><div><span class="h2-kicker">آل شجاع بالأرقام</span><h3>أكثر الأسماء</h3></div></header><div id="h2Names" class="h2-names"></div></article>
             </div>
           </section>
@@ -305,6 +308,23 @@
         <div id="historyEmpty" class="empty-state hidden"><div>⌛</div><h3>لا توجد أحداث بعد</h3></div>
       </section>
 
+      <section id="view-quiz" class="view">
+        <div class="page-head"><div><span class="section-kicker">تحدي العائلة</span><h2>كم تعرف عائلتك؟ 🏆</h2><p>أسئلة من شجرة آل شجاع نفسها. جاوب وتعرّف على أهلك أكثر.</p></div></div>
+        <div id="quizStart" class="quiz-start">
+          <div class="panel stack quiz-intro"><b>🎯 10 أسئلة في كل جولة</b><p class="muted">صلة القرابة، والأجداد، وعدد الأبناء، وأسئلة من الإدارة. كل جولة أسئلتها مختلفة.</p><button type="button" class="btn gold wide" id="quizGo">ابدأ التحدي</button><p id="quizGuestNote" class="micro-copy hidden">تقدر تلعب الحين، لكن نتيجتك تُحفظ في لوحة المتصدرين لأصحاب الحسابات الشخصية فقط.</p></div>
+          <div class="panel stack"><b>👑 لوحة المتصدرين</b><div id="quizBoard" class="quiz-board"></div></div>
+        </div>
+        <div id="quizPlay" class="quiz-play hidden">
+          <div class="quiz-top"><span id="quizProgress"></span><span id="quizScore"></span></div>
+          <div class="quiz-bar"><i id="quizBar"></i></div>
+          <h3 id="quizQ" class="quiz-q"></h3>
+          <div id="quizOpts" class="quiz-opts"></div>
+          <p id="quizFeedback" class="quiz-feedback"></p>
+          <button type="button" class="btn primary wide hidden" id="quizNext">التالي</button>
+        </div>
+        <div id="quizEnd" class="quiz-end hidden"></div>
+      </section>
+
       <section id="view-help" class="view">
         <div class="page-head"><div><span class="section-kicker">المساعدة</span><h2>الشروحات</h2><p>تعلّم استخدام الموقع خطوة بخطوة.</p></div><button type="button" id="newTutorialBtn" class="btn gold staff-only hidden">＋ شرح جديد</button></div>
         <div class="tour-cards">
@@ -394,6 +414,7 @@
           <button class="admin-tab admin-only hidden" data-admin-panel="notify">الإشعارات</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="gateset">صفحة الدخول</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="facts">هل تعرف؟</button>
+          <button class="admin-tab staff-only hidden" data-admin-panel="quizq">أسئلة التحدي</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="health">مراجعة البيانات <b id="reviewCount" class="count-badge hidden">0</b></button>
           <button class="admin-tab staff-only hidden" data-admin-panel="event">أخبار / حدث</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="library">مكتبة العائلة</button>
@@ -550,6 +571,16 @@
           <p class="micro-copy">تُعرض مع المعلومات التلقائية في الرئيسية. اكتب معلومة طريفة أو تاريخية عن العائلة.</p>
           <div class="inline-add"><input id="factNew" placeholder="مثال: الجد عامر كان يزرع البن في وادي يافع..." /><button type="button" class="btn gold" id="factAdd">إضافة</button></div>
           <div id="factList" class="join-list"></div></div></div>
+        <div id="admin-quizq" class="admin-panel staff-only hidden"><div class="admin-grid">
+          <form id="quizQForm" class="panel stack"><h3 id="quizQFormTitle">🏆 سؤال جديد للتحدي</h3>
+            <label>السؤال<input id="qqText" placeholder="مثال: وين كان يسكن الجد عامر؟" required /></label>
+            <label>الخيار 1<input class="qq-opt" required /></label><label>الخيار 2<input class="qq-opt" required /></label>
+            <label>الخيار 3 (اختياري)<input class="qq-opt" /></label><label>الخيار 4 (اختياري)<input class="qq-opt" /></label>
+            <label>الإجابة الصحيحة<select id="qqCorrect" class="no-search"><option value="0">الخيار 1</option><option value="1">الخيار 2</option><option value="2">الخيار 3</option><option value="3">الخيار 4</option></select></label>
+            <div class="inline-add"><button class="btn primary wide">حفظ السؤال</button><button type="button" class="btn light hidden" id="qqCancel">إلغاء التعديل</button></div><p id="qqMsg" class="form-msg"></p></form>
+          <div class="panel stack"><h3>الأسئلة اليدوية</h3><p class="micro-copy">تُخلط مع الأسئلة التلقائية من الشجرة.</p><div id="quizQList" class="join-list"></div>
+            <div class="admin-only hidden"><button type="button" class="btn light danger wide" id="quizResetBoard">تصفير لوحة المتصدرين</button></div></div>
+        </div></div>
         <div id="admin-notify" class="admin-panel admin-only hidden"><div class="admin-grid">
           <div class="panel stack"><h3>🔔 الإشعارات</h3>
             <p class="muted">أجهزة مفعّل عليها الإشعارات: <b id="pushDevices">—</b></p>
@@ -630,6 +661,7 @@
         <button data-view="people" class="nav-btn">👥<span>قائمة الأفراد</span></button>
         <button data-view="kinship" class="nav-btn">🧬<span>صلة القرابة</span></button>
         <button data-view="lineage" class="nav-btn">↟<span>مسار النسب</span></button>
+        <button data-view="quiz" class="nav-btn">🏆<span>تحدي العائلة</span></button>
         <button data-view="help" class="nav-btn">▶<span>الشروحات</span></button>
         <button type="button" class="nav-btn" data-fontsize>🔠<span>حجم الخط</span></button>
         <button type="button" class="nav-btn support-entry hidden" data-support>🤍<span>ادعم الموقع</span></button>
@@ -1299,7 +1331,12 @@
       <p class="micro-copy">يفتحه الشخص بكاميرا الجوال فيدخل مباشرة بدون كتابة الرمز.</p>
       <div class="code-share-actions"><button type="button" class="btn gold" id="qrShare">مشاركة الصورة</button><a class="btn primary" id="qrWa" target="_blank" rel="noopener">إرسال الرابط بالواتساب</a><button type="button" class="btn light" id="qrCopy">نسخ الرابط</button></div>
     </article></div>
-  <script src="./config.js?v=18.0.2"></script>
-  <script src="./app.js?v=18.0.2"></script>
+
+  <!-- V19 — certificate verification -->
+  <div id="verifyModal" class="modal hidden top-modal"><div class="modal-backdrop" data-close-verify></div>
+    <article class="modal-card batch-card verify-card"><button class="modal-close" type="button" data-close-verify aria-label="إغلاق">×</button>
+      <div id="verifyBody"></div></article></div>
+  <script src="./config.js?v=19.0.0"></script>
+  <script src="./app.js?v=19.0.0"></script>
 </body>
 </html>

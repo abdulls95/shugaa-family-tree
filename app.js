@@ -2745,6 +2745,7 @@ window.ShugaaHijri=(()=>{
     x.fillText(`رقم السجل: ${p.record_code||"—"}     •     كود النسب: ${p.lineage_code||"—"}`,W/2,Hh-245);
     x.fillText(`صدرت في ${H.fmtHDate(hj)} الموافق ${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()} م`,W/2,Hh-195);
     x.fillStyle="#8A938F";x.font='400 24px "IBM Plex Sans Arabic", sans-serif';x.fillText(location.host+location.pathname.replace(/index\.html$/,""),W/2,Hh-130);
+    await stampCertificateQR(x,id,W,Hh);
     await canvasToPdf(c,`وثيقة-نسب-${firstName(p)}`,`وثيقة نسب ${p.full_name_ar}`,true);};
 
   async function shareCard(id){
@@ -3552,6 +3553,120 @@ window.ShugaaHijri=(()=>{
   document.querySelector('.admin-tab[data-admin-panel="facts"]')?.addEventListener("click",()=>setTimeout(renderFactsAdmin,0));
   viewHooks.push(n=>{if(n==="home")loadCustomFacts().then(()=>{try{renderKnow();}catch(_){}});});
 
+  // =================== V19 — verifiable certificates, daily quote, family quiz ===================
+  ADMIN_GROUPS.content.push("quizq");
+  $$("[data-view-go]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.viewGo)));
+  // certificate: every PDF gets a number and a QR that anyone can scan to check it
+  async function stampCertificateQR(x,personId,W,Hh){
+    let cid=null;try{const {data,error}=await client.rpc("issue_certificate",{p_person_id:personId,p_nasab:nasabText(personId)});if(!error)cid=data;}catch(_){}
+    if(!cid)return;
+    const link=location.origin+location.pathname.replace(/index\.html$/,"")+"?verify="+cid, size=190, left=150, top=Hh-370;
+    try{await loadQrLib();const div=document.createElement("div");new QRCode(div,{text:link,width:size*2,height:size*2,colorDark:"#0C3530",colorLight:"#FFFDF7",correctLevel:QRCode.CorrectLevel.M});
+      const cv=div.querySelector("canvas");if(cv)x.drawImage(cv,left,top,size,size);}catch(_){}
+    x.textAlign="center";x.fillStyle="#7A5C1F";x.font='600 22px "IBM Plex Sans Arabic", sans-serif';x.fillText("امسح للتحقق",left+size/2,top+size+30);
+    x.fillStyle="#4A5853";x.font='500 22px "IBM Plex Sans Arabic", sans-serif';x.fillText(`رقم الوثيقة: ${cid}`,left+size/2,top+size+60);}
+  async function showVerify(id){const body=$("#verifyBody");body.innerHTML="<p class='muted'>جارٍ التحقق...</p>";$("#verifyModal").classList.remove("hidden");
+    const {data}=await client.rpc("verify_certificate",{p_id:id});
+    if(!data?.ok){body.innerHTML=`<div class="v-ok">❌</div><h2>وثيقة غير موجودة</h2><p class="muted">لم نجد وثيقة نسب بالرقم <b dir="ltr">${esc(id)}</b> في سجلات شجرة آل شجاع.</p>`;return;}
+    const d=new Date(data.issued_at),H=window.ShugaaHijri,hj=H.gToH(d.getFullYear(),d.getMonth()+1,d.getDate());
+    body.innerHTML=`<div class="v-ok">✅</div><h2>وثيقة نسب صحيحة</h2><p class="muted">صادرة من موقع شجرة آل شجاع</p>
+      <div class="v-name">${esc(data.name)}</div>${data.nasab?`<p>${esc(data.nasab)}</p>`:""}
+      <div class="v-meta"><span>رقم الوثيقة: <b dir="ltr">${esc(data.id)}</b></span><span>رقم السجل: <b dir="ltr">${esc(data.record_code||"—")}</b></span>
+      <span>تاريخ الإصدار: ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} م — ${esc(H.fmtHDate(hj))}</span>${data.still_listed?"":"<span>⚠️ هذا الشخص لم يعد مدرجًا في الشجرة حاليًا.</span>"}</div>`;}
+  $$("[data-close-verify]").forEach(b=>b.onclick=()=>$("#verifyModal").classList.add("hidden"));
+  // daily quote on the home page as well
+  async function renderHomeQuote(){if(!Object.keys(siteSettings).length){try{await loadSiteSettings();}catch(_){}}
+    const qs=(Array.isArray(siteSettings.quotes)?siteSettings.quotes:[]).filter(Boolean);$("#h2Quote").textContent=qs.length?`«${qs[dayNo()%qs.length]}»`:"";}
+
+  // ---- quiz engine: questions built from the tree itself ----
+  let quizCustom=null;
+  async function loadQuizCustom(){const {data}=await client.from("quiz_questions").select("*").eq("active",true);quizCustom=data||[];}
+  const seeded=seed=>{let v=Math.abs(seed)%2147483647||1;return()=>(v=v*16807%2147483647)/2147483647;};
+  const shuffleR=(a,r=Math.random)=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+  function optionsFor(correct,pool,r){const out=[correct];for(const v of shuffleR([...new Set(pool)],r)){if(out.length>=4)break;if(v&&v!==correct&&!out.includes(v))out.push(v);}
+    if(out.length<3)return null;const opts=shuffleR(out,r);return {opts,correct:opts.indexOf(correct)};}
+  function genQuestion(type,r){const clan=buildTreeModel().people;if(clan.length<6)return null;const pick=a=>a[Math.floor(r()*a.length)],kids=id=>familyOf(id).children;
+    if(type==="kids"){const pool=clan.filter(p=>kids(p.id).length>1);if(!pool.length)return null;const p=pick(pool),n=kids(p.id).length;
+      const o=optionsFor(String(n),[n+1,n+2,n-1,n+3,n-2,n+4].filter(v=>v>0).map(String),r);return o&&{q:`كم عدد أبناء وبنات «${p.full_name_ar}» المسجلين في الشجرة؟`,...o};}
+    if(type==="kin"){for(let t=0;t<30;t++){const a=pick(clan),b=pick(clan);if(a.id===b.id)continue;const term=kinshipTerm(a.id,b.id);if(!term||term.split(" ").length>4)continue;
+        // wrong answers = real relations of the same person to others of the same gender, so the wording style matches
+        const pool=[];for(const x of shuffleR(clan,r).slice(0,60)){if(x.id===a.id||x.id===b.id||x.gender!==b.gender)continue;const tt=kinshipTerm(a.id,x.id);if(tt&&tt!==term&&tt.split(" ").length<=4)pool.push(tt);if(new Set(pool).size>=6)break;}
+        const o=optionsFor(term,pool,r);if(o)return {q:`«${b.full_name_ar}» بالنسبة لـ «${a.full_name_ar}» ${b.gender==="female"?"هي":"هو"}:`,...o};}return null;}
+    if(type==="anc"){for(let t=0;t<30;t++){const a=pick(clan),b=pick(clan);if(a.id===b.id)continue;const pa=ancestorPaths(a.id),pb=ancestorPaths(b.id);let best=null;
+        for(const [id,x] of pa){if(pb.has(id)){const sc=x.length+pb.get(id).length;if(!best||sc<best.sc)best={id,sc,da:x.length-1,db:pb.get(id).length-1};}}
+        if(!best||best.da<1||best.db<1||best.da>4)continue;const anc=getPerson(best.id);
+        const others=[...pa.keys(),...pb.keys()].filter(id=>id!==best.id).map(getPerson).filter(Boolean).map(p=>p.full_name_ar);
+        const o=optionsFor(anc.full_name_ar,others.concat(clan.filter(p=>kids(p.id).length>2).map(p=>p.full_name_ar)),r);if(o)return {q:`من الجد المشترك الأقرب بين «${a.full_name_ar}» و«${b.full_name_ar}»؟`,...o};}return null;}
+    if(type==="gen"){const p=pick(clan.filter(p=>ancestorsFrom(p.id).length>1));if(!p)return null;const g=ancestorsFrom(p.id).length;
+      const o=optionsFor(String(g),[g-1,g+1,g-2,g+2,g+3].filter(v=>v>0).map(String),r);return o&&{q:`«${p.full_name_ar}» من أي جيل في الشجرة؟ (الجد الأكبر هو الجيل 1)`,...o};}
+    if(type==="most"){for(let t=0;t<20;t++){const four=shuffleR(clan.filter(p=>kids(p.id).length),r).slice(0,4);if(four.length<3)return null;const counts=four.map(p=>kids(p.id).length),mx=Math.max(...counts);
+        if(counts.filter(c=>c===mx).length>1)continue;const opts=four.map(p=>p.full_name_ar);return {q:"أي واحد من هؤلاء عنده أكثر عدد من الأبناء والبنات المسجلين؟",opts,correct:counts.indexOf(mx)};}return null;}
+    if(type==="name"){const m=new Map();clan.filter(p=>p.gender==="male").forEach(p=>{const n=firstName(p);if(n)m.set(n,(m.get(n)||0)+1);});const top=[...m.entries()].sort((a,b)=>b[1]-a[1]);
+      if(top.length<4||top[0][1]===top[1][1])return null;const o=optionsFor(top[0][0],top.slice(1,8).map(x=>x[0]),r);return o&&{q:"ما أكثر اسم للأولاد تكرارًا في آل شجاع؟",...o};}
+    return null;}
+  function customQuestion(r){if(!quizCustom?.length)return null;const c=quizCustom[Math.floor(r()*quizCustom.length)];const opts=(c.options||[]).filter(Boolean);if(opts.length<2)return null;
+    const order=shuffleR(opts.map((_,i)=>i),r);return {q:c.question,opts:order.map(i=>opts[i]),correct:order.indexOf(c.correct),custom:c.id};}
+  function buildRound(n=10){const r=Math.random,types=["kin","anc","kids","gen","most","name","kin","anc","kids","gen"],out=[],seen=new Set();
+    const nCustom=Math.min(quizCustom?.length||0,3);
+    for(let i=0;i<nCustom&&out.length<n;i++){const q=customQuestion(r);if(q&&!seen.has(q.q)){seen.add(q.q);out.push(q);}}
+    for(let t=0;out.length<n&&t<80;t++){const q=genQuestion(types[t%types.length],r);if(q&&!seen.has(q.q)){seen.add(q.q);out.push(q);}}
+    return shuffleR(out,r);}
+  const QZ={qs:[],i:0,score:0};
+  async function renderQuizStart(){$("#quizStart").classList.remove("hidden");$("#quizPlay").classList.add("hidden");$("#quizEnd").classList.add("hidden");
+    $("#quizGuestNote").classList.toggle("hidden",state.mode==="account");if(quizCustom===null)await loadQuizCustom();renderBoard();}
+  async function renderBoard(){const box=$("#quizBoard");if(!box)return;
+    if(state.mode!=="account"){box.innerHTML="<p class='muted'>لوحة المتصدرين تظهر لأصحاب الحسابات الشخصية.</p>";return;}
+    const {data}=await client.from("quiz_scores").select("user_id,player_name,score,total,created_at").order("created_at",{ascending:false}).limit(1000);
+    const best=new Map();(data||[]).forEach(r=>{const pct=r.score/r.total,b=best.get(r.user_id);if(!b||pct>b.pct)best.set(r.user_id,{...r,pct});});
+    const top=[...best.values()].sort((a,b)=>b.pct-a.pct||b.score-a.score).slice(0,10);
+    box.innerHTML=top.map((r,i)=>`<div><i>${["🥇","🥈","🥉"][i]||i+1}</i><b>${esc(String(r.player_name).split(/\s+/).slice(0,3).join(" "))}</b><span>${r.score} / ${r.total}</span></div>`).join("")||"<p class='muted'>كن أول من يدخل لوحة المتصدرين! 🏆</p>";}
+  async function startQuiz(){if(quizCustom===null)await loadQuizCustom();QZ.qs=buildRound(10);QZ.i=0;QZ.score=0;
+    if(QZ.qs.length<3)return toast("الشجرة صغيرة للحين، أضف أفرادًا أكثر عشان يشتغل التحدي.",5000);
+    $("#quizStart").classList.add("hidden");$("#quizEnd").classList.add("hidden");$("#quizPlay").classList.remove("hidden");showQ();}
+  function showQ(){const q=QZ.qs[QZ.i];$("#quizProgress").textContent=`السؤال ${QZ.i+1} من ${QZ.qs.length}`;$("#quizScore").textContent=`النقاط: ${QZ.score}`;
+    $("#quizBar").style.width=`${QZ.i/QZ.qs.length*100}%`;$("#quizQ").textContent=q.q;$("#quizFeedback").textContent="";$("#quizNext").classList.add("hidden");
+    $("#quizOpts").innerHTML=q.opts.map((o,i)=>`<button type="button" data-i="${i}">${esc(o)}</button>`).join("");
+    $$("#quizOpts button").forEach(b=>b.onclick=()=>{const i=+b.dataset.i,ok=i===q.correct;$$("#quizOpts button").forEach(x=>{x.disabled=true;if(+x.dataset.i===q.correct)x.classList.add("right");});
+      if(ok){QZ.score++;$("#quizFeedback").textContent="✅ صح! أحسنت";$("#quizFeedback").style.color="#1E6B4E";}else{b.classList.add("wrong");$("#quizFeedback").textContent="❌ الجواب الصحيح موضّح بالأخضر";$("#quizFeedback").style.color="#9D3F37";}
+      $("#quizScore").textContent=`النقاط: ${QZ.score}`;$("#quizNext").textContent=QZ.i===QZ.qs.length-1?"النتيجة 🏁":"التالي";$("#quizNext").classList.remove("hidden");});}
+  $("#quizNext").onclick=()=>{QZ.i++;if(QZ.i<QZ.qs.length)showQ();else endQuiz();};
+  async function endQuiz(){$("#quizPlay").classList.add("hidden");const n=QZ.qs.length,s=QZ.score,pct=s/n;
+    const msg=pct===1?"👑 كامل العلامة! إنت مرجع العائلة":pct>=.8?"🌟 ممتاز! تعرف عائلتك زين":pct>=.5?"👍 حلو! وفيه أشياء تقدر تكتشفها":"🌱 بداية حلوة، تصفح الشجرة وارجع تحدّى نفسك";
+    $("#quizEnd").innerHTML=`<div class="big">${s} / ${n}</div><h3>${msg}</h3><p id="quizSaved" class="muted"></p><div class="inline-add"><button type="button" class="btn gold wide" id="quizAgain">العب مرة ثانية</button><button type="button" class="btn light wide" id="quizBack">لوحة المتصدرين</button></div>`;
+    $("#quizEnd").classList.remove("hidden");$("#quizAgain").onclick=startQuiz;$("#quizBack").onclick=renderQuizStart;
+    if(state.mode==="account"){const {error}=await client.rpc("submit_quiz_score",{p_score:s,p_total:n});$("#quizSaved").textContent=error?"":"✅ تم حفظ نتيجتك في لوحة المتصدرين";}
+    else $("#quizSaved").textContent="ادخل برمزك الشخصي عشان تنحفظ نتيجتك في لوحة المتصدرين.";}
+  $("#quizGo").onclick=startQuiz;
+  // ---- daily question on the home page (same for everyone today) ----
+  async function renderDaily(){const box=$("#h2Daily");if(!box)return;if(quizCustom===null){try{await loadQuizCustom();}catch(_){quizCustom=[];}}
+    const day=dayNo(),r=seeded(day*7919+13);let q=null;for(const t of shuffleR(["kin","anc","kids","gen","most"],r)){q=genQuestion(t,r);if(q)break;}
+    if(!q){box.innerHTML="<p class='muted'>أضف أفرادًا للشجرة ويطلع لك سؤال اليوم.</p>";return;}
+    const key="shugaa_daily_"+day,answered=lsGet(key);
+    box.innerHTML=`<p class="dq-q">${esc(q.q)}</p><div class="dq-opts">${q.opts.map((o,i)=>`<button type="button" data-i="${i}">${esc(o)}</button>`).join("")}</div><p class="dq-note"></p>`;
+    const reveal=i=>{$$("#h2Daily .dq-opts button").forEach(x=>{x.disabled=true;if(+x.dataset.i===q.correct)x.classList.add("right");if(+x.dataset.i===i&&i!==q.correct)x.classList.add("wrong");});
+      const note=box.querySelector(".dq-note");note.textContent=i===q.correct?"✅ صح! ارجع بكرة لسؤال جديد":"❌ الجواب الصحيح بالأخضر، ارجع بكرة لسؤال جديد";note.style.color=i===q.correct?"#1E6B4E":"#9D3F37";};
+    if(answered!=null)reveal(+answered);
+    $$("#h2Daily .dq-opts button").forEach(b=>b.onclick=()=>{lsSet(key,b.dataset.i);reveal(+b.dataset.i);});}
+  // ---- admin: manual quiz questions ----
+  let qqEditing=null;
+  async function renderQuizAdmin(){const {data}=await client.from("quiz_questions").select("*").order("created_at",{ascending:false});const rows=data||[],box=$("#quizQList");
+    box.innerHTML=rows.map(q=>`<div class="join-item ${q.active?"":"is-stopped"}"><div><b>${esc(q.question)}</b><small>✅ ${esc((q.options||[])[q.correct]||"")}</small></div><div class="join-actions"><button class="btn light" data-qe="${q.id}">تعديل</button><button class="btn light" data-qt="${q.id}">${q.active?"إخفاء":"إظهار"}</button><button class="btn light danger" data-qd="${q.id}">حذف</button></div></div>`).join("")||"<p class='muted'>لا توجد أسئلة يدوية بعد.</p>";
+    box.querySelectorAll("[data-qe]").forEach(b=>b.onclick=()=>{const q=rows.find(x=>x.id===b.dataset.qe);qqEditing=q.id;$("#qqText").value=q.question;$$(".qq-opt").forEach((inp,i)=>inp.value=(q.options||[])[i]||"");$("#qqCorrect").value=q.correct;
+      $("#quizQFormTitle").textContent="✏️ تعديل السؤال";$("#qqCancel").classList.remove("hidden");$("#qqText").focus();});
+    box.querySelectorAll("[data-qt]").forEach(b=>b.onclick=async()=>{const q=rows.find(x=>x.id===b.dataset.qt);await client.from("quiz_questions").update({active:!q.active}).eq("id",q.id);quizCustom=null;renderQuizAdmin();});
+    box.querySelectorAll("[data-qd]").forEach(b=>b.onclick=async()=>{if(!confirm("حذف هذا السؤال؟"))return;await client.from("quiz_questions").delete().eq("id",b.dataset.qd);quizCustom=null;renderQuizAdmin();});}
+  function resetQQ(){qqEditing=null;$("#quizQForm").reset();$("#quizQFormTitle").textContent="🏆 سؤال جديد للتحدي";$("#qqCancel").classList.add("hidden");}
+  $("#qqCancel").onclick=resetQQ;
+  $("#quizQForm").onsubmit=async e=>{e.preventDefault();const opts=$$(".qq-opt").map(i=>i.value.trim());const correct=+$("#qqCorrect").value,msg=$("#qqMsg");
+    const filled=opts.filter(Boolean);if(filled.length<2)return msg.textContent="اكتب خيارين على الأقل.";if(!opts[correct])return msg.textContent="الإجابة الصحيحة لازم تكون خيار مكتوب.";
+    const clean=[],map={};opts.forEach((o,i)=>{if(o){map[i]=clean.length;clean.push(o);}});
+    const row={question:$("#qqText").value.trim(),options:clean,correct:map[correct]};
+    const {error}=qqEditing?await client.from("quiz_questions").update(row).eq("id",qqEditing):await client.from("quiz_questions").insert(row);
+    if(error)return msg.textContent="تعذّر الحفظ: "+error.message;msg.textContent="تم الحفظ ✅";resetQQ();quizCustom=null;renderQuizAdmin();};
+  $("#quizResetBoard").onclick=async()=>{if(!confirm("تصفير لوحة المتصدرين وحذف كل النتائج؟"))return;const {error}=await client.from("quiz_scores").delete().gt("id",0);toast(error?error.message:"تم تصفير اللوحة ✅",4000);};
+  document.querySelector('.admin-tab[data-admin-panel="quizq"]')?.addEventListener("click",()=>setTimeout(renderQuizAdmin,0));
+  viewHooks.push(n=>{if(n==="quiz")renderQuizStart();if(n==="home"){renderHomeQuote();renderDaily();}});
+
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
   function bulkAddRow(name="",gender="male"){
@@ -3638,6 +3753,8 @@ window.ShugaaHijri=(()=>{
 
   // Init
   client.auth.getSession().then(async({data})=>{
+    const vId=new URLSearchParams(location.search).get("verify");
+    if(vId){try{history.replaceState(null,"",location.pathname);}catch(_){} setTimeout(()=>showVerify(vId),500);}
     const ls=k=>{try{return localStorage.getItem(k);}catch(_){return null;}};
     const urlCode=new URLSearchParams(location.search).get("code");
     if(urlCode){try{history.replaceState(null,"",location.pathname);}catch(_){} showGate(); await loginWithCode(urlCode); return;}   // QR / link login
