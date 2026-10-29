@@ -2168,3 +2168,14 @@ html.fs-2 .shugaa-v7 .view:not(#view-tree),html.fs-2 .shugaa-v7 .modal-card,html
   .shugaa-v7.awraq-inspired-shell .topbar .desktop-nav{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:8px}
   .shugaa-v7.awraq-inspired-shell .topbar .user-box{flex:0 0 auto!important;position:static!important;margin-top:8px!important;padding-top:10px!important;border-top:1px solid rgba(217,182,106,.22)!important;display:grid!important;gap:8px;background:inherit}
 }
+
+/* V20.2 — sidebar account box: everything fits inside the sidebar width */
+@media (min-width:861px){
+  .shugaa-v7.awraq-inspired-shell .topbar .user-box{grid-template-columns:minmax(0,1fr)!important;width:100%!important;min-width:0!important;box-sizing:border-box!important;justify-items:stretch!important;overflow:hidden}
+  .shugaa-v7.awraq-inspired-shell .topbar .user-box>*{min-width:0!important;max-width:100%!important;box-sizing:border-box!important;margin-inline:0!important}
+  .shugaa-v7.awraq-inspired-shell .topbar .user-box .live-badge{width:100%!important}
+  .shugaa-v7.awraq-inspired-shell .topbar #userWelcome{display:block;font-size:13px!important;line-height:1.4;overflow-wrap:anywhere;white-space:normal!important;text-align:right}
+  .shugaa-v7.awraq-inspired-shell .topbar #userRoleBadge{justify-self:start!important;width:auto!important;white-space:nowrap}
+  .shugaa-v7.awraq-inspired-shell .topbar #exitBtn{justify-self:start!important;width:auto!important}
+  .shugaa-v7.awraq-inspired-shell .topbar .user-box select,.shugaa-v7.awraq-inspired-shell .topbar .user-box .cal-switch{width:100%!important}
+}
