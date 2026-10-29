@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=17.5.0" />
+  <link rel="stylesheet" href="./styles.css?v=17.6.1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -296,7 +296,6 @@
 
       <section id="view-history" class="view">
         <div class="page-head"><div><span class="section-kicker">الزمن والمكان</span><h2>رحلة العائلة</h2><p>أحداث الميلاد والسكن والهجرة والزواج والوفاة المسجلة.</p></div></div>
-        <div class="map-card panel"><div class="map-head"><div><span class="section-kicker">خريطة العائلة</span><h3>وين عاشوا وانتقلوا</h3></div><button type="button" id="mapAddPlaceBtn" class="btn light staff-only hidden">＋ أضف مكان</button></div><div id="familyMap" class="family-map"></div><p id="mapEmpty" class="muted hidden">ما فيه أماكن عليها إحداثيات للحين. المدير يقدر يضيف مكان بالضغط على الخريطة.</p></div>
         <div id="historyList" class="history-list"></div>
         <div id="historyEmpty" class="empty-state hidden"><div>⌛</div><h3>لا توجد أحداث بعد</h3></div>
       </section>
@@ -309,8 +308,6 @@
         </div>
         <div id="helpList" class="help-list"></div>
       </section>
-
-
 
       <section id="view-contribute" class="view contribution-only hidden">
         <div class="page-head"><div><span class="section-kicker">ساهم في التوثيق</span><h2>طلبات الإضافة والتصحيح</h2><p>كل طلب يذهب للإدارة للمراجعة قبل أن يغير الشجرة.</p></div></div>
@@ -1244,7 +1241,7 @@
       <div class="batch-footer"><button type="button" id="lbkApply" class="btn primary wide">تطبيق على المحدد</button><p id="lbkMsg" class="form-msg"></p></div>
     </article></div>
   <div id="libSelectBar" class="lib-select-bar hidden"><b id="lsCount">0</b><button type="button" data-bulk="person">👤 ربط بشخص</button><button type="button" data-bulk="album">📁 نقل إلى ألبوم</button><button type="button" data-bulk="access">🔒 من يراه</button><button type="button" data-bulk="delete" class="danger">🗑 حذف</button><button type="button" data-bulk="cancel">إلغاء</button></div>
-  <script src="./config.js?v=17.5.0"></script>
-  <script src="./app.js?v=17.5.0"></script>
+  <script src="./config.js?v=17.6.1"></script>
+  <script src="./app.js?v=17.6.1"></script>
 </body>
 </html>

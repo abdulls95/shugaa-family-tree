@@ -2800,26 +2800,7 @@ window.ShugaaHijri=(()=>{
   $("#lbClose").onclick=()=>$("#lightbox").classList.add("hidden");$("#lightbox").addEventListener("click",e=>{if(e.target.id==="lightbox"||e.target.id==="lbImg")$("#lightbox").classList.add("hidden");});$("#lbNext").onclick=()=>openLightbox(lbIdx+1);$("#lbPrev").onclick=()=>openLightbox(lbIdx-1);
 
   // ---------- views: albums + map ----------
-  viewHooks.push(name=>{if(name==="history")setTimeout(initMap,60);});
-  let leafletMap=null,addPlaceMode=false;
-  function loadLeaflet(){if(!document.querySelector('link[data-leaflet]')){const l=document.createElement("link");l.rel="stylesheet";l.href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";l.dataset.leaflet="1";document.head.appendChild(l);}
-    return window.L?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";s.onload=res;s.onerror=()=>rej(new Error("map"));document.head.appendChild(s);});}
-  async function initMap(){
-    try{await loadLeaflet();}catch(e){$("#mapEmpty").classList.remove("hidden");return;}
-    const el=$("#familyMap"); if(!leafletMap){leafletMap=L.map(el,{scrollWheelZoom:false,attributionControl:true}).setView([23.9,45.1],5);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenStreetMap"}).addTo(leafletMap);
-      leafletMap.on("click",async ev=>{if(!addPlaceMode)return;addPlaceMode=false;$("#mapAddPlaceBtn").textContent="＋ أضف مكان";const name=prompt("اسم المكان (مثال: القرية، المدينة):");if(!name)return;
-        const {error}=await client.from("places").insert({name_ar:name.trim(),latitude:+ev.latlng.lat.toFixed(6),longitude:+ev.latlng.lng.toFixed(6)});if(error)return toast(error.message,4000);await loadAccountData();initMap();toast("تمت إضافة المكان ✅");});}
-    leafletMap.invalidateSize(); leafletMap.eachLayer(l=>{if(l instanceof L.Marker)leafletMap.removeLayer(l);});
-    const pts=(state.places||[]).filter(p=>p.latitude!=null&&p.longitude!=null);
-    $("#mapEmpty").classList.toggle("hidden",!!pts.length);
-    const icon=L.divIcon({className:"map-pin",html:"<span></span>",iconSize:[26,26],iconAnchor:[13,26]});
-    pts.forEach(pl=>{const born=state.people.filter(p=>p.birth_place_id===pl.id),evs=state.events.filter(e=>e.place_id===pl.id);
-      const lines=[...born.map(p=>`👶 ${esc(p.full_name_ar)}`),...evs.map(e=>`📍 ${esc((EVT[e.event_type]||EVT.other).t)}: ${esc(getPerson(e.person_id)?.full_name_ar||"")}`)].slice(0,12);
-      L.marker([pl.latitude,pl.longitude],{icon}).addTo(leafletMap).bindPopup(`<div class="map-pop"><b>${esc(pl.name_ar)}</b>${lines.length?`<p>${lines.join("<br>")}</p>`:""}</div>`);});
-    if(pts.length)leafletMap.fitBounds(pts.map(p=>[p.latitude,p.longitude]),{padding:[40,40],maxZoom:9});
-  }
-  $("#mapAddPlaceBtn").onclick=()=>{addPlaceMode=!addPlaceMode;$("#mapAddPlaceBtn").textContent=addPlaceMode?"اضغط على الخريطة…":"＋ أضف مكان";if(addPlaceMode)toast("اضغط على مكانه في الخريطة");};
+  
 
   // ---------- print the whole tree ----------
   function layoutOnce(eles){return new Promise(res=>{const RL=treeUI.dir==="RL";const l=eles.layout({name:"dagre",rankDir:treeUI.dir,rankSep:RL?90:74,nodeSep:RL?14:20,edgeSep:20,padding:60,animate:false,fit:false});l.one("layoutstop",res);l.run();});}
