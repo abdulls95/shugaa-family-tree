@@ -2072,3 +2072,7 @@ a.sup-method:hover{border-color:var(--v7-gold)}
 .lib-album-tools button{border:0;background:rgba(255,255,255,.92);border-radius:8px;width:30px;height:30px;cursor:pointer}
 
 .snap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.snap-head b{color:var(--v7-ink)}
+
+/* V17.5 — larger text for elders (tree canvas keeps its own zoom) */
+html.fs-1 .shugaa-v7 .view:not(#view-tree),html.fs-1 .shugaa-v7 .modal-card,html.fs-1 .shugaa-v7 #view-tree .page-head{zoom:1.14}
+html.fs-2 .shugaa-v7 .view:not(#view-tree),html.fs-2 .shugaa-v7 .modal-card,html.fs-2 .shugaa-v7 #view-tree .page-head{zoom:1.28}

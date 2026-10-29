@@ -18,8 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="./styles.css?v=17.4.0" />
+  <link rel="stylesheet" href="./styles.css?v=17.5.0" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -130,6 +129,7 @@
         <button data-view="lineage" class="nav-btn">مسار النسب</button>
         <button data-view="library" class="nav-btn account-only hidden">مكتبة العائلة</button>
         <button data-view="help" class="nav-btn">الشروحات</button>
+        <button type="button" class="nav-btn" data-fontsize>حجم الخط</button>
         <button type="button" class="nav-btn support-entry hidden" data-support>ادعم الموقع</button>
         <button data-view="history" class="nav-btn">أخبار وتاريخ</button>
         <button data-view="contribute" class="nav-btn contribution-only hidden">الطلبات</button>
@@ -310,11 +310,7 @@
         <div id="helpList" class="help-list"></div>
       </section>
 
-      <section id="view-albums" class="view account-only hidden">
-        <div class="page-head"><div><span class="section-kicker">الذكريات</span><h2>ألبومات العائلة</h2><p>صور المناسبات والزواجات والجمعات.</p></div><button type="button" id="newAlbumBtn" class="btn gold staff-only hidden">＋ ألبوم جديد</button></div>
-        <div id="albumsGrid" class="albums-grid"></div>
-        <div id="albumView" class="album-view hidden"><div class="album-view-head"><button type="button" id="albumBack" class="btn light">→ رجوع</button><div><h3 id="albumTitle"></h3><p id="albumDesc" class="muted"></p></div><label class="btn primary staff-only hidden" id="albumUploadLbl">＋ صور<input id="albumUpload" type="file" accept="image/*" multiple hidden /></label></div><div id="albumPhotos" class="album-photos"></div></div>
-      </section>
+
 
       <section id="view-contribute" class="view contribution-only hidden">
         <div class="page-head"><div><span class="section-kicker">ساهم في التوثيق</span><h2>طلبات الإضافة والتصحيح</h2><p>كل طلب يذهب للإدارة للمراجعة قبل أن يغير الشجرة.</p></div></div>
@@ -393,6 +389,7 @@
           <button class="admin-tab admin-only hidden" data-admin-panel="join">طلبات الانضمام <b id="joinCount" class="count-badge">0</b></button>
           <button class="admin-tab admin-only hidden" data-admin-panel="support">الدعم</button>
           <button class="admin-tab admin-only hidden" data-admin-panel="backup">النسخ الاحتياطي</button>
+          <button class="admin-tab admin-only hidden" data-admin-panel="notify">الإشعارات</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="health">مراجعة البيانات <b id="reviewCount" class="count-badge hidden">0</b></button>
           <button class="admin-tab staff-only hidden" data-admin-panel="event">أخبار / حدث</button>
           <button class="admin-tab staff-only hidden" data-admin-panel="library">مكتبة العائلة</button>
@@ -535,10 +532,24 @@
           </form>
           <div class="panel stack"><h3>طرق الدعم الحالية</h3><p class="muted">تظهر للجميع في «ادعم الموقع» بالترتيب. أوقف أي طريقة مؤقتًا بدل حذفها.</p><div id="supList" class="join-list"></div></div>
         </div></div>
+        <div id="admin-notify" class="admin-panel admin-only hidden"><div class="admin-grid">
+          <div class="panel stack"><h3>🔔 الإشعارات</h3>
+            <p class="muted">أجهزة مفعّل عليها الإشعارات: <b id="pushDevices">—</b></p>
+            <p class="access-help">تُرسل تلقائيًا عند إضافة خبر من نوع: زواج، خطوبة، مولود جديد، تخرج، إنجاز، وفاة. أما «سكن» و«هجرة» و«حدث تاريخي» فلا تُرسل إشعارًا.</p>
+            <button type="button" class="btn primary wide" id="pushTestBtn">إرسال إشعار تجريبي</button>
+            <div id="pushResult" class="micro-copy"></div>
+            <p class="micro-copy">في الآيفون: الإشعارات تعمل فقط من التطبيق المثبّت على الشاشة الرئيسية (iOS 16.4 أو أحدث).</p></div>
+          <form id="pushCustomForm" class="panel stack"><h3>📣 إعلان للعائلة</h3>
+            <label>العنوان<input id="pushTitle" placeholder="مثال: اجتماع العائلة يوم الجمعة" required /></label>
+            <label>النص<textarea id="pushBody" rows="3" placeholder="التفاصيل..."></textarea></label>
+            <button class="btn gold wide">إرسال الإشعار للجميع</button><p id="pushCustomMsg" class="form-msg"></p></form>
+        </div></div>
         <div id="admin-backup" class="admin-panel admin-only hidden"><div class="panel stack"><div class="backup-box"><b>📦 النسخة الاحتياطية الكاملة</b><small id="backupLast">—</small><p class="micro-copy">ملف واحد فيه كل بيانات الموقع (الأشخاص، العلاقات، الزواجات، الأخبار، بيانات المحتوى والألبومات...). احفظه في «الملفات» أو iCloud أو أرسله لنفسك.</p><button type="button" class="btn primary wide" data-backup>تنزيل نسخة احتياطية الآن</button></div><button type="button" class="btn gold wide" id="backupExcelBtn">تنزيل ملف Excel (للقراءة)</button></div>
           <div class="panel stack"><div class="snap-head"><b>🗄 النسخ التلقائية على السيرفر</b><button type="button" class="btn light" id="snapNowBtn">خذ نسخة الآن</button></div>
             <p class="micro-copy">تُحفظ نسخة تلقائيًا كل يوم جمعة الساعة 3 فجرًا (بتوقيت السعودية)، ويُحتفظ بآخر 8 نسخ.</p>
-            <div id="snapList" class="join-list"></div></div></div>
+            <div id="snapList" class="join-list"></div></div>
+          <div class="panel stack"><b>🧹 صيانة: ضغط الصور القديمة</b><p class="micro-copy">يضغط صور المكتبة التي رُفعت قبل ميزة الضغط، فتوفر المساحة بدون فرق واضح في الجودة.</p>
+            <button type="button" class="btn light wide" id="compressOldBtn">ابدأ الضغط</button><div id="compressMsg" class="micro-copy"></div></div></div>
         <div id="admin-health" class="admin-panel staff-only hidden">
           <div class="panel stack">
             <h3>🩺 مراجعة دقة البيانات</h3>
@@ -602,6 +613,7 @@
         <button data-view="kinship" class="nav-btn">🧬<span>صلة القرابة</span></button>
         <button data-view="lineage" class="nav-btn">↟<span>مسار النسب</span></button>
         <button data-view="help" class="nav-btn">▶<span>الشروحات</span></button>
+        <button type="button" class="nav-btn" data-fontsize>🔠<span>حجم الخط</span></button>
         <button type="button" class="nav-btn support-entry hidden" data-support>🤍<span>ادعم الموقع</span></button>
         <button type="button" class="nav-btn general-only hidden" data-join>🙋<span>طلب حساب شخصي</span></button>
         <button type="button" class="nav-btn push-entry hidden" data-push>🔔<span>الإشعارات</span></button>
@@ -1138,13 +1150,7 @@
       </div>
       <div class="batch-footer"><button type="button" id="storySave" class="btn primary wide">حفظ التسجيل</button><p id="storyMsg" class="form-msg"></p></div>
     </article></div>
-  <!-- V12 — new album -->
-  <div id="albumModal" class="modal hidden"><div class="modal-backdrop" data-close-album></div>
-    <article class="modal-card batch-card"><button class="modal-close" type="button" data-close-album aria-label="إغلاق">×</button>
-      <h2>ألبوم جديد</h2>
-      <div class="batch-row"><label>العنوان<input id="albumNewTitle" placeholder="مثال: زواج محمد علي" /></label><label>التاريخ<input id="albumNewDate" type="date" /></label><label>وصف<textarea id="albumNewDesc" rows="2"></textarea></label></div>
-      <div class="batch-footer"><button type="button" id="albumCreate" class="btn primary wide">إنشاء الألبوم</button><p id="albumMsg" class="form-msg"></p></div>
-    </article></div>
+
   <div id="lightbox" class="lightbox hidden"><button type="button" id="lbClose" aria-label="إغلاق">×</button><button type="button" id="lbPrev" aria-label="السابق">›</button><img id="lbImg" alt="" /><button type="button" id="lbNext" aria-label="التالي">‹</button><p id="lbCap"></p></div>
 
   <!-- V14 — tutorial editor + guided tour -->
@@ -1238,7 +1244,7 @@
       <div class="batch-footer"><button type="button" id="lbkApply" class="btn primary wide">تطبيق على المحدد</button><p id="lbkMsg" class="form-msg"></p></div>
     </article></div>
   <div id="libSelectBar" class="lib-select-bar hidden"><b id="lsCount">0</b><button type="button" data-bulk="person">👤 ربط بشخص</button><button type="button" data-bulk="album">📁 نقل إلى ألبوم</button><button type="button" data-bulk="access">🔒 من يراه</button><button type="button" data-bulk="delete" class="danger">🗑 حذف</button><button type="button" data-bulk="cancel">إلغاء</button></div>
-  <script src="./config.js?v=17.4.0"></script>
-  <script src="./app.js?v=17.4.0"></script>
+  <script src="./config.js?v=17.5.0"></script>
+  <script src="./app.js?v=17.5.0"></script>
 </body>
 </html>

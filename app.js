@@ -2794,38 +2794,16 @@ window.ShugaaHijri=(()=>{
       if(error)throw error;$("#storyModal").classList.add("hidden");toast("تم حفظ التسجيل ✅");loadStories(id);}
     catch(e){msg.textContent="تعذر الحفظ: "+e.message;}finally{$("#storySave").disabled=false;}};
 
-  // ---------- albums ----------
-  let albumsCache=[],currentAlbum=null,lbList=[],lbIdx=0,lbNav=null;
-  async function renderAlbums(){$("#albumView").classList.add("hidden");$("#albumsGrid").classList.remove("hidden");const grid=$("#albumsGrid");
-    const {data,error}=await client.from("albums").select("*").order("album_date",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false});
-    albumsCache=data||[];if(error||!albumsCache.length){grid.innerHTML=`<div class="h2-empty">${window.ShugaaMarks.svg("mountain",96)}<b>ما فيه ألبومات للحين</b><p>أول ألبوم ينضاف يطلع هنا.</p></div>`;return;}
-    grid.innerHTML=albumsCache.map(a=>`<button type="button" class="album-card" data-id="${a.id}"><div class="album-cover" data-path="${esc(a.cover_path||"")}"></div><b>${esc(a.title)}</b><small>${a.album_date?esc(window.ShugaaHijri.pick(window.ShugaaHijri.side(null,null,a.album_date).full)):""}</small></button>`).join("");
-    grid.querySelectorAll(".album-card").forEach(b=>b.onclick=()=>openAlbum(b.dataset.id));
-    for(const d of grid.querySelectorAll(".album-cover[data-path]")){if(!d.dataset.path)continue;const u=await mediaUrl(d.dataset.path);if(u)d.style.backgroundImage=`url("${u}")`;}}
-  async function openAlbum(id){currentAlbum=albumsCache.find(a=>a.id===id);if(!currentAlbum)return;$("#albumsGrid").classList.add("hidden");$("#albumView").classList.remove("hidden");
-    $("#albumTitle").textContent=currentAlbum.title;$("#albumDesc").textContent=currentAlbum.description||"";$("#albumUploadLbl").classList.toggle("hidden",!["admin","editor"].includes(state.role));
-    const {data}=await client.from("album_photos").select("*").eq("album_id",id).order("created_at");lbList=data||[];const box=$("#albumPhotos");
-    box.innerHTML=lbList.length?lbList.map((ph,i)=>`<button type="button" class="album-photo" data-i="${i}" data-path="${esc(ph.file_path)}"></button>`).join(""):"<p class='muted'>الألبوم فاضي.</p>";
-    box.querySelectorAll(".album-photo").forEach(b=>b.onclick=()=>openLightbox(+b.dataset.i));
-    for(const b of box.querySelectorAll(".album-photo")){const u=await mediaUrl(b.dataset.path);if(u)b.style.backgroundImage=`url("${u}")`;}}
-  $("#albumBack").onclick=renderAlbums;
-  $("#newAlbumBtn").onclick=()=>{$("#albumNewTitle").value="";$("#albumNewDate").value="";$("#albumNewDesc").value="";$("#albumMsg").textContent="";$("#albumModal").classList.remove("hidden");};
-  $$("[data-close-album]").forEach(b=>b.onclick=()=>$("#albumModal").classList.add("hidden"));
-  $("#albumCreate").onclick=async()=>{const t=$("#albumNewTitle").value.trim();if(!t)return $("#albumMsg").textContent="اكتب عنوان الألبوم.";
-    const {data,error}=await client.from("albums").insert({title:t,album_date:$("#albumNewDate").value||null,description:$("#albumNewDesc").value.trim()||null}).select("*").single();
-    if(error)return $("#albumMsg").textContent=error.message;$("#albumModal").classList.add("hidden");albumsCache.unshift(data);openAlbum(data.id);toast("انشأ الألبوم، أضف الصور الحين 📸");};
-  $("#albumUpload").addEventListener("change",async e=>{const files=[...e.target.files];e.target.value="";if(!files.length||!currentAlbum)return;let n=0;
-    for(const f of files){try{toast(`جاري رفع ${++n} من ${files.length}...`);const blob=await shrinkImage(f,1600);const path=await uploadMedia(`albums/${currentAlbum.id}/${Date.now()}-${n}.jpg`,blob,"image/jpeg");
-      await client.from("album_photos").insert({album_id:currentAlbum.id,file_path:path});
-      if(!currentAlbum.cover_path){currentAlbum.cover_path=path;await client.from("albums").update({cover_path:path}).eq("id",currentAlbum.id);}}catch(err){toast("تعذر رفع صورة: "+err.message,4000);}}
-    toast("تمت إضافة الصور ✅");openAlbum(currentAlbum.id);});
+  // photo viewer state (albums now live in the library)
+  let lbList=[],lbIdx=0,lbNav=null;
   async function openLightbox(i){lbNav=null;$("#lbPrev").classList.remove("hidden");$("#lbNext").classList.remove("hidden");lbIdx=(i+lbList.length)%lbList.length;const ph=lbList[lbIdx];$("#lbImg").src=await mediaUrl(ph.file_path)||"";$("#lbCap").textContent=ph.caption||"";$("#lightbox").classList.remove("hidden");}
   $("#lbClose").onclick=()=>$("#lightbox").classList.add("hidden");$("#lightbox").addEventListener("click",e=>{if(e.target.id==="lightbox"||e.target.id==="lbImg")$("#lightbox").classList.add("hidden");});$("#lbNext").onclick=()=>openLightbox(lbIdx+1);$("#lbPrev").onclick=()=>openLightbox(lbIdx-1);
 
   // ---------- views: albums + map ----------
   viewHooks.push(name=>{if(name==="history")setTimeout(initMap,60);});
   let leafletMap=null,addPlaceMode=false;
-  function loadLeaflet(){return window.L?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";s.onload=res;s.onerror=()=>rej(new Error("map"));document.head.appendChild(s);});}
+  function loadLeaflet(){if(!document.querySelector('link[data-leaflet]')){const l=document.createElement("link");l.rel="stylesheet";l.href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";l.dataset.leaflet="1";document.head.appendChild(l);}
+    return window.L?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";s.onload=res;s.onerror=()=>rej(new Error("map"));document.head.appendChild(s);});}
   async function initMap(){
     try{await loadLeaflet();}catch(e){$("#mapEmpty").classList.remove("hidden");return;}
     const el=$("#familyMap"); if(!leafletMap){leafletMap=L.map(el,{scrollWheelZoom:false,attributionControl:true}).setView([23.9,45.1],5);
@@ -2911,7 +2889,7 @@ window.ShugaaHijri=(()=>{
     catch(e){console.error(e);toast("تعذر تفعيل الإشعارات: "+e.message,5000);}}
   $$("[data-push]").forEach(b=>b.addEventListener("click",enablePush));
   async function sendEventPush(eventId){try{const {data:{session}}=await client.auth.getSession();const r=await fetch(fnUrl("send-push"),{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.supabasePublishableKey,Authorization:`Bearer ${session?.access_token||""}`},body:JSON.stringify({action:"send",event_id:eventId})});
-    const out=await r.json().catch(()=>({}));if(out.ok)toast(`🔔 وصل إشعار الخبر لـ ${out.sent} جهاز`,4000);}catch(e){console.warn(e);}}
+    const out=await r.json().catch(()=>({}));if(out.ok)toast(out.failed?.length?`🔔 أُرسل لـ ${out.sent} جهاز، وتعذّر ${out.failed.length}`:`🔔 وصل إشعار الخبر لـ ${out.sent} جهاز`,4500);else if(out.error)toast("تعذّر إرسال الإشعار: "+out.error,5000);}catch(e){console.warn(e);}}
 
   // =================== V14 — tutorials + guided tour ===================
   const TUT_CAT={basics:"الأساسيات",family:"للعائلة",admin:"للإدارة"};
@@ -3410,6 +3388,38 @@ window.ShugaaHijri=(()=>{
   $("#snapNowBtn")?.addEventListener("click",async e=>{e.target.disabled=true;const {error}=await client.rpc("make_backup_snapshot",{p_kind:"manual"});e.target.disabled=false;
     if(error)return toast("تعذّرت النسخة: "+error.message,5000);toast("تم حفظ نسخة على السيرفر ✅");renderSnapshots();});
   document.querySelector('.admin-tab[data-admin-panel="backup"]')?.addEventListener("click",()=>setTimeout(renderSnapshots,0));
+
+  // =================== V17.5 — notifications panel, font size, maintenance ===================
+  async function callPush(body){const {data:{session}}=await client.auth.getSession();
+    const r=await fetch(fnUrl("send-push"),{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.supabasePublishableKey,Authorization:`Bearer ${session?.access_token||""}`},body:JSON.stringify(body)});
+    return r.json().catch(()=>({error:"no response"}));}
+  async function renderNotify(){const {data}=await client.rpc("push_device_count");$("#pushDevices").textContent=data??"—";}
+  $("#pushTestBtn")?.addEventListener("click",async e=>{e.target.disabled=true;$("#pushResult").textContent="جارٍ الإرسال...";const out=await callPush({action:"test"});e.target.disabled=false;
+    if(!out.ok){$("#pushResult").textContent="تعذّر: "+(out.error||"");return;}
+    $("#pushResult").innerHTML=`✅ أُرسل إلى <b>${out.sent}</b> من ${out.devices} جهاز${out.removed?` • حُذف ${out.removed} جهاز لم يعد مشتركًا`:""}${out.failed?.length?`<br>⚠️ تعذّر ${out.failed.length}: ${out.failed.map(f=>`${esc(f.host)} (${f.status??"?"})`).join("، ")}`:""}`;renderNotify();});
+  $("#pushCustomForm")?.addEventListener("submit",async e=>{e.preventDefault();const t=$("#pushTitle").value.trim();if(!t)return;
+    if(!confirm("إرسال هذا الإعلان كإشعار لكل الأجهزة المشتركة؟"))return;$("#pushCustomMsg").textContent="جارٍ الإرسال...";
+    const out=await callPush({action:"send",title:t,body:[t,$("#pushBody").value.trim()].filter(Boolean).join(" — ")});
+    $("#pushCustomMsg").textContent=out.ok?`✅ أُرسل إلى ${out.sent} جهاز`:"تعذّر الإرسال: "+(out.error||"");if(out.ok)e.target.reset();});
+  document.querySelector('.admin-tab[data-admin-panel="notify"]')?.addEventListener("click",()=>setTimeout(renderNotify,0));
+  ADMIN_GROUPS.site.splice(1,0,"notify");
+  // font size for elders: normal / large / larger (remembered per device)
+  const FS_LABEL=["عادي","كبير","كبير جدًا"];
+  function applyFontSize(n){document.documentElement.classList.remove("fs-1","fs-2");if(n>0)document.documentElement.classList.add("fs-"+n);try{localStorage.setItem("shugaa_fs",String(n));}catch(_){}}
+  applyFontSize((()=>{try{return +(localStorage.getItem("shugaa_fs")||0);}catch(_){return 0;}})());
+  $$("[data-fontsize]").forEach(b=>b.addEventListener("click",()=>{let n=0;try{n=+(localStorage.getItem("shugaa_fs")||0);}catch(_){}n=(n+1)%3;applyFontSize(n);$("#moreSheet")?.classList.add("hidden");toast(`حجم الخط: ${FS_LABEL[n]}`);}));
+  // compress library photos uploaded before compression existed
+  $("#compressOldBtn")?.addEventListener("click",async e=>{const items=state.library.filter(x=>x.file_path&&/\.(jpe?g|png|webp|heic|heif)$/i.test(x.file_path));
+    if(!items.length)return $("#compressMsg").textContent="لا توجد صور في المكتبة.";
+    if(!confirm(`فحص ${items.length} صورة وضغط الكبير منها؟ قد يستغرق دقائق، أبقِ الصفحة مفتوحة.`))return;
+    e.target.disabled=true;let done=0,saved=0,changed=0;
+    for(const it of items){done++;$("#compressMsg").textContent=`جارٍ ${done} من ${items.length}...`;
+      try{const url=await libSignedUrl(it.file_path);const blob=await (await fetch(url)).blob();if(blob.size<700*1024)continue;
+        const file=new File([blob],it.file_path.split("/").pop(),{type:blob.type||"image/jpeg"});const up=await compressForLibrary(file);if(up===file||up.size>=blob.size*.9)continue;
+        const path=`${it.id}/${Date.now()}-${up.name.replace(/[^a-zA-Z0-9._-]+/g,"-")}`;const {error:ue}=await client.storage.from("family-library").upload(path,up,{contentType:"image/jpeg"});if(ue)continue;
+        const {error}=await client.from("library_items").update({file_path:path,mime_type:"image/jpeg"}).eq("id",it.id);if(error){client.storage.from("family-library").remove([path]);continue;}
+        await client.storage.from("family-library").remove([it.file_path]);libUrlCache.delete(it.file_path);it.file_path=path;saved+=blob.size-up.size;changed++;}catch(err){console.warn(err);}}
+    e.target.disabled=false;$("#compressMsg").textContent=`✅ انتهى: ضُغطت ${changed} صورة، ووُفّر ${(saved/1048576).toFixed(1)} ميجا.`;await afterLibChange();});
 
   // V6.3 — bulk add children + Excel export
   const BULK_NORM=v=>String(v||"").replace(/[\u064B-\u065F\u0670\u0640]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/\s+/g," ").trim();
