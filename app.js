@@ -2849,6 +2849,7 @@ window.ShugaaHijri=(()=>{
   // ---------- join requests ----------
   $$("[data-join]").forEach(b=>b.addEventListener("click",()=>{$("#moreSheet")?.classList.add("hidden");$("#joinMsg").textContent="";$("#joinModal").classList.remove("hidden");}));
   $$("[data-close-join]").forEach(b=>b.onclick=()=>$("#joinModal").classList.add("hidden"));
+  $$("[data-join-howto]").forEach(b=>b.addEventListener("click",()=>{lbNav=null;$("#lbImg").src="./guide/join-all.jpg";$("#lbCap").textContent="طريقة طلب حساب شخصي";$("#lbPrev").classList.add("hidden");$("#lbNext").classList.add("hidden");$("#lightbox").classList.remove("hidden");}));
   $("#joinSend").onclick=async()=>{const msg=$("#joinMsg"),pid=$("#joinPerson").value,name=$("#joinName").value.trim(),phone=$("#joinPhone").value.trim();
     if(!pid)return msg.textContent="يرجى اختيار اسمك من الشجرة.";if(!name)return msg.textContent="يرجى كتابة اسمك.";if(!phone)return msg.textContent="يرجى كتابة رقم واتساب لنرسل إليك الرمز.";
     const code=sessionStorage.getItem("shugaa_access_code");$("#joinSend").disabled=true;msg.textContent="جارٍ الإرسال...";

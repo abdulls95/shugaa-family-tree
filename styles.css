@@ -2202,3 +2202,6 @@ html.fs-2 .shugaa-v7 .view:not(#view-tree),html.fs-2 .shugaa-v7 .modal-card,html
 @media (max-width:700px){.inst-slide img{max-height:44vh}.install-card>p.muted{font-size:14px;margin:4px 0}.install-card h2{font-size:22px}.install-icon{width:64px;height:64px}}
 .inst-nav{position:sticky;bottom:0;z-index:2;background:linear-gradient(rgba(255,253,247,0),#FFFDF7 30%);padding:14px 0 6px}
 @media (max-height:720px){.inst-slide img{max-height:36vh}}
+
+/* V20.2 — "see the pictures" link in the join form */
+.join-howto{display:block;margin:-4px 0 10px;text-align:center}
