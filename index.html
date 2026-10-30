@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=20.0.2" />
+  <link rel="stylesheet" href="./styles.css?v=20.1.1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
@@ -1165,18 +1165,24 @@
       <img src="./icons/icon-192.png" alt="" class="install-icon" width="84" height="84" />
       <h2>ثبّت «آل شجاع» على جوالك</h2>
       <p class="muted">يصير له أيقونة في شاشتك الرئيسية، ويفتح بشاشة كاملة مثل أي تطبيق، بدون متجر.</p>
-      <div id="installIOS" class="install-steps hidden">
-        <ol>
-          <li>اضغط زر <b>المشاركة</b> <span class="ios-share" aria-hidden="true"></span> في متصفح Safari</li>
-          <li>انزل واختر <b>«إضافة إلى الشاشة الرئيسية»</b></li>
-          <li>اضغط <b>«إضافة»</b> فوق، وخلاص 🎉</li>
-        </ol>
+      <div class="inst-tabs" role="tablist"><button type="button" data-os="ios">📱 آيفون / آيباد</button><button type="button" data-os="android">🤖 أندرويد</button></div>
+      <div id="installIOS" class="inst-pane">
+        <div id="instSlides" class="inst-slides">
+          <figure class="inst-slide"><img src="./guide/ios-2.jpg" alt="الخطوة الأولى: زر المشاركة أسفل Safari" loading="lazy" /><figcaption><b>1</b> اضغط زر <b>المشاركة</b> أسفل متصفح Safari</figcaption></figure>
+          <figure class="inst-slide"><img src="./guide/ios-3.jpg" alt="الخطوة الثانية: Add to Home Screen" loading="lazy" /><figcaption><b>2</b> اختر <b>«Add to Home Screen»</b> — وإذا ما لقيتها اسحب لتحت أو اضغط View More</figcaption></figure>
+          <figure class="inst-slide"><img src="./guide/ios-4.jpg" alt="الخطوة الثالثة: Add" loading="lazy" /><figcaption><b>3</b> تأكد إن <b>Open as Web App</b> مفعّل، واضغط <b>«Add»</b> وخلاص 🎉</figcaption></figure>
+        </div>
+        <div class="inst-nav"><button type="button" id="instPrev">→ السابق</button><span id="instDots" class="inst-dots"></span><button type="button" id="instNext" class="primary">التالي ←</button></div>
         <p class="micro-copy">لازم تكون فاتح الموقع من Safari، مو من داخل الواتساب أو تطبيق ثاني.</p>
       </div>
-      <div id="installOther" class="install-steps hidden">
-        <p>من قائمة المتصفح <b>⋮</b> اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.</p>
+      <div id="installOther" class="inst-pane hidden">
+        <button type="button" id="installNowBtn" class="btn gold wide hidden">ثبّت الآن بضغطة</button>
+        <div class="install-steps"><ol>
+          <li>افتح الموقع من متصفح <b>Chrome</b></li>
+          <li>اضغط القائمة <b>⋮</b> فوق</li>
+          <li>اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b> ثم <b>«تثبيت»</b> 🎉</li>
+        </ol></div>
       </div>
-      <button type="button" id="installNowBtn" class="btn gold wide hidden">ثبّت الآن</button>
     </article>
   </div>
   <div id="updateBar" class="update-bar hidden" role="status"><span>فيه تحديث جديد للموقع ✨</span><button type="button" id="updateNowBtn">حدّث الآن</button></div>
@@ -1220,6 +1226,7 @@
           <label>يظهر لـ<select id="tutAudience" class="no-search"><option value="all">الجميع</option><option value="members">أصحاب الحسابات</option><option value="admins">الإدارة فقط</option></select></label>
         </div>
         <label>رابط فيديو (يوتيوب أو غيره)<input id="tutVideoUrl" dir="ltr" placeholder="https://youtu.be/..." /></label>
+        <label>رابط صورة توضيحية (اختياري)<input id="tutImageUrl" dir="ltr" placeholder="https://... أو guide/install-all.jpg" /></label>
         <label class="btn light">🎬 أو ارفع فيديو من الجوال (حتى 50 ميجا)<input id="tutVideoFile" type="file" accept="video/mp4,video/quicktime,video/webm" hidden /></label>
         <small id="tutVideoInfo" class="micro-copy"></small>
         <label>الخطوات (كل خطوة في سطر)<textarea id="tutSteps" rows="6"></textarea></label>
@@ -1350,7 +1357,7 @@
       <div class="inline-add"><button type="button" class="btn gold wide" id="welcomeTour">خذ جولة سريعة</button><button type="button" class="btn light wide" data-close-welcome>لاحقًا</button></div>
     </article></div>
   <canvas id="confetti" class="confetti hidden"></canvas>
-  <script src="./config.js?v=20.0.2"></script>
-  <script src="./app.js?v=20.0.2"></script>
+  <script src="./config.js?v=20.1.1"></script>
+  <script src="./app.js?v=20.1.1"></script>
 </body>
 </html>

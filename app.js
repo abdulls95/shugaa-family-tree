@@ -2617,11 +2617,21 @@ window.ShugaaHijri=(()=>{
     $$(".install-entry").forEach(b=>b.classList.toggle("hidden",!can));
     $("#installBanner")?.classList.toggle("hidden",!can||dismissed);
   }
-  function openInstall(){
-    if(deferredInstall){deferredInstall.prompt();deferredInstall.userChoice.finally(()=>{deferredInstall=null;syncInstallUI();});return;}
-    $("#installIOS").classList.toggle("hidden",!isIOS); $("#installOther").classList.toggle("hidden",isIOS);
-    $("#installSheet").classList.remove("hidden");
-  }
+  // install guide: iPhone / Android tabs, iPhone shown as picture slides
+  let instIdx=0;
+  const instSlides=()=>$$("#installIOS .inst-slide");
+  function showInstSlide(i){const sl=instSlides();instIdx=Math.max(0,Math.min(sl.length-1,i));sl.forEach((el,k)=>el.classList.toggle("on",k===instIdx));
+    $("#instDots").innerHTML=sl.map((_,k)=>`<i class="${k===instIdx?"on":""}"></i>`).join("");$("#instPrev").disabled=instIdx===0;$("#instNext").textContent=instIdx===sl.length-1?"تم ✓":"التالي ←";}
+  function setInstallOS(os){$$(".inst-tabs [data-os]").forEach(b=>b.classList.toggle("on",b.dataset.os===os));
+    $("#installIOS").classList.toggle("hidden",os!=="ios");$("#installOther").classList.toggle("hidden",os==="ios");
+    $("#installNowBtn").classList.toggle("hidden",!(os==="android"&&deferredInstall));if(os==="ios")showInstSlide(0);}
+  function openInstall(){setInstallOS(isIOS||!/android/i.test(navigator.userAgent)?"ios":"android");$("#installSheet").classList.remove("hidden");}
+  $$(".inst-tabs [data-os]").forEach(b=>b.addEventListener("click",()=>setInstallOS(b.dataset.os)));
+  $("#instNext").addEventListener("click",()=>{if(instIdx>=instSlides().length-1){$("#installSheet").classList.add("hidden");return;}showInstSlide(instIdx+1);});
+  $("#instPrev").addEventListener("click",()=>showInstSlide(instIdx-1));
+  (()=>{let sx=null;const box=$("#instSlides");box.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;},{passive:true});
+    box.addEventListener("touchend",e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>40)showInstSlide(instIdx+(dx>0?1:-1));},{passive:true});})();
+  $("#installNowBtn").addEventListener("click",()=>{if(!deferredInstall)return;deferredInstall.prompt();deferredInstall.userChoice.finally(()=>{deferredInstall=null;syncInstallUI();$("#installSheet").classList.add("hidden");});});
   $$("[data-install]").forEach(b=>b.addEventListener("click",()=>{$("#moreSheet")?.classList.add("hidden");openInstall();}));
   $$("[data-close-install]").forEach(b=>b.onclick=()=>$("#installSheet").classList.add("hidden"));
   $("#installBannerX")?.addEventListener("click",()=>{try{localStorage.setItem("shugaa_install_dismissed","1");}catch(_){}syncInstallUI();});
@@ -2896,11 +2906,13 @@ window.ShugaaHijri=(()=>{
     if(y)media=`<div class="help-video"><iframe src="https://www.youtube-nocookie.com/embed/${y}" title="${esc(t.title)}" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
     else if(t.video_path)media=`<video class="help-video-file" controls playsinline preload="metadata" src="${client.storage.from("tutorials").getPublicUrl(t.video_path).data.publicUrl}"></video>`;
     else if(t.video_url)media=`<a class="btn light" href="${esc(t.video_url)}" target="_blank" rel="noopener">▶ مشاهدة الفيديو</a>`;
+    if(t.image_url)media+=`<button type="button" class="help-img" data-full="${esc(t.image_url)}"><img src="${esc(t.image_url)}" alt="${esc(t.title)}" loading="lazy" /><span>🔍 اضغط للتكبير</span></button>`;
     const steps=Array.isArray(t.steps)?t.steps:[];
-    d.querySelector(".help-body").innerHTML=`${media}${steps.length?`<ol class="help-steps">${steps.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:""}`;}
+    d.querySelector(".help-body").innerHTML=`${media}${steps.length?`<ol class="help-steps">${steps.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>`:""}`;
+    d.querySelector(".help-img")?.addEventListener("click",e=>{const u=e.currentTarget.dataset.full;lbNav=null;$("#lbImg").src=u;$("#lbCap").textContent=t.title;$("#lbPrev").classList.add("hidden");$("#lbNext").classList.add("hidden");$("#lightbox").classList.remove("hidden");});}
   function openTutEditor(id){const t=id?tutorials.find(x=>x.id===id):null;tutEditing=t;tutUpload=null;
     $("#tutModalTitle").textContent=t?"تعديل الشرح":"شرح جديد";$("#tutTitle").value=t?.title||"";$("#tutSummary").value=t?.summary||"";
-    $("#tutCategory").value=t?.category||"basics";$("#tutAudience").value=t?.audience||"all";$("#tutVideoUrl").value=t?.video_url||"";
+    $("#tutCategory").value=t?.category||"basics";$("#tutAudience").value=t?.audience||"all";$("#tutVideoUrl").value=t?.video_url||"";$("#tutImageUrl").value=t?.image_url||"";
     $("#tutVideoInfo").textContent=t?.video_path?"يوجد فيديو مرفوع لهذا الشرح.":"";$("#tutSteps").value=(t?.steps||[]).join("\n");
     $("#tutDelete").classList.toggle("hidden",!t);$("#tutMsg").textContent="";$("#tutModal").classList.remove("hidden");}
   $("#newTutorialBtn").onclick=()=>openTutEditor(null);
@@ -2911,7 +2923,7 @@ window.ShugaaHijri=(()=>{
     try{let video_path=tutEditing?.video_path||null;
       if(tutUpload){const ext=(tutUpload.name.split(".").pop()||"mp4").toLowerCase();video_path=`videos/${Date.now()}.${ext}`;msg.textContent="جارٍ رفع الفيديو...";
         const {error:ue}=await client.storage.from("tutorials").upload(video_path,tutUpload,{contentType:tutUpload.type||"video/mp4"});if(ue)throw ue;}
-      const row={title,summary:$("#tutSummary").value.trim()||null,category:$("#tutCategory").value,audience:$("#tutAudience").value,video_url:$("#tutVideoUrl").value.trim()||null,video_path,
+      const row={title,summary:$("#tutSummary").value.trim()||null,category:$("#tutCategory").value,audience:$("#tutAudience").value,video_url:$("#tutVideoUrl").value.trim()||null,image_url:$("#tutImageUrl").value.trim()||null,video_path,
         steps:$("#tutSteps").value.split("\n").map(x=>x.trim()).filter(Boolean),updated_at:new Date().toISOString()};
       const {error}=tutEditing?await client.from("tutorials").update(row).eq("id",tutEditing.id):await client.from("tutorials").insert(row);if(error)throw error;
       $("#tutModal").classList.add("hidden");toast("تم حفظ الشرح ✅");renderHelp();}

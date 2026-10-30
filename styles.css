@@ -2179,3 +2179,26 @@ html.fs-2 .shugaa-v7 .view:not(#view-tree),html.fs-2 .shugaa-v7 .modal-card,html
   .shugaa-v7.awraq-inspired-shell .topbar #exitBtn{justify-self:start!important;width:auto!important}
   .shugaa-v7.awraq-inspired-shell .topbar .user-box select,.shugaa-v7.awraq-inspired-shell .topbar .user-box .cal-switch{width:100%!important}
 }
+
+/* V20.1 — install guide slides + tutorial pictures */
+.inst-tabs{display:flex;gap:6px;background:#fff;border:1px solid var(--v7-line);border-radius:14px;padding:4px;margin:12px 0}
+.inst-tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px 6px;font-family:inherit;font-weight:700;color:var(--v7-muted);cursor:pointer}
+.inst-tabs button.on{background:var(--v7-ink);color:#F6EBCF}
+.inst-pane.hidden{display:none}
+.inst-slides{position:relative;touch-action:pan-y}
+.inst-slide{display:none;margin:0}.inst-slide.on{display:grid;gap:10px;justify-items:center;animation:instIn .25s ease}
+@keyframes instIn{from{opacity:.3;transform:translateY(6px)}to{opacity:1;transform:none}}
+.inst-slide img{max-width:100%;max-height:min(56vh,520px);width:auto;border-radius:16px;box-shadow:0 10px 26px rgba(7,38,33,.22);background:#0C3530}
+.inst-slide figcaption{font-size:16px;line-height:1.8;color:var(--v7-ink);text-align:center}
+.inst-slide figcaption b:first-child{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#B08A3E;color:#fff;margin-inline-end:6px;font-size:14px}
+.inst-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 6px}
+.inst-nav button{border:1px solid var(--v7-line);background:#fff;border-radius:10px;padding:9px 16px;font-family:inherit;font-weight:700;color:var(--v7-ink);cursor:pointer}
+.inst-nav button.primary{background:var(--v7-ink);color:#F6EBCF;border-color:var(--v7-ink)}.inst-nav button:disabled{opacity:.35}
+.inst-dots{display:flex;gap:6px}.inst-dots i{width:8px;height:8px;border-radius:50%;background:#D8CCB2}.inst-dots i.on{background:#B08A3E;width:22px;border-radius:6px}
+#installNowBtn{margin:4px 0 12px}
+.help-img{display:block;width:100%;border:0;padding:0;background:transparent;cursor:zoom-in;margin-bottom:12px;position:relative}
+.help-img img{width:100%;max-width:560px;border-radius:14px;box-shadow:0 8px 22px rgba(7,38,33,.18)}
+.help-img span{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(12,53,48,.85);color:#F6EBCF;border-radius:999px;padding:4px 12px;font-size:13px}
+@media (max-width:700px){.inst-slide img{max-height:44vh}.install-card>p.muted{font-size:14px;margin:4px 0}.install-card h2{font-size:22px}.install-icon{width:64px;height:64px}}
+.inst-nav{position:sticky;bottom:0;z-index:2;background:linear-gradient(rgba(255,253,247,0),#FFFDF7 30%);padding:14px 0 6px}
+@media (max-height:720px){.inst-slide img{max-height:36vh}}
