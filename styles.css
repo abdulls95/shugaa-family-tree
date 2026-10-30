@@ -2148,7 +2148,7 @@ html.fs-2 .shugaa-v7 .view:not(#view-tree),html.fs-2 .shugaa-v7 .modal-card,html
 .founder-badge.hidden{display:none}
 .shugaa-v7 .avatar.founder-frame{box-shadow:0 0 0 3px #D9B66A,0 0 0 6px rgba(217,182,106,.35)!important}
 .founder-row{border-color:#E8D6A4!important;background:#FFFBF0!important}
-.h2-occasion{margin:6px 0 0;display:inline-block;background:rgba(217,182,106,.18);border:1px solid rgba(217,182,106,.45);color:#F6EBCF;border-radius:999px;padding:4px 14px;font-weight:600}
+.h2-occasion{margin:14px 0 4px;display:inline-block;background:rgba(217,182,106,.18);border:1px solid rgba(217,182,106,.45);color:#F6EBCF;border-radius:999px;padding:4px 14px;font-weight:600}
 .h2-occasion.hidden{display:none}
 .h2-welcome{background:linear-gradient(135deg,#EEF6F1,#E2F0E8);border:1px solid #BFD6CC;border-radius:18px;padding:14px 16px;color:#1F3D33;line-height:1.8}
 .h2-welcome.bday{background:linear-gradient(135deg,#FFF6E0,#FBE9C0);border-color:#E8D6A4;color:#5C4315}
@@ -2205,3 +2205,6 @@ html.fs-2 .shugaa-v7 .view:not(#view-tree),html.fs-2 .shugaa-v7 .modal-card,html
 
 /* V20.2 — "see the pictures" link in the join form */
 .join-howto{display:block;margin:-4px 0 10px;text-align:center}
+
+/* V20.3 — breathing room under the daily occasion */
+.shugaa-v7 #h2Occasion:not(.hidden)+#h2Lineage{margin-top:10px}

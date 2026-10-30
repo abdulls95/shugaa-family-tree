@@ -374,7 +374,7 @@ window.ShugaaHijri=(()=>{
 
   function fillPersonSelects(){
     const selectors=["#agePerson","#lePerson","#lbkPerson","#joinPerson","#smartContribPerson","#addStartPerson","#hubPerson","#bulkFather","#pFather","#pMother","#eventPerson","#libPerson","#kinshipA","#kinshipB","#lineagePerson","#contribTarget","#accessPerson"];
-    selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if((sel==="#pFather"||sel==="#bulkFather")&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); });
+    selectors.forEach(sel=>{ const el=$(sel); if(!el)return; const blank=el.querySelector('option[value=""]')?.outerHTML||""; el.innerHTML=blank; state.people.forEach(p=>{ if((sel==="#pFather"||sel==="#bulkFather")&&p.gender==="female")return; if(sel==="#pMother"&&p.gender==="male")return; el.add(new Option(personLabel(p),p.id)); }); el.value=""; el._psSync?.(); });
   }
 
   // V5 — clean family-tree canvas.
