@@ -2160,8 +2160,17 @@ window.ShugaaHijri=(()=>{
         bio:$("#eBio").value.trim()||null,
         updated_by:state.session.user.id
       };
+      const oldFirst=String(p.first_name_ar||"").trim(), newFirst=String(n.first||"").trim();
       const {error}=await client.from("people").update(patch).eq("id",id);
       if(error)throw error;
+
+      // if the first name changed, offer to fix it inside the descendants' names too
+      if(oldFirst&&newFirst&&oldFirst!==newFirst){
+        try{const {data:cnt}=await client.rpc("count_rename_descendants",{p_person_id:id,p_old:oldFirst});
+          if(cnt>0&&confirm(`غيّرت الاسم من «${oldFirst}» إلى «${newFirst}».\nيظهر هذا الاسم ضمن أسماء ${cnt} من أبنائه وأحفاده. تبي نحدّثه لهم كلهم؟`)){
+            const {error:ce}=await client.rpc("rename_descendants",{p_person_id:id,p_old:oldFirst,p_new:newFirst});
+            if(ce)toast("حُفظ الاسم، لكن تعذّر تحديث الذرية: "+ce.message,6000);else toast(`تم تحديث الاسم في ${cnt} من الذرية ✅`,4000);}
+        }catch(_){}}
 
       if(canDirectGenealogyEdit()){
         await reconcileParentLink(id,"father",$("#eFather").value||"");
